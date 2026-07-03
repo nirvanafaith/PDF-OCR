@@ -1,0 +1,97 @@
+# Tasks
+
+- [x] Task 1: 重写字体排版算法为基于行框的统一字号
+  - [x] SubTask 1.1: 新增 `_calculate_line_font_size(line_bbox, text, zoom_level)` 方法
+    - 根据 width/height 判断横排/竖排
+    - 候选字号 = min(width, height) × zoom
+    - 横排：QFontMetrics 测量总宽度，超框则按比例缩小
+    - 竖排：QFontMetrics 测量总高度，超框则按比例缩小
+    - 最小 4px，返回 (font, is_vertical)
+  - [x] SubTask 1.2: 新增 `_distribute_chars_by_orientation(line_bbox, chars, font, is_vertical, zoom_level)` 方法
+    - 横排：char_width = line_width / num_chars，每个字符水平排列、垂直居中
+    - 竖排：char_height = line_height / num_chars，每个字符垂直排列、水平居中
+    - 更新每个 char 的 bbox 为新分布坐标
+    - 返回 [(char_text, pos_x, pos_y, font), ...] 列表
+  - [x] SubTask 1.3: 重写 `_render_page` 中行切片渲染部分（L221-280）
+    - 保留无 chars 数据时的回退逻辑（L223-240 不变）
+    - 有 chars 数据时：调用 `_calculate_line_font_size` 获取统一字号
+    - 调用 `_distribute_chars_by_orientation` 获取字符位置
+    - 创建 QGraphicsTextItem 并设置统一字体和计算位置
+    - 保留 ignored 灰色、ItemIsSelectable、AcceptHoverEvents、setData 等设置
+
+- [x] Task 2: 验证不影响悬停预览和蓝框标记
+  - [x] SubTask 2.1: 确认 `_make_slice_pixmap` 未被修改（仍使用 line_slice.bbox 裁剪全宽页面）
+  - [x] SubTask 2.2: 确认 eventFilter 中悬停逻辑未被修改（仍使用 line_slice.bbox 绘制蓝框）
+  - [x] SubTask 2.3: 确认字体算法仅影响 QGraphicsTextItem 的创建，不影响悬停预览图元和蓝框
+
+- [x] Task 3: 实现"重新定位行框"功能
+  - [x] SubTask 3.1: `__init__` 新增画框状态变量
+    - `self._draw_box_mode = False`
+    - `self._draw_box_target = None`（LineSlice 或 None）
+    - `self._draw_box_text = None`（新文本或 None）
+    - `self._draw_rubber_band = None`
+    - `self._draw_start_pos = None`
+  - [x] SubTask 3.2: `_init_ui` 新增画框模式提示标签
+    - 在工具栏下方添加 `self.draw_mode_hint = QLabel("画框模式：请在右侧PDF上绘制区域")`
+    - 默认隐藏，黄色背景
+  - [x] SubTask 3.3: 新增 `_enter_draw_box_mode(target_ls=None, new_text=None)` 方法
+    - 设置 `_draw_box_mode = True`、`_draw_box_target`、`_draw_box_text`
+    - 显示提示标签
+    - `pdf_view.setCursor(Qt.CrossCursor)`
+    - `pdf_view.setMouseTracking(True)`
+  - [x] SubTask 3.4: 新增 `_exit_draw_box_mode()` 方法
+    - 重置所有画框状态
+    - 隐藏提示标签
+    - `pdf_view.unsetCursor()`
+    - 移除 rubber band
+  - [x] SubTask 3.5: 修改 `_on_context_menu` 支持文本项和空白处两种菜单
+    - 文本项：原"修改文字"、"忽略/删除" + 新增"重新定位行框"
+    - 空白处：新增"新增文段"
+  - [x] SubTask 3.6: 新增 `_on_relocate_line(item)` 方法
+    - 获取 line_slice
+    - 调用 `_enter_draw_box_mode(target_ls=line_slice)`
+  - [x] SubTask 3.7: 修改 `eventFilter` 中 `pdf_view.viewport()` 分支，新增画框鼠标交互
+    - MouseButtonPress（Left + 画框模式）：记录起点，创建 QRubberBand
+    - MouseMove（画框模式）：更新 rubber band geometry
+    - MouseButtonRelease（Left + 画框模式）：获取绘制矩形，调用 `_apply_drawn_box`
+  - [x] SubTask 3.8: 新增 `_apply_drawn_box(view_rect)` 方法
+    - 将视口矩形转为场景坐标（mapToScene）
+    - 除以 zoom_level 得到页面图像像素坐标
+    - clamp 到 [0, 0, img_w, img_h]
+    - 检查最小尺寸（宽高 ≥ 10px）
+    - 弹出确认对话框
+    - 确认：若 `_draw_box_target` 有值，更新该 LineSlice；若 `_draw_box_text` 有值，创建新 LineSlice
+    - 调用 `_exit_draw_box_mode()`
+    - 调用 `_render_page()` 刷新
+
+- [x] Task 4: 实现"新增文段"功能
+  - [x] SubTask 4.1: 新增 `_on_add_text_segment()` 方法
+    - 弹出文本输入对话框（QLineEdit）
+    - 空文本或取消则返回
+    - 调用 `_enter_draw_box_mode(new_text=input_text)`
+  - [x] SubTask 4.2: 新增 `_add_new_text_segment(text, new_bbox)` 方法
+    - 创建 chars 列表（按方向分布）
+    - 创建 LineSlice（page_num=current_page, bbox=new_bbox, text=text, chars=chars, image=crop）
+    - 追加到 `page_lines[current_page]`
+  - [x] SubTask 4.3: 修改 `_apply_drawn_box` 中确认分支
+    - 若 `_draw_box_target` 有值：调用 `_relocate_line_frame(target, new_bbox)`
+    - 若 `_draw_box_text` 有值：调用 `_add_new_text_segment(text, new_bbox)`
+  - [x] SubTask 4.4: 新增 `_relocate_line_frame(line_slice, new_bbox)` 方法
+    - 更新 `line_slice.bbox = new_bbox`
+    - 按新 bbox 方向重新分布 chars
+    - 重新 crop `line_slice.image`
+  - [x] SubTask 4.5: 新增 `keyPressEvent` 处理 ESC 退出画框模式
+
+- [x] Task 5: 验证
+  - [x] SubTask 5.1: `python -m py_compile ui\horizontal_check_window.py` 语法验证
+  - [x] SubTask 5.2: Grep 确认新增方法均存在
+  - [x] SubTask 5.3: Grep 确认 `_make_slice_pixmap` 和悬停蓝框逻辑未被修改
+  - [x] SubTask 5.4: context7 复查 QRubberBand、QFontMetrics、mapToScene API 使用正确
+  - [x] SubTask 5.5: 通读修改后代码确认：字体算法方向判断正确、字号缩放比例正确、画框坐标转换正确、ESC 退出逻辑正确
+
+# Task Dependencies
+- Task 1 独立（字体算法重写）
+- Task 2 依赖 Task 1（验证不影响悬停）
+- Task 3 依赖 Task 1（画框后重新渲染需要新字体算法）
+- Task 4 依赖 Task 3（复用画框模式机制）
+- Task 5 依赖 Task 1-4 完成

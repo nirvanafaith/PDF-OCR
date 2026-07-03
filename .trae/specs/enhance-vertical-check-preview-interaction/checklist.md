@@ -1,0 +1,21 @@
+# Checklist
+
+- [x] 切片右下角输入框宽度缩减为原来一半(45px → 22px),保持右下角对齐(setGeometry(63, 68, 22, 18))
+- [x] 勾选"显示其他字框"后,点击原图预览蓝框高亮该框(橙色 #ff9500, 2px)
+- [x] 点击新蓝框时,之前高亮的蓝框恢复为蓝色 #0d6efd, 1px
+- [x] 鼠标悬停蓝框显示对应字符文字 tooltip
+- [x] 未勾选"显示其他字框"时,点击不触发蓝框高亮,恢复平移行为
+- [x] 点击红框内部使其高亮选中(pen 加粗/变色)
+- [x] 拖拽红框四边/四角可调整大小,对边/对角固定
+- [x] 红框调整范围限制在页面图像边界内,最小尺寸 4px
+- [x] 拖拽结束且尺寸变化时,标记脏状态(_resized_dirty=True)
+- [x] 选中其他切片时,若红框被拖拽修改,按新红框重新裁切 char_slice.image
+- [x] 更新 char_slice.bbox 为新红框对应的页面绝对坐标
+- [x] 更新 ocr_results 中对应 char_data 的 box 字段(扁平 [x1,y1,x2,y2])
+- [x] 从 _pixmap_cache 删除该切片缓存,使下次渲染重新加载
+- [x] 切换字符集合/上一步/下一步/翻页时均触发红框修改提交
+- [x] 未拖拽红框时焦点切换行为与原有逻辑一致(不提交)
+- [x] `python -m py_compile ui\vertical_check_window.py` 通过
+- [x] Grep 确认 7 个焦点切换方法开头均调用 `_commit_pending_red_box_resize()`
+- [x] mousePressEvent 优先级正确:蓝框高亮 > 红框边角调整 > 红框内部选中 > 平移
+- [x] QGraphicsItem.setToolTip、QGraphicsScene.itemAt、mapToScene/mapFromScene、setRect API 使用符合 PyQt5 文档

@@ -1,0 +1,5 @@
+- [x] 软件1 OCR环节按钮显示为"新书制作"
+- [x] 软件1 OCR完成后原PDF被复制到JSON输出文件夹
+- [x] 软件2不依赖rapidocr和onnxruntime
+- [x] 软件2运行无error和warning
+- [x] 软件1运行无error和warning

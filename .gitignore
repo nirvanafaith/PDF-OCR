@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+
+# OCR 输出产物
+software1/output/
+software1/json/
+
+# 构建日志
+compile_err.txt
+compile_out.txt
+
+# 临时文件
+*.tmp
+*.bak

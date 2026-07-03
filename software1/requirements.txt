@@ -1,0 +1,8 @@
+numpy<2
+onnxruntime>=1.19.0
+PyQt6
+PyMuPDF
+reportlab
+Pillow
+paddlepaddle-gpu
+rapidocr

@@ -1,0 +1,3 @@
+- [x] `self.view.RenderHint.Antialiasing` 已改为 `QPainter.RenderHint.Antialiasing`
+- [x] `QPainter` 已添加到 QtGui 导入
+- [x] 纵校窗口能正常打开，不再报 AttributeError

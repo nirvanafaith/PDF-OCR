@@ -1,0 +1,8 @@
+- [x] 左侧字符列表每个条目仅显示字符本身
+- [x] 切片图片强制缩放至固定宽高展示（非KeepAspectRatio，视觉大小完全一致）
+- [x] 每行展示8个切片
+- [x] 鼠标悬停切片时蓝色背景高亮
+- [x] 切片卡片无页码坐标信息标签
+- [x] 右键修改字符后 ocr_results JSON 数据同步更新
+- [x] main.py 正确传入 ocr_results 给 HorizontalCheckWindow
+- [x] main.py 正确接收更新后的 ocr_results 并更新 self.ocr_results

@@ -1,0 +1,5 @@
+- [x] 横校界面不再报 AttributeError: 'grid_layout'
+- [x] 左侧字符列表有 QGroupBox 分组
+- [x] 右侧切片展示有 QGroupBox 分组
+- [x] 按钮样式统一美观
+- [x] 切片卡片有边框和圆角
