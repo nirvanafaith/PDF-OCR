@@ -412,7 +412,7 @@ class HorizontalCheckWindow(QWidget):
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation,
                 )
-                self._pixmap_cache = {cache_key: scaled_pixmap}
+                self._pixmap_cache[cache_key] = scaled_pixmap
             w = img.width * self.zoom_level
             h = img.height * self.zoom_level
             self.scene.setSceneRect(QRectF(0, 0, w, h))
