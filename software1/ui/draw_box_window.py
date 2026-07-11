@@ -263,8 +263,23 @@ class DrawBoxWindow(QWidget):
                     "--lang", "ch",
                     "--format", "json"
                 ]
+                # 构建 MinerU 子进程环境变量
+                mineru_env = os.environ.copy()
+                # 优先使用 ModelScope（国内镜像，避免 HuggingFace SSL/网络问题）
+                mineru_env["MINERU_MODEL_SOURCE"] = "modelscope"
+                # 防御性：设置 CA 证书路径，确保 SSL 验证可用
+                try:
+                    import certifi
+                    ca_bundle = certifi.where()
+                    mineru_env["CURL_CA_BUNDLE"] = ca_bundle
+                    mineru_env["REQUESTS_CA_BUNDLE"] = ca_bundle
+                    mineru_env["SSL_CERT_FILE"] = ca_bundle
+                except ImportError:
+                    pass
+
                 proc = subprocess.Popen(
                     cmd,
+                    env=mineru_env,
                     creationflags=subprocess.CREATE_NEW_CONSOLE
                 )
                 proc.wait()
