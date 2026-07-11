@@ -6,7 +6,7 @@
 // 设计原则：
 //   1. 不链接 Qt；只处理裸像素 buffer 与 numpy 数组。
 //   2. 所有热点函数释放 GIL (py::call_guard<py::gil_scoped_release>)。
-//   3. 缺失时由 Python 层 software_common/native/__init__.py 自动回落。
+//   3. 缺失时由 Python 层 native/__init__.py 自动回落。
 
 #include <cstdint>
 #include <cstddef>
@@ -49,5 +49,12 @@ struct CropBBox { int x1, y1, x2, y2; };
 std::vector<std::string>
 batch_crop_rgba(const std::uint8_t *page_rgba, int w, int h,
                 const std::vector<CropBBox> &bboxes, int padding);
+
+// ---- H4: PIL Image 像素 → QImage 可用的紧凑 RGBA bytes ---------------------
+// 支持 RGB→RGBA 扩展和 RGBA 行间紧凑化
+std::string pil_to_qimage_buffer_impl(const std::uint8_t *samples,
+                                      int width, int height,
+                                      const std::string &mode,
+                                      std::ptrdiff_t stride);
 
 }  // namespace hxnative

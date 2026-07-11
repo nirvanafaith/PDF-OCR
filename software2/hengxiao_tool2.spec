@@ -3,13 +3,13 @@
 
 打包命令（在 venv_py38 中执行）：
     cd d:\\hx\\software2
-    d:\\hx\\software_common\\native\\venv_py38\\Scripts\\pyinstaller.exe ^
+    d:\\hx\\software2\\native\\venv_py38\\Scripts\\pyinstaller.exe ^
         hengxiao_tool2.spec --noconfirm --distpath d:\\hx\\dist
 
 产物：
     d:\\hx\\dist\\hengxiao_tool2\\hengxiao_tool2.exe   (GUI 入口)
     d:\\hx\\dist\\hengxiao_tool2\\_internal\\           (依赖与数据)
-        ├─ software_common\\native\\_hxnative.cp38-win_amd64.pyd  (C++ 加速)
+        ├─ native\\_hxnative.cp38-win_amd64.pyd  (C++ 加速)
         ├─ PyQt5\\Qt5\\plugins\\platforms\\qwindows.dll           (Qt 平台插件)
         ├─ fitz\\mupdfcpp64.dll                                   (PDF 渲染)
         └─ reportlab\\fonts\\                                     (PDF 输出字体)
@@ -57,31 +57,30 @@ hiddenimports += h
 # ----------------------------------------------------------------------------
 # 2. 添加 _hxnative C++ 加速扩展（.pyd）
 # ----------------------------------------------------------------------------
-# Python 3.8 ABI 的 .pyd 必须放到 bundle 内的 software_common/native/ 下，
-# 与 software_common/native/__init__.py 的 `importlib.import_module("._hxnative", __package__)` 路径一致。
-_hxnative_pyd = 'd:/hx/software_common/native/_hxnative.cp38-win_amd64.pyd'
-binaries += [(_hxnative_pyd, 'software_common/native')]
+# Python 3.8 ABI 的 .pyd 必须放到 bundle 内的 native/ 下，
+# 与 native/__init__.py 的 `importlib.import_module("._hxnative", __package__)` 路径一致。
+_hxnative_pyd = 'd:/hx/software2/native/_hxnative.cp38-win_amd64.pyd'
+binaries += [(_hxnative_pyd, 'native')]
 
 # ----------------------------------------------------------------------------
 # 3. 显式 hiddenimports（动态导入/延迟加载兜底）
 # ----------------------------------------------------------------------------
 hiddenimports += [
-    'software_common',
-    'software_common.native',
-    'software_common.native._hxnative',
+    'native',
+    'native._hxnative',
     # PyQt5 常见动态加载模块
     'PyQt5.sip',
 ]
 
-# 收集 software_common 所有子模块（确保 tests/ 之外的 .py 全部纳入）
-hiddenimports += collect_submodules('software_common')
+# 收集 native 所有子模块（确保 tests/ 之外的 .py 全部纳入）
+hiddenimports += collect_submodules('native')
 
 # ----------------------------------------------------------------------------
 # 4. Analysis
 # ----------------------------------------------------------------------------
 a = Analysis(
     ['d:/hx/software2/main.py'],
-    pathex=['d:/hx'],          # 让 software_common 包可被发现
+    pathex=['d:/hx/software2'],  # 让 native 包可被发现
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,

@@ -4,11 +4,13 @@ import sys
 
 # 启动期诊断：打印 _hxnative C++ 加速扩展的加载状态（缺失不影响运行）
 try:
-    _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if _root not in sys.path:
-        sys.path.insert(0, _root)
-    from software_common.native import native_status
-    print(native_status(), file=sys.stderr)
+    if getattr(sys, "frozen", False):
+        # PyInstaller onedir: native 位于 sys._MEIPASS (_internal/) 下
+        _root = sys._MEIPASS  # type: ignore[attr-defined]
+        if _root not in sys.path:
+            sys.path.insert(0, _root)
+    # 仅导入以触发 native/__init__.py 的单次诊断打印
+    import native  # noqa: F401
 except Exception as _e:
     print(f"native: diagnostic skipped ({_e})", file=sys.stderr)
 

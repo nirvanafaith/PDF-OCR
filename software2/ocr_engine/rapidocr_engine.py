@@ -3,6 +3,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from PIL import Image
+
 from models.data_models import CharSlice, LineSlice, flatten_bbox
 
 
@@ -211,6 +213,17 @@ class OCREngine:
         lines, chars = results
         grouped = {}
 
+        # 尝试加载 native H3 批量裁切
+        try:
+            from native import has_native as _has_native
+            from native import batch_crop_qimage as _batch_crop
+            if not _has_native():
+                _batch_crop = None
+        except Exception:
+            _batch_crop = None
+
+        # 第一遍：收集所有字符的元数据与裁切坐标
+        char_items = []  # [(char_data, char_text, page_num, bbox_flat, crop_coords, valid), ...]
         for char_data in chars:
             char_text = char_data.get("char", "")
             if not char_text:
@@ -218,10 +231,6 @@ class OCREngine:
 
             page_num = char_data.get("page_num", 0)
             bbox = char_data.get("box", [0, 0, 0, 0])
-            line_id = char_data.get("line_id", -1)
-            char_id = char_data.get("char_id", -1)
-            score = float(char_data.get("score", 1.0))
-
             bbox_flat = flatten_bbox(bbox)
 
             page_image = page_images[page_num] if page_num < len(page_images) else None
@@ -231,15 +240,70 @@ class OCREngine:
             crop_y1 = max(0, int(round(bbox_flat[1])))
             crop_x2 = min(img_width, int(round(bbox_flat[2])))
             crop_y2 = min(img_height, int(round(bbox_flat[3])))
+            valid = bool(page_image and crop_x2 > crop_x1 and crop_y2 > crop_y1)
 
-            cropped_image = None
-            if page_image and crop_x2 > crop_x1 and crop_y2 > crop_y1:
-                cropped_image = page_image.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+            char_items.append((char_data, char_text, page_num, bbox_flat,
+                               (crop_x1, crop_y1, crop_x2, crop_y2), valid))
+
+        cropped_images = [None] * len(char_items)
+
+        if _batch_crop is not None:
+            # 按页分组批量裁切
+            page_groups = {}
+            for idx, item in enumerate(char_items):
+                page_groups.setdefault(item[2], []).append(idx)
+
+            for page_num, indices in page_groups.items():
+                page_image = page_images[page_num] if page_num < len(page_images) else None
+                if not page_image:
+                    continue
+                bboxes = [list(char_items[idx][4]) for idx in indices]
+                results_bytes = None
+                try:
+                    page_rgba = page_image.convert("RGBA").tobytes("raw", "RGBA")
+                    img_w, img_h = page_image.size
+                    results_bytes = _batch_crop(page_rgba, img_w, img_h, bboxes, 0)
+                except Exception:
+                    results_bytes = None
+
+                if results_bytes is None:
+                    # native 调用失败，回退到逐字符 crop
+                    for idx in indices:
+                        if char_items[idx][5]:
+                            cropped_images[idx] = page_image.crop(char_items[idx][4])
+                else:
+                    for i, idx in enumerate(indices):
+                        if not char_items[idx][5]:
+                            continue
+                        rgba_bytes = results_bytes[i]
+                        if not rgba_bytes:
+                            continue
+                        cx1, cy1, cx2, cy2 = char_items[idx][4]
+                        crop_w = cx2 - cx1
+                        crop_h = cy2 - cy1
+                        try:
+                            cropped_images[idx] = Image.frombytes(
+                                "RGBA", (crop_w, crop_h), rgba_bytes)
+                        except Exception:
+                            cropped_images[idx] = page_image.crop(char_items[idx][4])
+        else:
+            # 回退：原有逐字符 crop 逻辑
+            for idx, item in enumerate(char_items):
+                char_data, char_text, page_num, bbox_flat, crop_coords, valid = item
+                if valid:
+                    page_image = page_images[page_num]
+                    cropped_images[idx] = page_image.crop(crop_coords)
+
+        # 构建 CharSlice 对象并按字符文本分组
+        for idx, (char_data, char_text, page_num, bbox_flat, crop_coords, valid) in enumerate(char_items):
+            line_id = char_data.get("line_id", -1)
+            char_id = char_data.get("char_id", -1)
+            score = float(char_data.get("score", 1.0))
 
             char_slice = CharSlice(
                 page_num=page_num,
                 bbox=list(bbox_flat),
-                image=cropped_image,
+                image=cropped_images[idx],
                 text=char_text,
                 line_id=line_id,
                 char_id=char_id,
@@ -305,9 +369,19 @@ class OCREngine:
                 page_lines_map[page_num] = []
             page_lines_map[page_num].append(line)
 
+        # 尝试加载 native H3 批量裁切
+        try:
+            from native import has_native as _has_native
+            from native import batch_crop_qimage as _batch_crop
+            if not _has_native():
+                _batch_crop = None
+        except Exception:
+            _batch_crop = None
+
         for page_num, page_lines_list in page_lines_map.items():
             page_image = page_images[page_num] if page_num < len(page_images) else None
             lines_result = []
+            line_crop_meta = []  # [(line_slice, crop_coords, valid), ...]
 
             for line in page_lines_list:
                 line_id = line.get("line_id", -1)
@@ -347,14 +421,17 @@ class OCREngine:
                 if char_slices:
                     line_text = "".join(updated_text_parts)
 
-                line_image = None
+                # 计算行裁切坐标（暂不裁切，收集后批量处理）
+                crop_coords = (0, 0, 0, 0)
+                valid = False
                 if page_image:
                     x1 = max(0, int(round(line_bbox[0])))
                     y1 = max(0, int(round(line_bbox[1])))
                     x2 = min(page_image.size[0], int(round(line_bbox[2])))
                     y2 = min(page_image.size[1], int(round(line_bbox[3])))
                     if x2 > x1 and y2 > y1:
-                        line_image = page_image.crop((x1, y1, x2, y2))
+                        crop_coords = (x1, y1, x2, y2)
+                        valid = True
 
                 line_slice = LineSlice(
                     page_num=page_num,
@@ -363,9 +440,47 @@ class OCREngine:
                     text=line_text,
                     confidence=line_score,
                     chars=updated_chars,
-                    image=line_image,
+                    image=None,
                 )
                 lines_result.append(line_slice)
+                line_crop_meta.append((line_slice, crop_coords, valid))
+
+            # 批量裁切本页所有行图像
+            if _batch_crop is not None and page_image:
+                bboxes = [list(m[1]) for m in line_crop_meta]
+                results_bytes = None
+                try:
+                    page_rgba = page_image.convert("RGBA").tobytes("raw", "RGBA")
+                    img_w, img_h = page_image.size
+                    results_bytes = _batch_crop(page_rgba, img_w, img_h, bboxes, 0)
+                except Exception:
+                    results_bytes = None
+
+                if results_bytes is None:
+                    # native 调用失败，回退到逐行 crop
+                    for ls, coords, valid in line_crop_meta:
+                        if valid:
+                            ls.image = page_image.crop(coords)
+                else:
+                    for i, (ls, coords, valid) in enumerate(line_crop_meta):
+                        if not valid:
+                            continue
+                        rgba_bytes = results_bytes[i]
+                        if not rgba_bytes:
+                            continue
+                        cx1, cy1, cx2, cy2 = coords
+                        crop_w = cx2 - cx1
+                        crop_h = cy2 - cy1
+                        try:
+                            ls.image = Image.frombytes(
+                                "RGBA", (crop_w, crop_h), rgba_bytes)
+                        except Exception:
+                            ls.image = page_image.crop(coords)
+            else:
+                # 回退：原有逐行 crop 逻辑
+                for ls, coords, valid in line_crop_meta:
+                    if valid and page_image:
+                        ls.image = page_image.crop(coords)
 
             page_lines[page_num] = lines_result
 

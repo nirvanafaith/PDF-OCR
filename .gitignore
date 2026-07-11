@@ -21,11 +21,14 @@ compile_out.txt
 
 # === 新增：构建产物 ===
 # Python venv（含全部依赖，395MB）
-software_common/native/venv_py38/
+software1/native/venv_py38/
+software2/native/venv_py38/
 
 # CMake 构建目录
-software_common/native/build_py38/
-software_common/native/build_py312/
+software1/native/build_py38/
+software1/native/build_py312/
+software2/native/build_py38/
+software2/native/build_py312/
 
 # PyInstaller 构建目录
 build_pyinstaller/
@@ -35,12 +38,15 @@ dist/
 
 # Python 备份目录
 backup_python_20260706/
+backup_native_migration_20260711/
 
 # 错误 Python 版本的编译产物
-software_common/native/_hxnative.cp314-win_amd64.pyd
+software1/native/_hxnative.cp314-win_amd64.pyd
+software2/native/_hxnative.cp314-win_amd64.pyd
 
 # 保留 C++ 优化成果（覆盖上方 *.py[cod] 对 .pyd 的忽略）
-!software_common/native/_hxnative.cp38-win_amd64.pyd
+!software1/native/_hxnative.cp38-win_amd64.pyd
+!software2/native/_hxnative.cp38-win_amd64.pyd
 
 # 根目录杂项压缩包（非源码）
 PDF-ocr.zip

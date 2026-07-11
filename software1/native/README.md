@@ -6,7 +6,7 @@
 - **H3** `batch_crop_qimage` — 批量字符裁切，替代 `PIL.Image.crop`
 - **H4** 通过 H1 间接实现统一 `_pil_to_pixmap`
 
-缺失 `.pyd` 时，Python 端 `software_common/native/__init__.py` 自动回落到现有实现，
+缺失 `.pyd` 时，Python 端 `native/__init__.py` 自动回落到现有实现，
 应用功能与外观完全不变。
 
 ## 依赖
@@ -22,13 +22,13 @@
 在仓库根目录 `d:\hx` 下打开「x64 Native Tools Command Prompt for VS」：
 
 ```bat
-cd d:\hx\software_common\native
+cd e:\hx\software1\native
 cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
 
-构建成功后，`_hxnative.pyd` 会输出到 `software_common/native/` 目录，
-Python 端 `from software_common.native import has_native` 即可使用。
+构建成功后，`_hxnative.pyd` 会输出到 `native/` 目录，
+Python 端 `from native import has_native` 即可使用。
 
 ## Windows 7 SP1 兼容模式（software2 部署用）
 
@@ -42,7 +42,7 @@ cmake --build build --config Release
 ## 验证
 
 ```python
-from software_common.native import has_native, native_status
+from native import has_native, native_status
 print(native_status())
 assert has_native()
 ```

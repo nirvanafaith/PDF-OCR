@@ -6,7 +6,7 @@
 
 运行方式：
     cd d:\\hx
-    python -m software_common.native.tests.test_golden
+    python -m native.tests.test_golden
 
 不依赖外部 PDF/OCR 数据，全部用合成数据，保证可重跑。
 """
@@ -18,12 +18,12 @@ import sys
 import struct
 import unittest
 
-# 确保能 import software_common.native
+# 确保能 import native
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from software_common.native import (  # noqa: E402
+from native import (  # noqa: E402
     has_native,
     pixmap_bytes_to_qpixmap_buffer,
     optimize_char_boxes,

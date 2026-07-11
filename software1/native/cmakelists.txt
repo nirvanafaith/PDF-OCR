@@ -49,8 +49,8 @@ if(HXNATIVE_WIN7_COMPAT)
     message(STATUS "hxnative: Windows 7 SP1 compatibility enabled (_WIN32_WINNT=0x0601)")
 endif()
 
-# 将 .pyd 直接输出到当前目录 (software_common/native/)，
-# 使 Python 端可以 `from software_common.native._hxnative import ...`。
+# 将 .pyd 直接输出到当前目录 (native/)，
+# 使 Python 端可以 `from native._hxnative import ...`。
 set_target_properties(_hxnative PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY         ${CMAKE_CURRENT_SOURCE_DIR}
     RUNTIME_OUTPUT_DIRECTORY         ${CMAKE_CURRENT_SOURCE_DIR}

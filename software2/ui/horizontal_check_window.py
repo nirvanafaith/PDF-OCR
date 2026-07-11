@@ -52,47 +52,32 @@ _NATIVE_CACHE = None
 
 
 def _try_native():
-    """尝试加载 software_common.native 加速模块。
+    """尝试加载本地 native 加速模块。
 
-    成功返回 (pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes, batch_crop_qimage)；
-    失败返回 (None, None, None)。所有 import 在函数内部完成，不影响模块加载。
-
-    结果缓存到模块级 ``_NATIVE_CACHE``，首次调用后不再重复探测。
+    成功返回 (pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes,
+             batch_crop_qimage, pil_to_qimage_buffer)；
+    失败返回 (None, None, None, None)。所有 import 在函数内部完成，不影响模块加载。
+    结果缓存到模块级 _NATIVE_CACHE，进程生命周期内仅探测一次。
     """
     global _NATIVE_CACHE
     if _NATIVE_CACHE is not None:
         return _NATIVE_CACHE
     try:
-        import sys as _sys
-        import os as _os
-        _d = _os.path.dirname(_os.path.abspath(__file__))
-        for _ in range(6):
-            if _os.path.isdir(_os.path.join(_d, "software_common")):
-                if _d not in _sys.path:
-                    _sys.path.insert(0, _d)
-                break
-            _p = _os.path.dirname(_d)
-            if _p == _d:
-                break
-            _d = _p
-        from software_common.native import has_native as _has_native
+        from native import has_native as _has_native
         if not _has_native():
-            _NATIVE_CACHE = (None, None, None)
+            _NATIVE_CACHE = (None, None, None, None)
             return _NATIVE_CACHE
-        from software_common.native import (
+        from native import (
             pixmap_bytes_to_qpixmap_buffer,
             optimize_char_boxes,
             batch_crop_qimage,
+            pil_to_qimage_buffer,
         )
-        _NATIVE_CACHE = (
-            pixmap_bytes_to_qpixmap_buffer,
-            optimize_char_boxes,
-            batch_crop_qimage,
-        )
-        return _NATIVE_CACHE
+        _NATIVE_CACHE = (pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes,
+                         batch_crop_qimage, pil_to_qimage_buffer)
     except Exception:
-        _NATIVE_CACHE = (None, None, None)
-        return _NATIVE_CACHE
+        _NATIVE_CACHE = (None, None, None, None)
+    return _NATIVE_CACHE
 
 
 class HorizontalCheckWindow(QWidget):
@@ -1412,36 +1397,41 @@ class HorizontalCheckWindow(QWidget):
         """
         if pil_image is None:
             return QPixmap()
-        # H1: native 直通路径
+        # H4: native 统一转换路径（RGB→RGBA 扩展 + 紧凑化在 C++ 内完成）
         try:
-            pixmap_bytes_to_qpixmap_buffer = _try_native()[0]
-            if pixmap_bytes_to_qpixmap_buffer is not None:
-                if pil_image.mode == "RGBA":
-                    raw = bytearray(pil_image.tobytes("raw", "RGBA"))
-                    n = 4
-                    fmt = QImage.Format_RGBA8888
-                elif pil_image.mode == "RGB":
-                    raw = bytearray(pil_image.tobytes("raw", "RGB"))
-                    n = 3
-                    fmt = QImage.Format_RGB888
-                else:
-                    pil_image = pil_image.convert("RGBA")
-                    raw = bytearray(pil_image.tobytes("raw", "RGBA"))
-                    n = 4
-                    fmt = QImage.Format_RGBA8888
-                buf = pixmap_bytes_to_qpixmap_buffer(
-                    raw, pil_image.width, pil_image.height, n, 0
-                )
-                if buf is not None:
-                    qimage = QImage(
-                        buf,
-                        pil_image.width,
-                        pil_image.height,
-                        pil_image.width * n,
-                        fmt,
+            pil_to_qimage_buffer = _try_native()[3]
+            if pil_to_qimage_buffer is not None:
+                mode = pil_image.mode
+                if mode in ("RGB", "RGBA"):
+                    raw = pil_image.tobytes("raw", mode)
+                    buf = pil_to_qimage_buffer(
+                        raw, pil_image.width, pil_image.height, mode, 0
                     )
-                    # .copy() 确保 QPixmap 持有独立数据，buf 可在 fromImage 后释放
-                    return QPixmap.fromImage(qimage.copy())
+                    if buf is not None:
+                        qimage = QImage(
+                            buf,
+                            pil_image.width,
+                            pil_image.height,
+                            pil_image.width * 4,
+                            QImage.Format_RGBA8888,
+                        )
+                        return QPixmap.fromImage(qimage.copy())
+                else:
+                    # P/L 等模式先 convert("RGB") 再传入 H4
+                    pil_rgb = pil_image.convert("RGB")
+                    raw = pil_rgb.tobytes("raw", "RGB")
+                    buf = pil_to_qimage_buffer(
+                        raw, pil_rgb.width, pil_rgb.height, "RGB", 0
+                    )
+                    if buf is not None:
+                        qimage = QImage(
+                            buf,
+                            pil_rgb.width,
+                            pil_rgb.height,
+                            pil_rgb.width * 4,
+                            QImage.Format_RGBA8888,
+                        )
+                        return QPixmap.fromImage(qimage.copy())
         except Exception as exc:
             self._report_error(exc)
         # Fallback: 原 PIL→QImage 路径

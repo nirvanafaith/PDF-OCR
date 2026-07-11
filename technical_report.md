@@ -1,6 +1,8 @@
 # PDF-OCR 项目技术报告
 
-本报告基于 hengxiao_tool2 代码库（下载于 2026-07-10，最新提交 `cab040d`）编写，全面审查了 software1（PyQt6 完整 OCR 管线）、software2（PyQt5 校对+精修）以及 software_common/native（C++ pybind11 加速模块）三大子系统的源代码实现，涵盖模块结构、核心算法、线程模型、数据模式 BCNF 验证、差异分析、代码质量评估及下载覆盖计划等内容。
+本报告基于 hengxiao_tool2 代码库（下载于 2026-07-10，最新提交 `cab040d`）编写，全面审查了 software1（PyQt6 完整 OCR 管线）、software2（PyQt5 校对+精修）两大子系统的源代码实现，涵盖模块结构、核心算法、线程模型、数据模式 BCNF 验证、差异分析、代码质量评估及 C++ 加速模块迁移等内容。
+
+**2026-07-11 更新**：C++ pybind11 加速模块已从共享的 `software_common/native/` 迁移至各子系统内部（`software1/native/` 和 `software2/native/`），实现完全解耦。software2 新增 H4 热点（`pil_to_qimage_buffer`）并接线 H3 批量裁切和 H4 像素转换。`software_common/` 目录已删除。
 
 ---
 
@@ -26,21 +28,27 @@
 | `90823c0` | 2026-07-10 | feat: DPI统一300 + DBSCAN行合并 + PyMuPDF双层PDF |
 | `cab040d` | 2026-07-10 | fix: pdf_output 按 y 基线分组替代 line_id |
 
-### 1.3 三大子系统
+### 1.3 两大子系统（含内嵌 C++ 加速模块）
 
 ```
-software1 (PyQt6)              software2 (PyQt5)              software_common/native (C++)
-┌─────────────────────┐        ┌─────────────────────┐        ┌──────────────────────┐
-│ 完整 OCR 管线        │        │ 后处理/校对/精修     │        │ H1: pixmap→QImage    │
-│ RapidOCR PP-OCRv6   │        │ 无 OCR 模型         │        │ H2: 字符框优化       │
-│ DPI=300             │        │ DPI=200             │        │ H3: 批量裁切         │
-│ 画框→OCR准备         │        │ 导入→纵校→横校→精修  │        │ 透明回退到 Python    │
-└──────────┬──────────┘        └──────────┬──────────┘        └──────────┬───────────┘
-           │                              │                              │
-           └──────────┬───────────────────┘                              │
-                      │                                                  │
-                      └──── _try_native() 透明回退 ─────────────────────┘
+software1 (PyQt6)                       software2 (PyQt5)
+┌─────────────────────────────┐         ┌─────────────────────────────┐
+│ 完整 OCR 管线                │         │ 后处理/校对/精修             │
+│ RapidOCR PP-OCRv6           │         │ 无 OCR 模型                 │
+│ DPI=300                     │         │ DPI=200                     │
+│ 画框→OCR准备                 │         │ 导入→纵校→横校→精修          │
+│                             │         │                             │
+│ ┌─ native/ (C++ 加速) ──┐   │         │ ┌─ native/ (C++ 加速) ──┐   │
+│ │ H1: pixmap→QImage     │   │         │ │ H1: pixmap→QImage     │   │
+│ │ H2: 字符框优化         │   │         │ │ H2: 字符框优化         │   │
+│ │ H3: 批量裁切           │   │         │ │ H3: 批量裁切           │   │
+│ │ 透明回退到 Python      │   │         │ │ H4: PIL→QImage buffer │   │
+│ └───────────────────────┘   │         │ │ 透明回退到 Python      │   │
+│                             │         │ └───────────────────────┘   │
+└─────────────────────────────┘         └─────────────────────────────┘
 ```
+
+**架构变更说明**：C++ 加速模块已从共享的 `software_common/native/` 迁移至各子系统内部，每个子系统独立持有自己的 `native/` 目录，实现完全解耦。software2 比 software1 多一个 H4 热点（`pil_to_qimage_buffer`），用于消除 PIL→QPixmap 转换链中的多次像素拷贝。
 
 ---
 
@@ -60,6 +68,7 @@ software1 (PyQt6)              software2 (PyQt5)              software_common/na
 | `ui/ocr_prepare_window.py` | 709 | OCR 准备窗口，QThread+Worker 后台执行 |
 | `ui/styles.py` | 241 | 全局 QSS 样式表 |
 | `ui/zoom_utils.py` | 28 | Ctrl+滚轮缩放计算 |
+| `native/` | - | C++ pybind11 加速模块（H1/H2/H3 + 透明回退） **（迁移至子系统内）** |
 
 ### 2.2 OCR 引擎核心算法
 
@@ -158,6 +167,7 @@ PDF → PDFProcessor.convert_to_images(dpi=300)
 | `undo_commands.py` | 384 | 撤销/重做命令 **（新增）** |
 | `runtime_hook_stderr.py` | 41 | PyInstaller runtime hook **（新增）** |
 | `hengxiao_tool2.spec` | 141 | PyInstaller 打包配置 **（新增）** |
+| `native/` | - | C++ pybind11 加速模块（H1/H2/H3/H4 + 透明回退） **（迁移至子系统内）** |
 
 ### 3.2 四阶段流程
 
@@ -267,32 +277,79 @@ else:
 
 ---
 
-## 四、software_common/native 详细分析（C++ 加速）
+## 四、C++ 加速模块详细分析（各子系统内嵌 native/）
 
-### 4.1 模块结构
+### 4.1 架构变更概述
+
+C++ pybind11 加速模块已从共享的 `software_common/native/` 迁移至各子系统内部：
+
+| 子系统 | native 路径 | 热点 | 说明 |
+|--------|------------|------|------|
+| software1 | `software1/native/` | H1, H2, H3 | 完整 OCR 管线加速 |
+| software2 | `software2/native/` | H1, H2, H3, **H4** | 校对/精修加速，新增 H4 像素转换 |
+
+**迁移收益**：
+- 完全解耦：各子系统独立持有 native 模块，不再共享依赖
+- 路径简化：`_try_native()` 从 6 级目录上溯查找改为直接 `from native import ...`
+- 按需扩展：software2 新增 H4 热点不影响 software1
+- `software_common/` 目录已删除
+
+### 4.2 模块结构（每个子系统内一致）
 
 | 路径 | 行数 | 职责 |
 |------|------|------|
-| `__init__.py` | 130 | Python 入口，延迟加载+透明回退 |
-| `include/hxnative.h` | 53 | C++ 内部声明 |
-| `src/hxnative.cpp` | 442 | pybind11 绑定+实现 |
-| `tests/test_golden.py` | 295 | 逐字节等价性验证 |
-| `tests/bench_perf.py` | 304 | 性能基准对比 |
-| `_hxnative.cp38-win_amd64.pyd` | 二进制 | 编译后的扩展 |
-| `cmakelists.txt` | - | CMake 构建配置 |
+| `native/__init__.py` | 130+ | Python 入口，延迟加载+透明回退 |
+| `native/include/hxnative.h` | 53+ | C++ 内部声明 |
+| `native/src/hxnative.cpp` | 442+ | pybind11 绑定+实现 |
+| `native/tests/test_golden.py` | 295 | 逐字节等价性验证 |
+| `native/tests/bench_perf.py` | 304 | 性能基准对比 |
+| `native/_hxnative.cp38-win_amd64.pyd` | 二进制 | 编译后的扩展（Python 3.8） |
+| `native/cmakelists.txt` | - | CMake 构建配置 |
 
-### 4.2 三个加速热点
+### 4.3 四个加速热点
 
-| 热点 | 函数 | 替代 | GIL |
-|------|------|------|-----|
-| H1 | `pixmap_bytes_to_qpixmap_buffer` | fitz pixmap→QImage 直通，跳过 PIL | 不释放（访问Python buffer） |
-| H2 | `optimize_char_boxes` | 整页字符边界框批量优化，替代 numpy 逐字符切片 | 释放（纯C++计算） |
-| H3 | `batch_crop_qimage` | 批量字符裁切，替代 PIL.Image.crop | 释放（纯C++计算） |
+| 热点 | 函数 | 替代 | GIL | 子系统 |
+|------|------|------|-----|--------|
+| H1 | `pixmap_bytes_to_qpixmap_buffer` | fitz pixmap→QImage 直通，跳过 PIL | 不释放（访问Python buffer） | software1, software2 |
+| H2 | `optimize_char_boxes` | 整页字符边界框批量优化，替代 numpy 逐字符切片 | 释放（纯C++计算） | software1, software2 |
+| H3 | `batch_crop_qimage` | 批量字符裁切，替代 PIL.Image.crop | 释放（纯C++计算） | software1, software2 |
+| **H4** | `pil_to_qimage_buffer` | **PIL→QImage buffer 统一转换，消除多次 tobytes/convert 拷贝** | 不释放（访问Python buffer） | **software2 独有** |
 
-### 4.3 透明回退机制
+### 4.4 H4 详细设计（software2 新增）
+
+**问题**：`_pil_to_pixmap` 原实现链路为 `PIL Image → convert("RGBA") → tobytes() → H1 pixmap_bytes_to_qpixmap_buffer → QImage`，存在多次像素拷贝。
+
+**H4 方案**：接受原始像素 buffer + 源模式(RGB/RGBA) + 尺寸，C++ 内完成 RGB→RGBA 扩展（alpha=255）和行间紧凑化，一次调用替代整个转换链。
+
+```cpp
+// hxnative.cpp H4 核心逻辑
+py::bytes pil_to_qimage_buffer_impl(py::object samples, int width, int height,
+                                     std::string mode, int stride) {
+    // 1. 获取 buffer 指针
+    // 2. RGB 模式: 扩展为 RGBA (每像素追加 0xFF)
+    // 3. RGBA 模式: 行间紧凑化（stride > width*4 时拷贝紧凑行）
+    // 4. 返回紧凑 RGBA bytes，直接用于 QImage(Format_RGBA8888)
+}
+```
+
+**接线位置**：`vertical_check_window.py`、`horizontal_check_window.py`、`refine_window.py` 的 `_pil_to_pixmap()` 方法。
+
+### 4.5 H3 批量裁切接线（software2 新启用）
+
+H3 此前已导入但从未调用。迁移后正式接线至三处：
+
+| 位置 | 文件 | 方法 | 说明 |
+|------|------|------|------|
+| 字符分组裁切 | `ocr_engine/rapidocr_engine.py` | `parse_and_group` | 按页收集所有字符 bbox，每页一次 `batch_crop_qimage` |
+| 重新裁切 | `main.py` | `_recrop_char_slice_images` | 同上模式，批量裁切替代逐字符 crop |
+| 行数据构建 | `ocr_engine/rapidocr_engine.py` | `build_line_data` | 行循环内收集 crop_coords，页面循环结束后批量裁切 |
+
+**回退策略**：native 不可用时或调用失败时，自动回退到逐字符 `PIL.Image.crop()`。
+
+### 4.6 透明回退机制
 
 ```python
-# __init__.py 核心逻辑
+# native/__init__.py 核心逻辑（各子系统内一致）
 _native = None
 
 def _try_load():
@@ -315,12 +372,30 @@ def pixmap_bytes_to_qpixmap_buffer(samples, width, height, n, stride=0):
         return None  # 运行期错误降级
 ```
 
+**调用方简化**（迁移后）：
+```python
+# 迁移前：6 级目录上溯查找 software_common
+for _ in range(6):
+    _candidate = os.path.join(_candidate, "..")
+    ...
+from software_common.native import has_native, ...
+
+# 迁移后：直接本地导入
+from native import has_native, ...
+```
+
 **设计优点**：所有公共函数在 native 不可用时返回 `None`，调用方透明回退到 Python/PIL/numpy 实现，应用功能与外观完全不变。
 
-### 4.4 构建方式
+### 4.7 构建方式
 
 ```bat
-cd software_common\native
+:: software1
+cd software1\native
+cmake -S . -B build -A x64
+cmake --build build --config Release
+
+:: software2
+cd software2\native
 cmake -S . -B build -A x64
 cmake --build build --config Release
 
@@ -400,7 +475,8 @@ cmake -S . -B build -A x64 -DHXNATIVE_WIN7_COMPAT=ON
 
 | 模块 | 说明 |
 |------|------|
-| `software_common/native/` | C++ pybind11 加速（3个热点+透明回退） |
+| `software1/native/` | C++ pybind11 加速（H1/H2/H3 + 透明回退）**（迁移至子系统内）** |
+| `software2/native/` | C++ pybind11 加速（H1/H2/H3/**H4** + 透明回退）**（迁移至子系统内，含新增 H4）** |
 | `software1/ocr_engine/line_merger.py` | DBSCAN 行合并 |
 | `software1/ocr_engine/char_refiner_cv.py` | OpenCV 字符框精修 |
 | `software2/session_manager.py` | 工程会话管理（60s自动保存） |
@@ -417,6 +493,13 @@ cmake -S . -B build -A x64 -DHXNATIVE_WIN7_COMPAT=ON
 | `software1/ocr_engine/rapidocr_engine.py` | PP-OCRv5, numpy 优化 | PP-OCRv6, native+numpy, 线程安全 |
 | `software1/pdf_processor/pdf_loader.py` | DPI 默认值 | DPI=300 统一 |
 | `software2/pdf_processor/pdf_loader.py` | DPI 默认值 | DPI=200, 抑制 MuPDF 字体错误 |
+| **C++ 模块架构** | `software_common/native/` 共享 | **迁移至 `software1/native/` 和 `software2/native/`，完全解耦** |
+| **software2 H3 接线** | H3 已导入但从未调用 | **正式接线至 parse_and_group / _recrop_char_slice_images / build_line_data** |
+| **software2 H4 新增** | 无 H4，PIL→QPixmap 多次拷贝 | **新增 `pil_to_qimage_buffer`，C++ 内完成 RGB→RGBA 扩展+紧凑化** |
+| **software2 UI `_pil_to_pixmap`** | H1 + Python tobytes/convert 链 | **改用 H4 一次调用，QImage 统一 Format_RGBA8888** |
+| **software1/2 `_try_native()`** | 6 级目录上溯查找 software_common | **直接 `from native import ...`，路径查找逻辑移除** |
+| **software2 `hengxiao_tool2.spec`** | 引用 software_common/native | **改为引用 native/，binaries/pathex/hiddenimports 全部更新** |
+| **`software_common/`** | 共享 C++ 模块目录 | **已删除（确定无用后移除）** |
 
 ### 6.3 PyQt 版本变化
 
@@ -444,7 +527,7 @@ cmake -S . -B build -A x64 -DHXNATIVE_WIN7_COMPAT=ON
 | # | 严重度 | 问题 | 位置 |
 |---|--------|------|------|
 | 1 | 中 | 文件过长：vertical_check(2281行)、refine(2035行)、horizontal(1587行) | software2/ui/ |
-| 2 | 中 | 代码重复：`_try_native()` 在4个UI文件中逐字重复 | draw_box/vertical/horizontal/refine |
+| 2 | 中 | 代码重复：`_try_native()` 在4个UI文件中逐字重复（迁移后路径查找已简化，但函数体仍重复） | draw_box/vertical/horizontal/refine |
 | 3 | 中 | 代码重复：`zoom_utils.py`、`styles.py`、`data_models.py` 在 software1/2 高度重复 | 两版本间 |
 | 4 | 低 | PyQt5/PyQt6 分裂：同一项目内 Qt 版本不一致 | software1 vs software2 |
 | 5 | 低 | 硬编码路径：`.spec` 中 `_hxnative_pyd = 'd:/hx/...'` | hengxiao_tool2.spec |
@@ -479,15 +562,15 @@ cmake -S . -B build -A x64 -DHXNATIVE_WIN7_COMPAT=ON
 
 ### 8.2 覆盖项
 
-- `software1/` — 全量覆盖
-- `software2/` — 全量覆盖
-- `software_common/` — 新增
+- `software1/` — 全量覆盖（含 `native/` C++ 加速模块）
+- `software2/` — 全量覆盖（含 `native/` C++ 加速模块，含 H4）
 - `README.md` — 覆盖
 - `.gitignore` — 覆盖
 - `technical_report.md` — 更新（基于本报告）
+- **`software_common/` — 已删除，不再推送**
 
 ### 8.3 GitHub 更新计划
 
 - 目标仓库：`https://github.com/nirvanafaith/PDF-OCR`
-- 推送文件：software1/、software2/、software_common/、README.md、technical_report.md、.gitignore
-- 不推送：`.trae/`、`创意提案文档.md`、`showcase.html`
+- 推送文件：software1/（含 native/）、software2/（含 native/）、README.md、technical_report.md、.gitignore
+- 不推送：`.trae/`、`创意提案文档.md`、`showcase.html`、`backup_native_migration_20260711/`

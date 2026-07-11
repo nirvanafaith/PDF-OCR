@@ -4,15 +4,12 @@ import sys
 # 启动期诊断：打印 _hxnative C++ 加速扩展的加载状态（缺失不影响运行）
 try:
     if getattr(sys, "frozen", False):
-        # PyInstaller onedir: software_common 位于 sys._MEIPASS (_internal/) 下
+        # PyInstaller onedir: native 位于 sys._MEIPASS (_internal/) 下
         _root = sys._MEIPASS  # type: ignore[attr-defined]
-    else:
-        # 源码运行：上溯到 d:\hx (software_common 的父目录)
-        _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if _root not in sys.path:
-        sys.path.insert(0, _root)
-    # 仅导入以触发 software_common/native/__init__.py 的单次诊断打印
-    import software_common.native  # noqa: F401
+        if _root not in sys.path:
+            sys.path.insert(0, _root)
+    # 仅导入以触发 native/__init__.py 的单次诊断打印
+    import native  # noqa: F401
 except Exception as _e:
     print(f"native: diagnostic skipped ({_e})", file=sys.stderr)
 
@@ -28,6 +25,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QObject, QThread, pyqtSignal
 from PyQt5.QtGui import QFont
+from PIL import Image
 
 from pdf_processor import PDFProcessor
 from ocr_engine import OCREngine
@@ -595,11 +593,90 @@ class MainWindow(QMainWindow):
         """
         if not self.page_images:
             return
+
+        # 尝试加载 native H3 批量裁切
+        try:
+            from native import has_native as _has_native
+            from native import batch_crop_qimage as _batch_crop
+            if not _has_native():
+                _batch_crop = None
+        except Exception:
+            _batch_crop = None
+
+        # 收集所有需要裁切的 char_slice
+        all_slices = []
         for slices in self.char_slices.values():
             for char_slice in slices:
                 page_num = char_slice.page_num
                 if page_num < 0 or page_num >= len(self.page_images):
                     continue
+                all_slices.append(char_slice)
+
+        if not all_slices:
+            return
+
+        if _batch_crop is not None:
+            # 按页分组批量裁切
+            page_groups = {}
+            for char_slice in all_slices:
+                page_groups.setdefault(char_slice.page_num, []).append(char_slice)
+
+            for page_num, slices in page_groups.items():
+                page_image = self.page_images[page_num]
+                img_w, img_h = page_image.size
+                bboxes = []
+                valid_flags = []
+                for cs in slices:
+                    try:
+                        x1, y1, x2, y2 = cs.bbox
+                        x1 = max(0, min(int(round(x1)), img_w))
+                        y1 = max(0, min(int(round(y1)), img_h))
+                        x2 = max(0, min(int(round(x2)), img_w))
+                        y2 = max(0, min(int(round(y2)), img_h))
+                        valid = x2 > x1 and y2 > y1
+                        bboxes.append([x1, y1, x2, y2])
+                        valid_flags.append(valid)
+                    except Exception:
+                        bboxes.append([0, 0, 0, 0])
+                        valid_flags.append(False)
+
+                results_bytes = None
+                try:
+                    page_rgba = page_image.convert("RGBA").tobytes("raw", "RGBA")
+                    results_bytes = _batch_crop(page_rgba, img_w, img_h, bboxes, 0)
+                except Exception:
+                    results_bytes = None
+
+                if results_bytes is None:
+                    # native 调用失败，回退到逐字符 crop
+                    for i, cs in enumerate(slices):
+                        if not valid_flags[i]:
+                            continue
+                        try:
+                            cs.image = page_image.crop(bboxes[i])
+                        except Exception:
+                            pass
+                else:
+                    for i, cs in enumerate(slices):
+                        if not valid_flags[i]:
+                            continue
+                        rgba_bytes = results_bytes[i]
+                        if not rgba_bytes:
+                            continue
+                        x1, y1, x2, y2 = bboxes[i]
+                        crop_w = x2 - x1
+                        crop_h = y2 - y1
+                        try:
+                            cs.image = Image.frombytes("RGBA", (crop_w, crop_h), rgba_bytes)
+                        except Exception:
+                            try:
+                                cs.image = page_image.crop(bboxes[i])
+                            except Exception:
+                                pass
+        else:
+            # 回退：原有逐字符 crop 逻辑
+            for char_slice in all_slices:
+                page_num = char_slice.page_num
                 page_image = self.page_images[page_num]
                 try:
                     x1, y1, x2, y2 = char_slice.bbox

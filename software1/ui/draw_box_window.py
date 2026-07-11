@@ -28,28 +28,16 @@ from ui.zoom_utils import calculate_wheel_zoom, ZOOM_MIN, ZOOM_MAX
 
 
 def _try_native():
-    """尝试加载 software_common.native 加速模块。
+    """尝试加载本地 native 加速模块。
 
     成功返回 (pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes, batch_crop_qimage)；
     失败返回 (None, None, None)。所有 import 在函数内部完成，不影响模块加载。
     """
     try:
-        import sys as _sys
-        import os as _os
-        _d = _os.path.dirname(_os.path.abspath(__file__))
-        for _ in range(6):
-            if _os.path.isdir(_os.path.join(_d, "software_common")):
-                if _d not in _sys.path:
-                    _sys.path.insert(0, _d)
-                break
-            _p = _os.path.dirname(_d)
-            if _p == _d:
-                break
-            _d = _p
-        from software_common.native import has_native as _has_native
+        from native import has_native as _has_native
         if not _has_native():
             return None, None, None
-        from software_common.native import (
+        from native import (
             pixmap_bytes_to_qpixmap_buffer,
             optimize_char_boxes,
             batch_crop_qimage,

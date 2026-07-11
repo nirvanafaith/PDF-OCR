@@ -10,7 +10,7 @@
 
 运行：
     cd d:\\hx
-    venv_py38\\\\Scripts\\\\python.exe -m software_common.native.tests.bench_perf
+    venv_py38\\\\Scripts\\\\python.exe -m native.tests.bench_perf
 
 输出格式（可粘贴到 checklist.md）：
     H1 native=4.45ms fallback=XXms speedup=XXx reduction=XX%
@@ -24,7 +24,7 @@ import os
 import sys
 import time
 
-# 确保能 import software_common.native
+# 确保能 import native
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
@@ -32,7 +32,7 @@ if _ROOT not in sys.path:
 import numpy as np  # noqa: E402
 from PIL import Image  # noqa: E402
 
-from software_common.native import (  # noqa: E402
+from native import (  # noqa: E402
     has_native,
     pixmap_bytes_to_qpixmap_buffer,
     optimize_char_boxes,
