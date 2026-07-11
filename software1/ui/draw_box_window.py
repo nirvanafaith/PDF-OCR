@@ -401,7 +401,8 @@ class DrawBoxWindow(QWidget):
             rendered_w, rendered_h = self._lazy_loader.get_page_size(page_idx)
             scale_x = rendered_w / pdf_w if pdf_w > 0 else 1.0
             scale_y = rendered_h / pdf_h if pdf_h > 0 else 1.0
-            para_blocks = page_data.get('para_blocks', [])
+            # 兼容不同版本 MinerU 的 middle.json：新版用 preproc_blocks，旧版用 para_blocks
+            para_blocks = page_data.get('para_blocks', []) or page_data.get('preproc_blocks', [])
             for block in para_blocks:
                 block_type = block.get('type', '')
                 bboxes_to_add = []

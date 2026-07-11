@@ -65,6 +65,11 @@ class OCREngine:
         import onnxruntime as ort
         import sys as _sys
 
+        # 抑制 ONNX Runtime 默认日志器的 WARNING 级别输出
+        # LOGS_DEFAULT 宏不受 session 级别 log_severity_level 控制，需单独设置
+        # 0=VERBOSE, 1=INFO, 2=WARNING, 3=ERROR, 4=FATAL
+        ort.set_default_logger_severity(3)
+
         def _is_cuda_really_available():
             """检测 CUDA 是否真正可用。
 
@@ -73,36 +78,11 @@ class OCREngine:
             """
             if 'CUDAExecutionProvider' not in ort.get_available_providers():
                 return False
-            # Windows: 检查关键 CUDA DLL 是否可加载
+            # Windows: 确保 CUDA DLL 路径已设置后检查关键 DLL 是否可加载
             if _sys.platform == 'win32':
                 import ctypes
-                import os as _os
-                # 尝试直接加载
-                try:
-                    ctypes.WinDLL('cublasLt64_12.dll')
-                    return True
-                except OSError:
-                    pass
-                # 直接加载失败时，添加 CUDA DLL 搜索路径后重试
-                # torch 捆绑的 CUDA DLL 在 torch/lib，通过 CUDA_PATH junction 也可访问
-                _dll_dirs = []
-                _cuda_path = _os.environ.get('CUDA_PATH', '')
-                if _cuda_path:
-                    _bin = _os.path.join(_cuda_path, 'bin')
-                    if _os.path.isdir(_bin):
-                        _dll_dirs.append(_bin)
-                try:
-                    import torch as _torch
-                    _torch_lib = _os.path.join(_os.path.dirname(_torch.__file__), 'lib')
-                    if _os.path.isdir(_torch_lib) and _torch_lib not in _dll_dirs:
-                        _dll_dirs.append(_torch_lib)
-                except (ImportError, OSError):
-                    pass
-                for _d in _dll_dirs:
-                    try:
-                        _os.add_dll_directory(_d)
-                    except OSError:
-                        pass
+                from cuda_dll_setup import setup_cuda_dll_paths
+                setup_cuda_dll_paths()
                 try:
                     ctypes.WinDLL('cublasLt64_12.dll')
                     return True
@@ -116,9 +96,11 @@ class OCREngine:
 
         params = {
             "EngineConfig.onnxruntime.use_cuda": _has_cuda,
-            # cuDNN 9.9.0 在 sm_86 (RTX 30 系列) 上 EXHAUSTIVE 搜索会触发
-            # HEURISTIC_QUERY_FAILED，改为 DEFAULT 避免该 bug 同时保留 GPU 加速
-            "EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_algo_search": "DEFAULT",
+            # cuDNN 9.10.02 在 sm_86 (RTX 30 系列) 上：
+            # - EXHAUSTIVE (HeurMode_t::B) 会触发 HEURISTIC_QUERY_FAILED
+            # - DEFAULT (HeurMode_t::FALLBACK) 会触发 Fallback mode 警告且性能差
+            # - HEURISTIC (HeurMode_t::A) 轻量启发式搜索，避免上述两个问题
+            "EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_algo_search": "HEURISTIC",
             "Det.engine_type": EngineType.ONNXRUNTIME,
             "Det.lang_type": LangDet.CH,
             "Det.model_type": _model_type,

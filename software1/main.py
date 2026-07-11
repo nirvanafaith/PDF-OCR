@@ -1,5 +1,3 @@
-import os
-import site
 import sys
 
 # 启动期诊断：打印 _hxnative C++ 加速扩展的加载状态（缺失不影响运行）
@@ -14,34 +12,9 @@ try:
 except Exception as _e:
     print(f"native: diagnostic skipped ({_e})", file=sys.stderr)
 
-# 搜索 nvidia CUDA pip 包的 bin 目录（可能在系统或用户 site-packages 中）
-_nvidia_search_dirs = [os.path.join(d, 'nvidia') for d in site.getsitepackages()]
-_nvidia_search_dirs.append(os.path.join(site.getusersitepackages(), 'nvidia'))
-for nvidia_base in _nvidia_search_dirs:
-    if os.path.exists(nvidia_base):
-        for pkg_name in os.listdir(nvidia_base):
-            bin_dir = os.path.join(nvidia_base, pkg_name, 'bin')
-            if os.path.isdir(bin_dir):
-                os.add_dll_directory(bin_dir)
-                os.environ['PATH'] = bin_dir + os.pathsep + os.environ['PATH']
-
-# 添加 torch 捆绑的 CUDA DLL 路径（包含 nvrtc、cudnn、cublas 等，不在 nvidia pip 包中）
-try:
-    import torch as _torch
-    _torch_lib = os.path.join(os.path.dirname(_torch.__file__), 'lib')
-    if os.path.isdir(_torch_lib):
-        os.add_dll_directory(_torch_lib)
-        os.environ['PATH'] = _torch_lib + os.pathsep + os.environ['PATH']
-except (ImportError, OSError):
-    pass
-
-# 添加 CUDA_PATH/bin（通过 junction 指向 torch/lib，供 lmdeploy turbomind 使用）
-_cuda_path = os.environ.get('CUDA_PATH', '')
-if _cuda_path:
-    _cuda_bin = os.path.join(_cuda_path, 'bin')
-    if os.path.isdir(_cuda_bin):
-        os.add_dll_directory(_cuda_bin)
-        os.environ['PATH'] = _cuda_bin + os.pathsep + os.environ['PATH']
+# 集中式 CUDA DLL 路径设置（nvidia pip 包 + torch/lib + CUDA_PATH/bin）
+from cuda_dll_setup import setup_cuda_dll_paths
+setup_cuda_dll_paths()
 
 from PyQt6.QtWidgets import (
     QApplication,
