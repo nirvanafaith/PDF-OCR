@@ -75,8 +75,35 @@ class OCREngine:
                 return False
             # Windows: 检查关键 CUDA DLL 是否可加载
             if _sys.platform == 'win32':
+                import ctypes
+                import os as _os
+                # 尝试直接加载
                 try:
-                    import ctypes
+                    ctypes.WinDLL('cublasLt64_12.dll')
+                    return True
+                except OSError:
+                    pass
+                # 直接加载失败时，添加 CUDA DLL 搜索路径后重试
+                # torch 捆绑的 CUDA DLL 在 torch/lib，通过 CUDA_PATH junction 也可访问
+                _dll_dirs = []
+                _cuda_path = _os.environ.get('CUDA_PATH', '')
+                if _cuda_path:
+                    _bin = _os.path.join(_cuda_path, 'bin')
+                    if _os.path.isdir(_bin):
+                        _dll_dirs.append(_bin)
+                try:
+                    import torch as _torch
+                    _torch_lib = _os.path.join(_os.path.dirname(_torch.__file__), 'lib')
+                    if _os.path.isdir(_torch_lib) and _torch_lib not in _dll_dirs:
+                        _dll_dirs.append(_torch_lib)
+                except (ImportError, OSError):
+                    pass
+                for _d in _dll_dirs:
+                    try:
+                        _os.add_dll_directory(_d)
+                    except OSError:
+                        pass
+                try:
                     ctypes.WinDLL('cublasLt64_12.dll')
                     return True
                 except OSError:
@@ -89,6 +116,9 @@ class OCREngine:
 
         params = {
             "EngineConfig.onnxruntime.use_cuda": _has_cuda,
+            # cuDNN 9.9.0 在 sm_86 (RTX 30 系列) 上 EXHAUSTIVE 搜索会触发
+            # HEURISTIC_QUERY_FAILED，改为 DEFAULT 避免该 bug 同时保留 GPU 加速
+            "EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_algo_search": "DEFAULT",
             "Det.engine_type": EngineType.ONNXRUNTIME,
             "Det.lang_type": LangDet.CH,
             "Det.model_type": _model_type,
