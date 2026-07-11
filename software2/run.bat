@@ -3,8 +3,15 @@ chcp 65001 > nul
 cd /d "%~dp0"
 set PYTHONIOENCODING=utf-8
 set PYTHONUTF8=1
-if exist "venv\Scripts\activate.bat" (
-    call "venv\Scripts\activate.bat"
+
+set "PYTHON_EXE=python"
+where "%PYTHON_EXE%" >nul 2>nul
+if errorlevel 1 (
+    echo [Error] Python not found in PATH
+    echo Please install Python 3.12 or add it to PATH.
+    pause
+    exit /b 1
 )
-python main.py
-if errorlevel 1 pause
+
+"%PYTHON_EXE%" main.py
+if %errorlevel% neq 0 pause

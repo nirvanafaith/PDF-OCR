@@ -4,10 +4,11 @@ title software1 - Draw Box + OCR
 
 cd /d "%~dp0"
 
-set "PYTHON_EXE=C:\Users\E-VR\AppData\Local\Programs\Python\Python312\python.exe"
-if not exist "%PYTHON_EXE%" (
-    echo [Error] Python not found: %PYTHON_EXE%
-    echo Please install Python 3.12 or edit PYTHON_EXE in this bat file.
+set "PYTHON_EXE=python"
+where "%PYTHON_EXE%" >nul 2>nul
+if errorlevel 1 (
+    echo [Error] Python not found in PATH
+    echo Please install Python 3.12 or add it to PATH.
     pause
     exit /b 1
 )

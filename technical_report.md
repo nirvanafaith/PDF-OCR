@@ -4,6 +4,8 @@
 
 **2026-07-11 更新**：C++ pybind11 加速模块已从共享的 `software_common/native/` 迁移至各子系统内部（`software1/native/` 和 `software2/native/`），实现完全解耦。software2 新增 H4 热点（`pil_to_qimage_buffer`）并接线 H3 批量裁切和 H4 像素转换。`software_common/` 目录已删除。
 
+**2026-07-11 环境配置更新**：为当前电脑完整配置运行环境（rapidocr 3.9.1 升级、onnxruntime-gpu 安装、native 模块为 Python 3.12 编译、run.bat 修正、nvidia DLL 路径搜索修复），两个软件均通过 GUI 启动测试，CUDA GPU 加速生效。详见第九章。
+
 ---
 
 ## 一、项目总览
@@ -574,3 +576,93 @@ cmake -S . -B build -A x64 -DHXNATIVE_WIN7_COMPAT=ON
 - 目标仓库：`https://github.com/nirvanafaith/PDF-OCR`
 - 推送文件：software1/（含 native/）、software2/（含 native/）、README.md、technical_report.md、.gitignore
 - 不推送：`.trae/`、`创意提案文档.md`、`showcase.html`、`backup_native_migration_20260711/`
+
+---
+
+## 九、运行环境配置与启动测试
+
+**2026-07-11 更新**：为当前电脑（Windows, Python 3.12.9）完整配置了 software1 和 software2 的运行环境，修复了启动脚本和 CUDA 检测问题，两个软件均通过 GUI 启动测试。
+
+### 9.1 环境配置总结
+
+| 组件 | 版本 | 用途 |
+|------|------|------|
+| Python | 3.12.9 | 运行时 |
+| rapidocr | 3.9.1 | PP-OCRv6 OCR 引擎（3.8.1 不支持 PPOCRV6） |
+| onnxruntime-gpu | 1.25.1 | CUDA 加速推理（CUDAExecutionProvider + TensorrtExecutionProvider） |
+| paddlepaddle-gpu | 3.3.1 | PaddlePaddle GPU 后端 |
+| PyQt6 | 6.10.2 | software1 GUI 框架 |
+| PyQt5 | 5.15.10 | software2 GUI 框架 |
+| PyMuPDF | 1.23.8 | PDF 渲染与双层 PDF 输出 |
+| opencv-python | 4.13.0.92 | 字符框精修 |
+| numpy | 2.4.4 | 数值计算 |
+| Pillow | 12.2.0 | 图像处理 |
+| reportlab | 4.4.10 | PDF 生成 |
+| scikit-learn | 1.8.0 | DBSCAN 行合并 |
+
+### 9.2 native C++ 模块编译
+
+为 Python 3.12 重新编译了两个子系统的 C++ 加速模块：
+
+| 编译工具 | 版本/配置 |
+|----------|-----------|
+| CMake | 3.31.5 |
+| 编译器 | MSVC (VS 2022 BuildTools) |
+| pybind11 | v2.13.6（CMake FetchContent 自动获取） |
+| 构建配置 | Release, x64, C++17 |
+| 输出 | `_hxnative.cp312-win_amd64.pyd` |
+
+编译产物：
+- `software1/native/_hxnative.cp312-win_amd64.pyd` — H1/H2/H3 加速
+- `software2/native/_hxnative.cp312-win_amd64.pyd` — H1/H2/H3/H4 加速
+
+两个模块均通过 `has_native()` 验证加载成功。
+
+### 9.3 run.bat 修正
+
+**问题**：
+- `software1/run.bat` 硬编码 `C:\Users\E-VR\AppData\Local\Programs\Python\Python312\python.exe`（其他电脑不存在此路径）
+- `software2/run.bat` 依赖 `venv\Scripts\activate.bat`（当前无 venv）
+
+**修复**：两个 run.bat 均改为使用通用 `python` 命令，并添加 PATH 检查：
+```bat
+set "PYTHON_EXE=python"
+where "%PYTHON_EXE%" >nul 2>nul
+if errorlevel 1 (
+    echo [Error] Python not found in PATH
+    pause
+    exit /b 1
+)
+"%PYTHON_EXE%" main.py
+```
+
+### 9.4 nvidia DLL 路径搜索修复
+
+**问题**：`software1/main.py` 第 17 行仅搜索系统 site-packages（`site.getsitepackages()[1]`），但 nvidia CUDA pip 包安装在用户 site-packages（`site.getusersitepackages()`），导致 `cublasLt64_12.dll` 无法加载，CUDA 检测失败，软件回退到 SMALL 模型（CPU 推理）。
+
+**修复**：扩展搜索范围，同时检查系统 site-packages 和用户 site-packages：
+```python
+_nvidia_search_dirs = [os.path.join(d, 'nvidia') for d in site.getsitepackages()]
+_nvidia_search_dirs.append(os.path.join(site.getusersitepackages(), 'nvidia'))
+for nvidia_base in _nvidia_search_dirs:
+    if os.path.exists(nvidia_base):
+        for pkg_name in os.listdir(nvidia_base):
+            bin_dir = os.path.join(nvidia_base, pkg_name, 'bin')
+            if os.path.isdir(bin_dir):
+                os.add_dll_directory(bin_dir)
+                os.environ['PATH'] = bin_dir + os.pathsep + os.environ['PATH']
+```
+
+**效果**：修复后 CUDA 正确检测，software1 使用 MEDIUM 模型（PP-OCRv6_det_medium + PP-OCRv6_rec_medium），GPU 加速推理生效。
+
+### 9.5 启动测试结果
+
+| 软件 | native 加载 | GUI 窗口 | OCR 模型 | GPU | 错误 |
+|------|-------------|----------|----------|-----|------|
+| software1 | ✅ _hxnative loaded | ✅ PyQt6 显示 | ✅ PP-OCRv6 MEDIUM | ✅ CUDAExecutionProvider | 无 |
+| software2 | ✅ _hxnative loaded | ✅ PyQt5 显示 | N/A（无 OCR 模型） | N/A | 无 |
+
+### 9.6 .gitignore 更新
+
+- 新增 `software1/native/build/` 和 `software2/native/build/` 忽略 CMake 构建中间产物
+- 新增 `!software1/native/_hxnative.cp312-win_amd64.pyd` 和 `!software2/native/_hxnative.cp312-win_amd64.pyd` 保留 Python 3.12 编译产物

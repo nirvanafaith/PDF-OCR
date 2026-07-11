@@ -14,14 +14,16 @@ try:
 except Exception as _e:
     print(f"native: diagnostic skipped ({_e})", file=sys.stderr)
 
-site_dir = site.getsitepackages()[1]
-nvidia_base = os.path.join(site_dir, 'nvidia')
-if os.path.exists(nvidia_base):
-    for pkg_name in os.listdir(nvidia_base):
-        bin_dir = os.path.join(nvidia_base, pkg_name, 'bin')
-        if os.path.isdir(bin_dir):
-            os.add_dll_directory(bin_dir)
-            os.environ['PATH'] = bin_dir + os.pathsep + os.environ['PATH']
+# 搜索 nvidia CUDA pip 包的 bin 目录（可能在系统或用户 site-packages 中）
+_nvidia_search_dirs = [os.path.join(d, 'nvidia') for d in site.getsitepackages()]
+_nvidia_search_dirs.append(os.path.join(site.getusersitepackages(), 'nvidia'))
+for nvidia_base in _nvidia_search_dirs:
+    if os.path.exists(nvidia_base):
+        for pkg_name in os.listdir(nvidia_base):
+            bin_dir = os.path.join(nvidia_base, pkg_name, 'bin')
+            if os.path.isdir(bin_dir):
+                os.add_dll_directory(bin_dir)
+                os.environ['PATH'] = bin_dir + os.pathsep + os.environ['PATH']
 
 from PyQt6.QtWidgets import (
     QApplication,
