@@ -3,6 +3,9 @@ from PIL import Image
 import os
 from functools import lru_cache
 
+# 抑制 MuPDF 错误回调，避免 PDF 含代理字符的字体名触发 UnicodeEncodeError
+fitz.TOOLS.mupdf_display_errors(False)
+
 
 class PDFProcessor:
     """PDF文档处理器，提供PDF转图像、懒加载和页数查询等核心功能。

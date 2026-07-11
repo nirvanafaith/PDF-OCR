@@ -17,15 +17,86 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QProgressDialog,
     QMessageBox,
+    QUndoStack,
+    QShortcut,
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QEvent, QRectF, QPointF, QTimer
-from PyQt5.QtGui import QPixmap, QImage, QFont, QFontMetrics, QPen, QBrush, QPainter, QCursor, QWheelEvent
+from PyQt5.QtGui import (
+    QPixmap,
+    QImage,
+    QFont,
+    QFontMetrics,
+    QPen,
+    QBrush,
+    QPainter,
+    QCursor,
+    QWheelEvent,
+    QKeySequence,
+)
 import os
+import traceback
 
 from models.data_models import RefineTextItem, CorrectedChar, LineSlice
 from pdf_processor.pdf_output import PDFOutputGenerator, PDFOutputWorker
 from ui.styles import get_stylesheet
 from ui.zoom_utils import calculate_wheel_zoom, ZOOM_MIN, ZOOM_MAX
+from undo_commands import (
+    MoveTextItemCommand,
+    ResizeTextItemCommand,
+    DeleteTextItemCommand,
+    AddTextItemCommand,
+)
+
+
+_NATIVE_CACHE = None
+
+
+def _try_native():
+    """尝试加载 software_common.native 加速模块。
+
+    成功返回 (pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes, batch_crop_qimage)；
+    失败返回 (None, None, None)。所有 import 在函数内部完成，不影响模块加载。
+
+    结果在首次调用后缓存到模块级 _NATIVE_CACHE，后续调用直接返回缓存值，
+    消除重复的文件系统探测开销。
+
+    调用关系:
+        被 _pil_to_pixmap 等方法调用。
+    """
+    global _NATIVE_CACHE
+    if _NATIVE_CACHE is not None:
+        return _NATIVE_CACHE
+    try:
+        import sys as _sys
+        import os as _os
+        _d = _os.path.dirname(_os.path.abspath(__file__))
+        for _ in range(6):
+            if _os.path.isdir(_os.path.join(_d, "software_common")):
+                if _d not in _sys.path:
+                    _sys.path.insert(0, _d)
+                break
+            _p = _os.path.dirname(_d)
+            if _p == _d:
+                break
+            _d = _p
+        from software_common.native import has_native as _has_native
+        if not _has_native():
+            _NATIVE_CACHE = (None, None, None)
+            return _NATIVE_CACHE
+        from software_common.native import (
+            pixmap_bytes_to_qpixmap_buffer,
+            optimize_char_boxes,
+            batch_crop_qimage,
+        )
+        _NATIVE_CACHE = (
+            pixmap_bytes_to_qpixmap_buffer,
+            optimize_char_boxes,
+            batch_crop_qimage,
+        )
+        return _NATIVE_CACHE
+    except Exception:
+        _NATIVE_CACHE = (None, None, None)
+        return _NATIVE_CACHE
 
 
 class MovableTextItem(QGraphicsRectItem):
@@ -80,6 +151,9 @@ class MovableTextItem(QGraphicsRectItem):
         self._move_start_scene_pos = None
         self._move_start_pos = None
         self._activated = False
+        # 撤销/重做系统所需的引用，由 RefineWindow 在创建后赋值
+        self._window = None
+        self._item_id = None
         self.setFlag(QGraphicsRectItem.ItemIsMovable, False)
         self.setFlag(QGraphicsRectItem.ItemIsSelectable, False)
         self.setAcceptHoverEvents(False)
@@ -377,7 +451,8 @@ class MovableTextItem(QGraphicsRectItem):
     def mouseReleaseEvent(self, event):
         """处理鼠标释放事件，结束缩放或移动操作。
 
-        清除缩放状态或移动状态，完成一次交互。
+        缩放或移动结束时，若状态发生变化则通过窗口的撤销栈 push 对应命令，
+        支持后续 Ctrl+Z/Y 撤销重做。然后清除缩放状态或移动状态。
 
         参数:
             event: 鼠标释放事件对象。
@@ -386,6 +461,31 @@ class MovableTextItem(QGraphicsRectItem):
             由鼠标释放事件触发。
         """
         if self._resize_handle:
+            # 缩放结束：若尺寸或位置变化则 push 撤销命令
+            window = getattr(self, '_window', None)
+            if (window is not None and self._start_rect is not None
+                    and self._start_item_pos is not None):
+                new_pos = self.pos()
+                new_r = self.rect()
+                old_r = self._start_rect
+                old_pos = self._start_item_pos
+                if (new_r.width() != old_r.width()
+                        or new_r.height() != old_r.height()
+                        or new_pos != old_pos):
+                    old_font_size = old_r.height() / self._zoom_level
+                    new_font_size = new_r.height() / self._zoom_level
+                    # 将位置编码到 rect.topLeft，便于 _apply_resize_item 还原
+                    old_rect_full = QRectF(
+                        old_pos.x(), old_pos.y(), old_r.width(), old_r.height()
+                    )
+                    new_rect_full = QRectF(
+                        new_pos.x(), new_pos.y(), new_r.width(), new_r.height()
+                    )
+                    window._undo_stack.push(ResizeTextItemCommand(
+                        window, self._item_id,
+                        old_font_size, new_font_size,
+                        old_rect_full, new_rect_full,
+                    ))
             self._resize_handle = None
             self._start_rect = None
             self._start_pos = None
@@ -393,6 +493,16 @@ class MovableTextItem(QGraphicsRectItem):
             event.accept()
             return
         if self._moving:
+            # 移动结束：若位置变化则 push 撤销命令
+            window = getattr(self, '_window', None)
+            if window is not None and self._move_start_pos is not None:
+                new_pos = self.pos()
+                old_pos = self._move_start_pos
+                if new_pos != old_pos:
+                    window._undo_stack.push(MoveTextItemCommand(
+                        window, self._item_id,
+                        QPointF(old_pos), QPointF(new_pos),
+                    ))
             self._moving = False
             self._move_start_scene_pos = None
             self._move_start_pos = None
@@ -468,8 +578,13 @@ class MovableTextItem(QGraphicsRectItem):
         if chosen == modify_action:
             self._edit_text()
         elif chosen == delete_action:
-            self._data.ignored = True
-            self.setVisible(False)
+            # 通过窗口的撤销栈 push 删除命令，支持 Ctrl+Z 恢复
+            window = getattr(self, '_window', None)
+            if window is not None and self._item_id is not None:
+                window._delete_item(self._item_id)
+            else:
+                self._data.ignored = True
+                self.setVisible(False)
 
     def _edit_text(self):
         """打开文字编辑对话框，修改文字项的内容。
@@ -544,6 +659,96 @@ class MovableTextItem(QGraphicsRectItem):
         self._center_text()
 
 
+class RefineGraphicsView(QGraphicsView):
+    """精修窗口的图形视图，支持中键拖拽平移。
+
+    在标准 QGraphicsView 基础上增加中键拖拽平移功能，
+    不影响左键拖拽文字、滚轮缩放等现有交互。
+
+    依赖:
+        - PyQt5.QtWidgets.QGraphicsView: 图形视图基类
+    """
+
+    def __init__(self, scene, parent=None):
+        """初始化中键平移状态变量。
+
+        参数:
+            scene: 关联的 QGraphicsScene 场景对象。
+            parent: 父控件，默认为 None。
+        """
+        super().__init__(scene, parent)
+        self._mid_panning = False
+        self._mid_start_pos = None
+        self._mid_start_pixmap_pos = None
+        self._prev_cursor = None
+
+    def mousePressEvent(self, event):
+        """处理鼠标按下事件，检测中键启动平移。
+
+        中键按下时记录起始位置和起始场景位置，切换为闭合手型光标。
+        其他按键交由父类处理，不影响左键拖拽文字等现有交互。
+
+        参数:
+            event: 鼠标按下事件对象。
+        """
+        if event.button() == Qt.MiddleButton:
+            self._mid_panning = True
+            self._mid_start_pos = event.pos()
+            self._mid_start_pixmap_pos = self.mapToScene(event.pos())
+            self._prev_cursor = self.cursor()
+            self.setCursor(Qt.ClosedHandCursor)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        """处理鼠标移动事件，中键拖拽时按缩放因子平移视图。
+
+        中键拖拽期间，根据鼠标增量与当前缩放因子计算场景增量，
+        通过滚动条反向平移实现抓取式拖拽（内容跟随鼠标移动）。
+
+        参数:
+            event: 鼠标移动事件对象。
+        """
+        if self._mid_panning:
+            delta = event.pos() - self._mid_start_pos
+            transform = self.transform()
+            sx = transform.m11()
+            sy = transform.m22()
+            if sx == 0:
+                sx = 1.0
+            if sy == 0:
+                sy = 1.0
+            h_bar = self.horizontalScrollBar()
+            v_bar = self.verticalScrollBar()
+            # 按缩放因子将视口增量转为场景增量，反向平移实现抓取式拖拽
+            h_bar.setValue(h_bar.value() - int(delta.x() / sx))
+            v_bar.setValue(v_bar.value() - int(delta.y() / sy))
+            self._mid_start_pos = event.pos()
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """处理鼠标释放事件，中键释放结束平移并恢复光标。
+
+        参数:
+            event: 鼠标释放事件对象。
+        """
+        if event.button() == Qt.MiddleButton and self._mid_panning:
+            self._mid_panning = False
+            self._mid_start_pos = None
+            self._mid_start_pixmap_pos = None
+            if self._prev_cursor is not None:
+                self.setCursor(self._prev_cursor)
+            else:
+                self.setCursor(Qt.ArrowCursor)
+            self._prev_cursor = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+
 class RefineWindow(QWidget):
     """精修阶段主窗口。
 
@@ -566,8 +771,13 @@ class RefineWindow(QWidget):
     finished_signal = pyqtSignal()
     output_complete_signal = pyqtSignal(str, str)
     back_signal = pyqtSignal()
+    error_occurred = pyqtSignal(str)
+    # 保存请求信号，参数为 {'breakpoints': {...}, 'refine_items': {...}}，
+    # 由 MainWindow 接收并合并全局数据后调用 SessionManager.save
+    save_requested = pyqtSignal(dict)
 
-    def __init__(self, page_lines: dict, page_images: list, parent=None):
+    def __init__(self, page_lines: dict, page_images: list, parent=None,
+                 pdf_path: str = None):
         """初始化精修窗口。
 
         接收页面行数据和页面图像，初始化缩放级别、当前页码、交互模式等状态，
@@ -577,6 +787,8 @@ class RefineWindow(QWidget):
             page_lines: 页面行数据字典，键为页码，值为 LineSlice 列表。
             page_images: 页面图像列表，元素为 PIL.Image 对象。
             parent: 父窗口对象，默认为 None。
+            pdf_path: 原始 PDF 文件路径（用于生成双层 PDF 时保留矢量层），
+                默认为 None。
 
         调用关系:
             被 MainWindow._on_vertical_finished 中创建实例。
@@ -588,6 +800,7 @@ class RefineWindow(QWidget):
         super().__init__(parent)
         self.page_lines = page_lines
         self.page_images = page_images
+        self._pdf_path = pdf_path
         self.zoom_level = 1.0
         self.current_page = 0
         self.total_pages = len(page_images)
@@ -597,7 +810,16 @@ class RefineWindow(QWidget):
         self._selected_item = None
         self._first_render = True
         self._pixmap_cache = {}
+        self._pixmap_cache_max = 20
+        self._page_debounce = QTimer()
+        self._page_debounce.setSingleShot(True)
+        self._page_debounce.timeout.connect(self._do_render_page)
         self._output_worker = None
+        # 撤销/重做系统
+        self._undo_stack = QUndoStack(self)
+        # 文字项唯一 ID 计数器与映射 {item_id: MovableTextItem}
+        self._next_item_id = 0
+        self._item_id_map = {}
         self._convert_chars()
         self._init_ui()
 
@@ -675,7 +897,9 @@ class RefineWindow(QWidget):
         self.page_spin = QSpinBox()
         self.page_spin.setRange(1, self.total_pages)
         self.page_spin.setValue(1)
-        self.page_spin.valueChanged.connect(self._on_goto_page)
+        self.page_spin.valueChanged.connect(
+            lambda *_: self._page_debounce.start(300)
+        )
         toolbar.addWidget(self.page_spin)
 
         self.next_btn = QPushButton("下一页")
@@ -744,7 +968,7 @@ class RefineWindow(QWidget):
         self.scene = QGraphicsScene()
         self.scene.setBackgroundBrush(Qt.white)
 
-        self.view = QGraphicsView(self.scene)
+        self.view = RefineGraphicsView(self.scene)
         self.view.setRenderHint(QPainter.Antialiasing)
         self.view.setDragMode(QGraphicsView.NoDrag)
         self.view.setViewportUpdateMode(
@@ -754,6 +978,20 @@ class RefineWindow(QWidget):
         self.view.viewport().installEventFilter(self)
         self.view.customContextMenuRequested.connect(self._on_context_menu)
         main_layout.addWidget(self.view, 1)
+
+        # 注册快捷键：撤销/重做/保存
+        QShortcut(QKeySequence.Undo, self, self._undo_stack.undo)
+        QShortcut(QKeySequence.Redo, self, self._undo_stack.redo)
+        QShortcut(QKeySequence.Save, self, self._save_project)
+        # 注册快捷键：翻页
+        QShortcut(QKeySequence("PgUp"), self, lambda: self._goto_page_relative(-1))
+        QShortcut(QKeySequence("PgDown"), self, lambda: self._goto_page_relative(1))
+        QShortcut(QKeySequence("Home"), self, self._goto_first_page)
+        QShortcut(QKeySequence("End"), self, self._goto_last_page)
+        # 注册快捷键：缩放
+        QShortcut(QKeySequence("Ctrl+Plus"), self, self._zoom_in)
+        QShortcut(QKeySequence("Ctrl+Minus"), self, self._zoom_out)
+        QShortcut(QKeySequence("Ctrl+0"), self, self._zoom_reset)
 
         self._render_page()
 
@@ -765,7 +1003,7 @@ class RefineWindow(QWidget):
         延迟调用适合宽度功能。
 
         调用关系:
-            被 _on_prev_page、_on_next_page、_on_goto_page、_on_zoom_in、
+            被 _on_prev_page、_on_next_page、_do_render_page、_on_zoom_in、
             _on_zoom_out、_on_fit_width 调用。
 
         依赖:
@@ -773,6 +1011,7 @@ class RefineWindow(QWidget):
             - _pil_to_pixmap: PIL 图像转 QPixmap 工具方法
         """
         self.scene.clear()
+        self._item_id_map.clear()
         self._selected_item = None
         if self.page_images and self.current_page < len(self.page_images):
             img = self.page_images[self.current_page]
@@ -787,7 +1026,11 @@ class RefineWindow(QWidget):
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation,
                 )
-                self._pixmap_cache = {cache_key: scaled_pixmap}
+                self._pixmap_cache[cache_key] = scaled_pixmap
+                # 缓存上限保护：超出时删除最旧项（dict 按插入顺序遍历）
+                if len(self._pixmap_cache) > self._pixmap_cache_max:
+                    oldest_key = next(iter(self._pixmap_cache))
+                    del self._pixmap_cache[oldest_key]
             bg_item = QGraphicsPixmapItem(scaled_pixmap)
             bg_item.setZValue(0)
             self.scene.addItem(bg_item)
@@ -801,11 +1044,18 @@ class RefineWindow(QWidget):
         for text_item_data in items:
             if text_item_data.ignored:
                 continue
+            # 懒分配唯一 ID（首次渲染该数据项时分配，之后持久化）
+            if not hasattr(text_item_data, '_item_id') or text_item_data._item_id is None:
+                text_item_data._item_id = self._next_item_id
+                self._next_item_id += 1
             movable = MovableTextItem(text_item_data, self.zoom_level)
+            movable._item_id = text_item_data._item_id
+            movable._window = self
             movable.setZValue(1)
             if self._drag_mode:
                 movable.activate()
             self.scene.addItem(movable)
+            self._item_id_map[text_item_data._item_id] = movable
 
         self.page_label.setText(
             f"第{self.current_page + 1}/{self.total_pages}页"
@@ -826,7 +1076,7 @@ class RefineWindow(QWidget):
         的 bbox、text 和 font_size 字段。
 
         调用关系:
-            被 _on_prev_page、_on_next_page、_on_goto_page、_on_zoom_in、
+            被 _on_prev_page、_on_next_page、_do_render_page、_on_zoom_in、
             _on_zoom_out、_on_fit_width、_on_output 调用。
         """
         for item in self.scene.items():
@@ -842,6 +1092,291 @@ class RefineWindow(QWidget):
                 ]
                 data.text = item._text_item.toPlainText()
                 data.font_size = rect.height() / item._zoom_level
+
+    # ==================== 撤销/重做辅助方法 ====================
+
+    def _find_data_item(self, item_id):
+        """根据 item_id 在 page_items 中查找 RefineTextItem 数据对象。
+
+        用于跨页撤销/重做场景：当图元不在当前场景时，通过 item_id 查找
+        关联的数据对象以更新其字段。
+
+        参数:
+            item_id: 文字项唯一 ID。
+
+        返回:
+            匹配的 RefineTextItem 对象，未找到返回 None。
+        """
+        for items in self.page_items.values():
+            for it in items:
+                if getattr(it, '_item_id', None) == item_id:
+                    return it
+        return None
+
+    def _apply_move_item(self, item_id, new_pos):
+        """修改精修文字项的位置（直接修改，不 push 命令）。
+
+        由 MoveTextItemCommand.redo/undo 调用。将指定 ID 的文字项移动到
+        new_pos（场景坐标），并同步更新关联 RefineTextItem 的 bbox。
+        若图元不在当前场景（跨页），仅更新数据模型。
+
+        参数:
+            item_id: 文字项唯一 ID。
+            new_pos: 目标位置（QPointF，场景坐标）。
+        """
+        item = self._item_id_map.get(item_id)
+        if item is not None:
+            item.setPos(new_pos)
+            zoom = item._zoom_level
+            rect = item.rect()
+            data = item._data
+        else:
+            # 跨页撤销：图元不在当前场景，仅更新数据模型
+            data = self._find_data_item(item_id)
+            if data is None:
+                return
+            zoom = self.zoom_level
+            w = data.bbox[2] - data.bbox[0]
+            h = data.bbox[3] - data.bbox[1]
+            rect = QRectF(0, 0, w * zoom, h * zoom)
+        data.bbox = [
+            new_pos.x() / zoom,
+            new_pos.y() / zoom,
+            (new_pos.x() + rect.width()) / zoom,
+            (new_pos.y() + rect.height()) / zoom,
+        ]
+
+    def _apply_resize_item(self, item_id, new_font_size, new_rect):
+        """修改字号和框（直接修改，不 push 命令）。
+
+        由 ResizeTextItemCommand.redo/undo 调用。new_rect.topLeft() 编码
+        图元位置，width/height 为尺寸。设置图元位置和矩形后重新计算字体、
+        手柄和文字居中，并同步 RefineTextItem 的 bbox 和 font_size。
+        若图元不在当前场景，仅更新数据模型。
+
+        参数:
+            item_id: 文字项唯一 ID。
+            new_font_size: 新字号（原始坐标系高度）。
+            new_rect: 新矩形（QRectF，topLeft 为位置，width/height 为尺寸）。
+        """
+        pos = new_rect.topLeft()
+        size_w = new_rect.width()
+        size_h = new_rect.height()
+        item = self._item_id_map.get(item_id)
+        if item is not None:
+            zoom = item._zoom_level
+            item.setPos(pos)
+            item.setRect(QRectF(0, 0, size_w, size_h))
+            font = item._calculate_max_font_size(item._data.text, size_w, size_h)
+            item._text_item.setFont(font)
+            item._position_handles()
+            item._center_text()
+            data = item._data
+        else:
+            # 跨页撤销：图元不在当前场景，仅更新数据模型
+            data = self._find_data_item(item_id)
+            if data is None:
+                return
+            zoom = self.zoom_level
+        data.bbox = [
+            pos.x() / zoom,
+            pos.y() / zoom,
+            (pos.x() + size_w) / zoom,
+            (pos.y() + size_h) / zoom,
+        ]
+        data.font_size = new_font_size
+
+    def _apply_delete_item(self, item_id):
+        """从场景和数据结构中删除指定 ID 的文字项（直接修改，不 push 命令）。
+
+        由 DeleteTextItemCommand.redo 和 AddTextItemCommand.undo 调用。
+        将关联的 RefineTextItem 标记为 ignored，从场景移除图元并从
+        _item_id_map 中注销。数据对象保留在 page_items 中（以 ignored
+        状态参与输出），便于撤销时恢复。
+
+        参数:
+            item_id: 文字项唯一 ID。
+        """
+        item = self._item_id_map.pop(item_id, None)
+        if item is None:
+            # 跨页场景：仅标记数据为 ignored
+            data = self._find_data_item(item_id)
+            if data is not None:
+                data.ignored = True
+            return
+        item._data.ignored = True
+        item.setSelected(False)
+        self.scene.removeItem(item)
+        if self._selected_item is item:
+            self._selected_item = None
+
+    def _apply_add_item(self, item_id, item_data):
+        """添加文字项到场景和数据结构（直接修改，不 push 命令）。
+
+        由 AddTextItemCommand.redo 和 DeleteTextItemCommand.undo 调用。
+        若 page_items 中已存在同 ID 的已忽略数据项（撤销删除场景），
+        恢复其为未忽略状态；否则从 item_data 创建新的 RefineTextItem
+        并追加到 page_items。若该页为当前页，创建 MovableTextItem
+        图元并加入场景和 _item_id_map。
+
+        参数:
+            item_id: 文字项唯一 ID。
+            item_data: RefineTextItem.to_dict() 返回的字典。
+        """
+        page = item_data.get('page_num', self.current_page)
+        # 查找是否已有同 ID 的已忽略数据项（撤销删除场景）
+        data_item = None
+        for it in self.page_items.get(page, []):
+            if getattr(it, '_item_id', None) == item_id:
+                data_item = it
+                break
+        if data_item is None:
+            # 全新添加
+            data_item = RefineTextItem.from_dict(item_data)
+            data_item._item_id = item_id
+            if page not in self.page_items:
+                self.page_items[page] = []
+            self.page_items[page].append(data_item)
+        else:
+            # 恢复已删除项
+            data_item.ignored = False
+        # 若为当前页且图元尚未存在，创建场景图元
+        if page == self.current_page and item_id not in self._item_id_map:
+            movable = MovableTextItem(data_item, self.zoom_level)
+            movable._item_id = item_id
+            movable._window = self
+            movable.setZValue(1)
+            if self._drag_mode:
+                movable.activate()
+            self.scene.addItem(movable)
+            self._item_id_map[item_id] = movable
+
+    def _delete_item(self, item_id):
+        """删除文字项（通过撤销栈 push 命令）。
+
+        在 push 前捕获当前数据快照，push 后由 DeleteTextItemCommand.redo
+        调用 _apply_delete_item 完成实际删除。
+
+        参数:
+            item_id: 文字项唯一 ID。
+        """
+        item = self._item_id_map.get(item_id)
+        if item is None:
+            return
+        # 删除前捕获数据快照（ignored=False）
+        item_data = item._data.to_dict()
+        self._undo_stack.push(DeleteTextItemCommand(self, item_id, item_data))
+
+    # ==================== 保存与断点恢复 ====================
+
+    def _save_project(self):
+        """收集精修阶段断点数据并发射 save_requested 信号。
+
+        同步当前页面数据后，收集当前阶段断点（页码、缩放级别）和精修
+        文字项数据（所有页面的 RefineTextItem.to_dict()），通过
+        save_requested 信号发射给 MainWindow，由其合并全局数据后调用
+        SessionManager.save。
+
+        调用关系:
+            由 Ctrl+S 快捷键触发。
+        """
+        self._sync_current_page()
+        breakpoints = {
+            'refine': {
+                'current_page': self.current_page,
+                'zoom_level': self.zoom_level,
+            }
+        }
+        refine_items = {}
+        for page_num, items in self.page_items.items():
+            refine_items[str(page_num)] = [item.to_dict() for item in items]
+        self.save_requested.emit({
+            'breakpoints': breakpoints,
+            'refine_items': refine_items,
+        })
+
+    def _restore_breakpoint_state(self, breakpoints, refine_items=None):
+        """从断点恢复精修窗口状态。
+
+        接收 breakpoints['refine'] 字典，恢复当前页码和缩放级别。
+        若提供 refine_items，则从保存的数据重建 page_items。
+
+        参数:
+            breakpoints: 断点字典（取 breakpoints['refine'] 或整个字典）。
+            refine_items: 可选，保存的精修文字项数据 {page_str: [dict, ...]}。
+        """
+        if not breakpoints:
+            return
+        # 兼容传入整个 breakpoints 或 breakpoints['refine']
+        bp = breakpoints.get('refine', breakpoints) if isinstance(
+            breakpoints, dict
+        ) else {}
+        self.current_page = bp.get('current_page', 0)
+        self.zoom_level = bp.get('zoom_level', 1.0)
+        if refine_items:
+            # 从保存的数据重建 page_items
+            self.page_items = {}
+            for page_str, items_list in refine_items.items():
+                try:
+                    page_num = int(page_str)
+                except (ValueError, TypeError):
+                    continue
+                self.page_items[page_num] = [
+                    RefineTextItem.from_dict(d) for d in items_list
+                ]
+        self._render_page()
+
+    # ==================== 翻页与缩放快捷键辅助方法 ====================
+
+    def _goto_page_relative(self, delta):
+        """相对翻页：delta=-1 上一页，delta=1 下一页。
+
+        同步当前页面数据后切换到目标页并重新渲染。
+
+        参数:
+            delta: 翻页偏移量，-1 向前，+1 向后。
+        """
+        target = self.current_page + delta
+        if 0 <= target < self.total_pages:
+            self._sync_current_page()
+            self.current_page = target
+            self._render_page()
+
+    def _goto_first_page(self):
+        """跳转到第一页。"""
+        if self.current_page != 0:
+            self._sync_current_page()
+            self.current_page = 0
+            self._render_page()
+
+    def _goto_last_page(self):
+        """跳转到最后一页。"""
+        last = self.total_pages - 1
+        if self.current_page != last:
+            self._sync_current_page()
+            self.current_page = last
+            self._render_page()
+
+    def _zoom_in(self):
+        """放大缩放级别（每次 +0.25）。"""
+        if self.zoom_level < ZOOM_MAX:
+            self._sync_current_page()
+            self.zoom_level += 0.25
+            self._render_page()
+
+    def _zoom_out(self):
+        """缩小缩放级别（每次 -0.25）。"""
+        if self.zoom_level > ZOOM_MIN:
+            self._sync_current_page()
+            self.zoom_level -= 0.25
+            self._render_page()
+
+    def _zoom_reset(self):
+        """重置缩放级别为 100%。"""
+        if self.zoom_level != 1.0:
+            self._sync_current_page()
+            self.zoom_level = 1.0
+            self._render_page()
 
     def _on_hand_tool_toggle(self):
         """处理手型工具按钮的切换事件。
@@ -997,10 +1532,7 @@ class RefineWindow(QWidget):
                 if chosen == modify_action:
                     item._edit_text()
                 elif chosen == delete_action:
-                    item._data.ignored = True
-                    item.setVisible(False)
-                    item.setSelected(False)
-                    self._selected_item = None
+                    self._delete_item(item._item_id)
             return
         if self._add_text_mode:
             menu = QMenu(self)
@@ -1056,10 +1588,11 @@ class RefineWindow(QWidget):
         base_y = scene_pos.y() / self.zoom_level
         h = avg_font_size
         w = avg_font_size
-        if self.current_page not in self.page_items:
-            self.page_items[self.current_page] = []
         for i, ch in enumerate(new_text):
             char_x = base_x + i * w
+            # 分配唯一 ID 并构造数据，通过撤销栈 push 新增命令
+            item_id = self._next_item_id
+            self._next_item_id += 1
             new_item = RefineTextItem(
                 text=ch,
                 bbox=[char_x, base_y, char_x + w, base_y + h],
@@ -1067,12 +1600,9 @@ class RefineWindow(QWidget):
                 font_size=h,
                 ignored=False,
             )
-            self.page_items[self.current_page].append(new_item)
-            movable = MovableTextItem(new_item, self.zoom_level)
-            movable.setZValue(1)
-            if self._drag_mode:
-                movable.activate()
-            self.scene.addItem(movable)
+            new_item._item_id = item_id
+            item_data = new_item.to_dict()
+            self._undo_stack.push(AddTextItemCommand(self, item_id, item_data))
 
     def _get_avg_font_size(self) -> float:
         """计算当前页面未忽略文字项的平均字体大小。
@@ -1096,22 +1626,42 @@ class RefineWindow(QWidget):
     def keyPressEvent(self, event):
         """处理键盘按键事件。
 
-        在拖拽模式下，按下 Delete 键将删除当前选中的文字项（标记为忽略并隐藏）。
-        其他按键事件交由父类处理。
+        - Esc：退出所有交互模式（拖拽、新增文字、手型工具、中键平移），
+          恢复默认箭头光标。
+        - Delete：拖拽模式下删除当前选中的文字项。
 
         参数:
             event: 键盘按键事件对象。
 
         调用关系:
-            由键盘事件触发（Delete 键删除选中项）。
+            由键盘事件触发。
         """
+        if event.key() == Qt.Key_Escape:
+            # 退出中键平移状态
+            if getattr(self.view, '_mid_panning', False):
+                self.view._mid_panning = False
+                self.view._mid_start_pos = None
+                self.view._mid_start_pixmap_pos = None
+                if getattr(self.view, '_prev_cursor', None) is not None:
+                    self.view.setCursor(self.view._prev_cursor)
+                self.view._prev_cursor = None
+            # 退出拖拽、新增文字、手型工具模式
+            self._drag_mode = False
+            self._add_text_mode = False
+            self.hand_btn.setChecked(False)
+            self.drag_btn.setChecked(False)
+            self.add_text_btn.setChecked(False)
+            self.view.setDragMode(QGraphicsView.NoDrag)
+            self.view.setCursor(Qt.ArrowCursor)
+            for item in self.scene.items():
+                if isinstance(item, MovableTextItem):
+                    item.deactivate()
+            self._selected_item = None
+            return
         if event.key() == Qt.Key_Delete and self._drag_mode:
             for item in self.scene.items():
                 if isinstance(item, MovableTextItem) and item.isSelected():
-                    item._data.ignored = True
-                    item.setVisible(False)
-                    item.setSelected(False)
-                    self._selected_item = None
+                    self._delete_item(item._item_id)
                     break
             return
         super().keyPressEvent(event)
@@ -1144,18 +1694,17 @@ class RefineWindow(QWidget):
             self.current_page += 1
             self._render_page()
 
-    def _on_goto_page(self, page_num: int):
-        """跳转到指定页码。
+    def _do_render_page(self):
+        """防抖后执行翻页渲染（page_spin 防抖触发）。
 
-        同步当前页面数据后，将页码设置为目标页并重新渲染页面。
+        从 page_spin 读取目标页码，同步当前页面数据后切换并重新渲染页面。
         若目标页与当前页相同则不执行操作。
 
-        参数:
-            page_num: 目标页码（从 1 开始计数）。
-
         调用关系:
-            由 page_spin.valueChanged 信号触发。
+            由 self._page_debounce.timeout 信号触发（page_spin.valueChanged
+            经 300ms 防抖后调用）。
         """
+        page_num = self.page_spin.value()
         idx = page_num - 1
         if 0 <= idx < self.total_pages and idx != self.current_page:
             self._sync_current_page()
@@ -1283,11 +1832,30 @@ class RefineWindow(QWidget):
                 )
         return result
 
+    def _report_error(self, exc):
+        """报告异常：打印 traceback 并发射 error_occurred 信号。
+
+        将捕获到的异常信息同时输出到 stderr（traceback.print_exc）和
+        error_occurred 信号，供父窗口（如 MainWindow）在状态栏回显，
+        避免异常被静默吞掉。
+
+        参数:
+            exc: 捕获到的异常对象。
+
+        调用关系:
+            被 _pil_to_pixmap 等方法的 except 块调用。
+        """
+        traceback.print_exc()
+        try:
+            self.error_occurred.emit(f"操作失败：{exc}")
+        except Exception:
+            pass
+
     def _pil_to_pixmap(self, pil_image) -> QPixmap:
         """将 PIL 图像对象转换为 QPixmap。
 
-        若图像模式不是 RGBA 则先进行转换，然后通过原始字节数据创建 QImage，
-        再转换为 QPixmap 返回。若输入为 None 则返回空的 QPixmap。
+        优先调用 native (H1) 直通路径，跳过 PIL convert + tobytes 的多次拷贝；
+        native 不可用时回落到原 PIL→QImage 路径，行为不变。
 
         参数:
             pil_image: PIL.Image 图像对象，可为 None。
@@ -1304,9 +1872,42 @@ class RefineWindow(QWidget):
         """
         if pil_image is None:
             return QPixmap()
+        # H1: native 直通路径
+        try:
+            pixmap_bytes_to_qpixmap_buffer = _try_native()[0]
+            if pixmap_bytes_to_qpixmap_buffer is not None:
+                if pil_image.mode == "RGBA":
+                    raw = pil_image.tobytes("raw", "RGBA")
+                    n = 4
+                    fmt = QImage.Format_RGBA8888
+                elif pil_image.mode == "RGB":
+                    raw = pil_image.tobytes("raw", "RGB")
+                    n = 3
+                    fmt = QImage.Format_RGB888
+                else:
+                    pil_image = pil_image.convert("RGBA")
+                    raw = pil_image.tobytes("raw", "RGBA")
+                    n = 4
+                    fmt = QImage.Format_RGBA8888
+                buf = pixmap_bytes_to_qpixmap_buffer(
+                    raw, pil_image.width, pil_image.height, n, 0
+                )
+                if buf is not None:
+                    qimage = QImage(
+                        buf,
+                        pil_image.width,
+                        pil_image.height,
+                        pil_image.width * n,
+                        fmt,
+                    )
+                    # .copy() 确保 QPixmap 持有独立数据，buf 可在 fromImage 后释放
+                    return QPixmap.fromImage(qimage.copy())
+        except Exception as exc:
+            self._report_error(exc)
+        # Fallback: 原 PIL→QImage 路径
         if pil_image.mode != "RGBA":
             pil_image = pil_image.convert("RGBA")
-        data = pil_image.tobytes("raw", "RGBA")
+        data = bytearray(pil_image.tobytes("raw", "RGBA"))
         qimage = QImage(
             data,
             pil_image.width,
@@ -1383,8 +1984,9 @@ class RefineWindow(QWidget):
 
         generator = PDFOutputGenerator()
         worker = PDFOutputWorker(
-            generator, corrected_chars, self.page_images,
+            generator, corrected_chars,
             red_path, transparent_path,
+            pdf_path=self._pdf_path,
         )
 
         def on_progress(percent, desc):

@@ -5,4 +5,6 @@ PyMuPDF
 reportlab
 Pillow
 paddlepaddle-gpu
-rapidocr
+rapidocr>=3.9.1
+opencv-python>=4.8
+scikit-learn>=1.3

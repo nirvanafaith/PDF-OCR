@@ -29,6 +29,100 @@ class OCREngine:
         """
         self.results = None
 
+    def _recognize_page(self, page_image, page_idx: int, output_callback=None):
+        """识别单页图像，提取行级和字符级识别结果。
+
+        对单页图像执行 OCR 识别，获取每一行的文本、置信度和边界框，
+        同时获取每个字符的文本、置信度和边界框。行 ID 和字符 ID
+        在本页范围内从 0 开始递增。
+
+        参数:
+            page_image: 页面图像，通常为 PIL.Image 对象
+            page_idx: 页面索引（从 0 开始），用于进度回调提示
+            output_callback: 进度回调函数，接受 str 参数；若为 None 则
+                不输出进度信息
+
+        返回:
+            tuple[list[dict], list[dict]]: 包含两个列表的元组:
+                - lines: 行级识别结果列表，每个元素为字典，包含:
+                    - line_id (int): 行 ID
+                    - text (str): 行文本内容
+                    - score (float): 行识别置信度
+                    - box (list | None): 行边界框坐标
+                - chars: 字符级识别结果列表，每个元素为字典，包含:
+                    - char_id (int): 字符 ID
+                    - line_id (int): 所属行 ID
+                    - char (str): 字符文本
+                    - score (float): 字符识别置信度
+                    - box: 字符边界框坐标
+
+        依赖:
+            rapidocr.RapidOCR: 底层 OCR 识别引擎
+
+        调用关系:
+            被 OCREngine.run_ocr 内部调用（私有方法）
+        """
+        if output_callback:
+            output_callback(f"正在识别第 {page_idx + 1} 页...")
+
+        result = self.engine(page_image, return_word_box=True, return_single_char_box=True)
+
+        lines = []
+        chars = []
+        line_id_counter = 0
+        char_id_counter = 0
+
+        num_lines = len(result.txts) if result.txts is not None else 0
+
+        for i in range(num_lines):
+            line_id = line_id_counter
+            line_id_counter += 1
+
+            line_box = result.boxes[i].tolist() if result.boxes is not None else None
+            line_text = result.txts[i] if result.txts else ""
+            line_score = float(result.scores[i]) if result.scores is not None else 0.0
+
+            line_record = {
+                "line_id": line_id,
+                "text": line_text,
+                "score": line_score,
+                "box": line_box,
+            }
+            lines.append(line_record)
+
+            if result.word_results is not None and i < len(result.word_results):
+                word_line = result.word_results[i]
+                for word_txt, word_score, word_box in word_line:
+                    char_record = {
+                        "char_id": char_id_counter,
+                        "line_id": line_id,
+                        "char": word_txt,
+                        "score": float(word_score),
+                        "box": word_box.tolist() if hasattr(word_box, 'tolist') else word_box,
+                    }
+                    chars.append(char_record)
+                    char_id_counter += 1
+
+        return lines, chars
+
+    def _recognize_page_batch(self, page_images_with_idx, output_callback=None):
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        results = {}
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {}
+            for page_idx, page_image in page_images_with_idx:
+                future = executor.submit(self._recognize_page, page_image, page_idx, None)
+                futures[future] = page_idx
+
+            for future in as_completed(futures):
+                page_idx = futures[future]
+                results[page_idx] = future.result()
+                if output_callback:
+                    output_callback(f"第 {page_idx + 1} 页识别完成")
+
+        return results
+
     def _offset_box(self, box, dx, dy):
         """将边界框坐标偏移 (dx, dy)。"""
         if isinstance(box, list) and len(box) == 4 and all(isinstance(p, list) for p in box):

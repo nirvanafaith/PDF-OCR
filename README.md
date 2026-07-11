@@ -1,4 +1,4 @@
-# PDF-OCR
+﻿# PDF-OCR
 
 > 一句话简介：基于 PyQt6 + RapidOCR / PaddleOCR PP-OCRv5 的可视化 PDF 字符级 OCR 校对工具，专为扫描书页 PDF（含横排现代书籍与竖排古籍）设计。
 

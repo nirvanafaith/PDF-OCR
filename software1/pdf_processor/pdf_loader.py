@@ -16,7 +16,7 @@ class PDFProcessor:
         - os: 文件路径检查
     """
 
-    def convert_to_images(self, pdf_path: str, dpi: int = 200) -> list:
+    def convert_to_images(self, pdf_path: str, dpi: int = 300) -> list:
         """将PDF文件的所有页面转换为PIL图像列表。
 
         逐页渲染PDF并生成对应的RGB图像，支持自定义DPI以控制输出图像的分辨率。
@@ -24,8 +24,9 @@ class PDFProcessor:
 
         参数:
             pdf_path (str): PDF文件的绝对路径。
-            dpi (int, 可选): 渲染分辨率（每英寸点数），默认为200。
+            dpi (int, 可选): 渲染分辨率（每英寸点数），默认为300。
                 值越大输出图像越清晰，但内存占用和渲染时间也会相应增加。
+                默认300与OCREngine.dpi一致，确保坐标空间统一。
 
         返回:
             list[PIL.Image.Image]: 包含所有页面对应RGB图像的列表，
@@ -65,7 +66,7 @@ class PDFProcessor:
         finally:
             doc.close()
 
-    def get_lazy_loader(self, pdf_path: str, dpi: int = 200):
+    def get_lazy_loader(self, pdf_path: str, dpi: int = 300):
         """创建并返回一个懒加载页面加载器实例。
 
         懒加载器不会一次性加载所有页面，而是按需渲染单页图像，
@@ -73,7 +74,8 @@ class PDFProcessor:
 
         参数:
             pdf_path (str): PDF文件的绝对路径。
-            dpi (int, 可选): 渲染分辨率（每英寸点数），默认为200。
+            dpi (int, 可选): 渲染分辨率（每英寸点数），默认为300。
+                与OCREngine.dpi一致，确保regions坐标空间统一。
 
         返回:
             LazyPageLoader: 已初始化的懒加载页面加载器实例。
@@ -130,7 +132,7 @@ class LazyPageLoader:
         - PIL.Image: 将原始像素数据转换为PIL图像对象
     """
 
-    def __init__(self, pdf_path: str, dpi: int = 200):
+    def __init__(self, pdf_path: str, dpi: int = 300):
         """初始化懒加载器，打开PDF文档并预计算渲染参数。
 
         初始化时打开PDF文档、计算缩放矩阵，并初始化LRU缓存相关数据结构。
@@ -138,7 +140,8 @@ class LazyPageLoader:
 
         参数:
             pdf_path (str): PDF文件的绝对路径。
-            dpi (int, 可选): 渲染分辨率（每英寸点数），默认为200。
+            dpi (int, 可选): 渲染分辨率（每英寸点数），默认为300。
+                与OCREngine.dpi一致，确保regions坐标空间统一。
 
         依赖:
             - fitz (PyMuPDF): PDF文档打开与页数读取

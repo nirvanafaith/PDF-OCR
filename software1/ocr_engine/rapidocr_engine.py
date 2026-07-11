@@ -8,10 +8,42 @@ from rapidocr import EngineType, LangDet, LangRec, ModelType, OCRVersion, RapidO
 from models.data_models import CharSlice, LineSlice, flatten_bbox
 
 
+def _try_native():
+    """尝试加载 software_common.native 加速模块。
+
+    成功返回 (pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes, batch_crop_qimage)；
+    失败返回 (None, None, None)。所有 import 在函数内部完成，不影响模块加载。
+    """
+    try:
+        import sys as _sys
+        import os as _os
+        _d = _os.path.dirname(_os.path.abspath(__file__))
+        for _ in range(6):
+            if _os.path.isdir(_os.path.join(_d, "software_common")):
+                if _d not in _sys.path:
+                    _sys.path.insert(0, _d)
+                break
+            _p = _os.path.dirname(_d)
+            if _p == _d:
+                break
+            _d = _p
+        from software_common.native import has_native as _has_native
+        if not _has_native():
+            return None, None, None
+        from software_common.native import (
+            pixmap_bytes_to_qpixmap_buffer,
+            optimize_char_boxes,
+            batch_crop_qimage,
+        )
+        return pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes, batch_crop_qimage
+    except Exception:
+        return None, None, None
+
+
 class OCREngine:
     """基于 RapidOCR 的 OCR 识别引擎，提供 PDF 文档的文字识别与结构化处理能力。
 
-    该引擎封装了 RapidOCR（PP-OCRv5 模型 + ONNXRuntime 引擎）的文本检测和文字识别流程，
+    该引擎封装了 RapidOCR（PP-OCRv6 模型 + ONNXRuntime 引擎）的文本检测和文字识别流程，
     支持逐页识别 PDF 并将结果按行、字符两级粒度进行结构化存储。识别结果可
     保存为 JSON 文件，也可从文件加载，并支持按字符文本分组和构建行级数据
     以供后续校对流程使用。
@@ -27,8 +59,8 @@ class OCREngine:
     def __init__(self):
         """初始化 OCR 引擎实例。
 
-        使用 PP-OCRv5 模型配置检测（Det）和识别（Rec）子模块，
-        采用 ONNXRuntime 引擎和移动端模型。
+        使用 PP-OCRv6 模型配置检测（Det）和识别（Rec）子模块，
+        采用 ONNXRuntime 引擎。GPU 可用时使用 MEDIUM 模型，否则回退到 SMALL 模型。
 
         依赖:
             rapidocr.EngineType: 引擎类型枚举
@@ -37,24 +69,60 @@ class OCREngine:
             rapidocr.ModelType: 模型类型枚举
             rapidocr.OCRVersion: OCR 版本枚举
             rapidocr.RapidOCR: OCR 引擎主类
+            onnxruntime: 用于检测 CUDA 可用性
 
         调用关系:
             被 MainWindow.__init__ 和 OCRPrepareWindow.__init__ 调用
         """
+        import onnxruntime as ort
+        import sys as _sys
+
+        def _is_cuda_really_available():
+            """检测 CUDA 是否真正可用。
+
+            ort.get_available_providers() 可能返回 CUDAExecutionProvider
+            即使 CUDA 运行时 DLL 缺失（如 cublasLt64_12.dll），需要额外验证。
+            """
+            if 'CUDAExecutionProvider' not in ort.get_available_providers():
+                return False
+            # Windows: 检查关键 CUDA DLL 是否可加载
+            if _sys.platform == 'win32':
+                try:
+                    import ctypes
+                    ctypes.WinDLL('cublasLt64_12.dll')
+                    return True
+                except OSError:
+                    return False
+            return True
+
+        # GPU 可用时使用 MEDIUM 模型，否则回退到 SMALL 模型（CPU 上 MEDIUM 过慢）
+        _has_cuda = _is_cuda_really_available()
+        _model_type = ModelType.MEDIUM if _has_cuda else ModelType.SMALL
+
         params = {
-            "EngineConfig.onnxruntime.use_cuda": True,
+            "EngineConfig.onnxruntime.use_cuda": _has_cuda,
             "Det.engine_type": EngineType.ONNXRUNTIME,
             "Det.lang_type": LangDet.CH,
-            "Det.model_type": ModelType.MOBILE,
-            "Det.ocr_version": OCRVersion.PPOCRV5,
+            "Det.model_type": _model_type,
+            "Det.ocr_version": OCRVersion.PPOCRV6,
+            # DBNet 检测参数调优：limit_side_len=2880 匹配 A4@300DPI 高度(约2905-2970px)避免过度缩放导致下半页漏检；降低 box_thresh 和提高 unclip_ratio 以减少漏行
+            "Det.box_thresh": 0.4,
+            "Det.unclip_ratio": 1.8,
+            "Det.max_candidates": 3000,
+            "Det.use_dilation": True,
+            "Det.limit_side_len": 2880,
+            "Det.limit_type": "max",
             "Rec.engine_type": EngineType.ONNXRUNTIME,
             "Rec.lang_type": LangRec.CH,
-            "Rec.model_type": ModelType.MOBILE,
-            "Rec.ocr_version": OCRVersion.PPOCRV5,
+            "Rec.model_type": _model_type,
+            "Rec.ocr_version": OCRVersion.PPOCRV6,
         }
         self.engine = RapidOCR(params=params)
+        self._engine_params = params  # 保留参数供线程局部引擎创建使用
         self.results = None
         self.output_dir = None
+        # PDF 渲染 DPI，默认 300（相比 v5 的 200，小字号行高提升 1.5 倍）
+        self.dpi = 300
 
     def _recognize_page(self, page_image, page_idx: int, output_callback=None):
         """识别单页图像，提取行级和字符级识别结果。
@@ -92,7 +160,26 @@ class OCREngine:
         if output_callback:
             output_callback(f"正在识别第 {page_idx + 1} 页...")
 
-        result = self.engine(page_image, return_word_box=True, return_single_char_box=True)
+        return self._recognize_page_with_engine(
+            self.engine, page_image, page_idx, output_callback
+        )
+
+    def _recognize_page_with_engine(self, engine, page_image, page_idx, output_callback=None):
+        """使用指定引擎识别单页（供线程局部引擎调用）。
+
+        参数:
+            engine: RapidOCR 引擎实例（线程局部创建）
+            page_image: 页面图像
+            page_idx: 页面索引
+            output_callback: 进度回调函数
+
+        返回:
+            tuple[list[dict], list[dict]]: (lines, chars)
+        """
+        if output_callback:
+            output_callback(f"正在识别第 {page_idx + 1} 页...")
+
+        result = engine(page_image, return_word_box=True, return_single_char_box=True)
 
         lines = []
         chars = []
@@ -133,20 +220,58 @@ class OCREngine:
         return lines, chars
 
     def _recognize_page_batch(self, page_images_with_idx, output_callback=None):
+        """并发识别多页，每个线程使用独立的 RapidOCR 实例。
+
+        RapidOCR 不是线程安全的，共享同一实例会导致 box 坐标污染
+        （返回错误页面的坐标）。使用 threading.local() 为每个线程
+        创建独立的引擎实例，确保并发安全。
+
+        参数:
+            page_images_with_idx: (page_idx, page_image) 元组列表
+            output_callback: 进度回调函数
+
+        返回:
+            dict: {page_idx: (lines, chars)} 映射
+        """
+        import threading
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
-        results = {}
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = {}
-            for page_idx, page_image in page_images_with_idx:
-                future = executor.submit(self._recognize_page, page_image, page_idx, None)
-                futures[future] = page_idx
+        # 线程局部存储：每个线程持有独立的 RapidOCR 实例
+        _local = threading.local()
 
-            for future in as_completed(futures):
-                page_idx = futures[future]
-                results[page_idx] = future.result()
-                if output_callback:
-                    output_callback(f"第 {page_idx + 1} 页识别完成")
+        def _get_thread_engine():
+            """获取当前线程的 RapidOCR 实例，首次调用时创建。"""
+            if not hasattr(_local, 'engine'):
+                _local.engine = RapidOCR(params=self._engine_params)
+            return _local.engine
+
+        def _worker(page_image, page_idx):
+            """worker 线程函数：使用线程局部引擎识别单页。"""
+            engine = _get_thread_engine()
+            return self._recognize_page_with_engine(
+                engine, page_image, page_idx, None
+            )
+
+        results = {}
+        try:
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                futures = {}
+                for page_idx, page_image in page_images_with_idx:
+                    future = executor.submit(_worker, page_image, page_idx)
+                    futures[future] = page_idx
+
+                for future in as_completed(futures):
+                    page_idx = futures[future]
+                    results[page_idx] = future.result()
+                    if output_callback:
+                        output_callback(f"第 {page_idx + 1} 页识别完成")
+        except Exception:
+            # 回退：顺序执行（使用主线程的 self.engine）
+            results = {}
+            for page_idx, page_image in page_images_with_idx:
+                results[page_idx] = self._recognize_page(
+                    page_image, page_idx, output_callback
+                )
 
         return results
 
@@ -186,6 +311,9 @@ class OCREngine:
                 每个框为 [x1, y1, x2, y2] 格式的坐标列表；若为 None 或空
                 则对全部页面进行整页识别
 
+        DPI 说明:
+            使用 self.dpi（默认 300）渲染 PDF 为图像
+
         返回:
             tuple[list[dict], list[dict]]: 包含两个列表的元组:
                 - lines: 全部页面的行级识别结果（含 page_num 字段）
@@ -210,7 +338,7 @@ class OCREngine:
         self.output_dir = output_dir
 
         pdf_processor = PDFProcessor()
-        page_images = pdf_processor.convert_to_images(pdf_path)
+        page_images = pdf_processor.convert_to_images(pdf_path, dpi=self.dpi)
 
         if output_callback:
             output_callback(f"共 {len(page_images)} 页，开始识别...")
@@ -292,6 +420,18 @@ class OCREngine:
                 if page_chars:
                     global_char_offset += max(c["char_id"] for c in page_chars) + 1
 
+        # 行合并后处理：DBSCAN 同基线合并，修复空格导致的行分割
+        try:
+            from ocr_engine.line_merger import merge_lines
+            if output_callback:
+                output_callback("正在执行行合并后处理...")
+            all_lines, all_chars = merge_lines(all_lines, all_chars)
+            if output_callback:
+                output_callback(f"行合并完成，共 {len(all_lines)} 行 {len(all_chars)} 字符")
+        except Exception as e:
+            if output_callback:
+                output_callback(f"行合并失败，跳过: {e}")
+
         pdf_basename = os.path.splitext(os.path.basename(pdf_path))[0]
         json_dir = os.path.join(output_dir, pdf_basename)
         os.makedirs(json_dir, exist_ok=True)
@@ -360,45 +500,63 @@ class OCREngine:
             img_h, img_w = img_array.shape[:2]
             mask = np.any(img_array < WHITE_THRESHOLD, axis=2)
 
-            for char in chars_on_page:
-                box = char.get("box", [])
-                if len(box) != 4:
-                    continue
+            # H2: 尝试 native 批量优化
+            native_results = None
+            try:
+                _, optimize_char_boxes_native, _ = _try_native()
+                if optimize_char_boxes_native is not None:
+                    native_results = optimize_char_boxes_native(
+                        mask.astype(np.uint8), chars_on_page
+                    )
+            except Exception:
+                native_results = None
 
-                # 展平为 [x1, y1, x2, y2]
-                xs = [pt[0] for pt in box]
-                ys = [pt[1] for pt in box]
-                x1, y1 = min(xs), min(ys)
-                x2, y2 = max(xs), max(ys)
+            if native_results is not None and len(native_results) == len(chars_on_page):
+                # 使用 native 结果更新 box（valid 时 box 已是 4 角点格式）
+                for char, res in zip(chars_on_page, native_results):
+                    if res.get("valid"):
+                        char["box"] = res.get("box")
+            else:
+                # Fallback: 原有 numpy 逐字符优化
+                for char in chars_on_page:
+                    box = char.get("box", [])
+                    if len(box) != 4:
+                        continue
 
-                w = x2 - x1
-                h = y2 - y1
-                if w <= 0 or h <= 0:
-                    continue
+                    # 展平为 [x1, y1, x2, y2]
+                    xs = [pt[0] for pt in box]
+                    ys = [pt[1] for pt in box]
+                    x1, y1 = min(xs), min(ys)
+                    x2, y2 = max(xs), max(ys)
 
-                # 裁剪到图像边界
-                x1_c = max(0, int(round(x1)))
-                y1_c = max(0, int(round(y1)))
-                x2_c = min(img_w, int(round(x2)))
-                y2_c = min(img_h, int(round(y2)))
+                    w = x2 - x1
+                    h = y2 - y1
+                    if w <= 0 or h <= 0:
+                        continue
 
-                # 优化四条边
-                new_x1 = self._optimize_edge_x(mask, x1, y1_c, y2_c, w, img_w)
-                new_x2 = self._optimize_edge_x(mask, x2, y1_c, y2_c, w, img_w)
-                new_y1 = self._optimize_edge_y(mask, y1, x1_c, x2_c, h, img_h)
-                new_y2 = self._optimize_edge_y(mask, y2, x1_c, x2_c, h, img_h)
+                    # 裁剪到图像边界
+                    x1_c = max(0, int(round(x1)))
+                    y1_c = max(0, int(round(y1)))
+                    x2_c = min(img_w, int(round(x2)))
+                    y2_c = min(img_h, int(round(y2)))
 
-                # 验证有效性
-                if new_x1 >= new_x2 or new_y1 >= new_y2:
-                    continue
+                    # 优化四条边
+                    new_x1 = self._optimize_edge_x(mask, x1, y1_c, y2_c, w, img_w)
+                    new_x2 = self._optimize_edge_x(mask, x2, y1_c, y2_c, w, img_w)
+                    new_y1 = self._optimize_edge_y(mask, y1, x1_c, x2_c, h, img_h)
+                    new_y2 = self._optimize_edge_y(mask, y2, x1_c, x2_c, h, img_h)
 
-                # 转回4角点格式
-                char["box"] = [
-                    [new_x1, new_y1],
-                    [new_x2, new_y1],
-                    [new_x2, new_y2],
-                    [new_x1, new_y2],
-                ]
+                    # 验证有效性
+                    if new_x1 >= new_x2 or new_y1 >= new_y2:
+                        continue
+
+                    # 转回4角点格式
+                    char["box"] = [
+                        [new_x1, new_y1],
+                        [new_x2, new_y1],
+                        [new_x2, new_y2],
+                        [new_x1, new_y2],
+                    ]
 
         # 保存为 newchar.json
         newchar_path = os.path.join(json_dir, "newchar.json")
@@ -564,10 +722,14 @@ class OCREngine:
         """
         lines, chars = results
         grouped = {}
+        padding = 6
 
+        # 第一遍：收集每个字符的裁切信息
+        char_infos = []
         for char_data in chars:
             char_text = char_data.get("char", "")
             if not char_text:
+                char_infos.append(None)
                 continue
 
             page_num = char_data.get("page_num", 0)
@@ -580,28 +742,94 @@ class OCREngine:
             page_image = page_images[page_num] if page_num < len(page_images) else None
             img_width, img_height = page_image.size if page_image else (0, 0)
 
-            padding = 6
             crop_x1 = max(0, int(round(bbox_flat[0])) - padding)
             crop_y1 = max(0, int(round(bbox_flat[1])) - padding)
             crop_x2 = min(img_width, int(round(bbox_flat[2])) + padding)
             crop_y2 = min(img_height, int(round(bbox_flat[3])) + padding)
 
-            cropped_image = None
-            if page_image and crop_x2 > crop_x1 and crop_y2 > crop_y1:
-                cropped_image = page_image.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+            char_infos.append({
+                "char_text": char_text,
+                "page_num": page_num,
+                "bbox_flat": bbox_flat,
+                "line_id": line_id,
+                "char_id": char_id,
+                "page_image": page_image,
+                "crop": (crop_x1, crop_y1, crop_x2, crop_y2),
+                "valid": bool(page_image and crop_x2 > crop_x1 and crop_y2 > crop_y1),
+                "image": None,
+            })
 
+        # 第二遍：按页批量裁切（H3 native，失败则逐个 PIL crop）
+        page_groups = {}
+        for i, info in enumerate(char_infos):
+            if info is not None and info["valid"]:
+                page_groups.setdefault(info["page_num"], []).append(i)
+
+        for page_num, indices in page_groups.items():
+            page_image = char_infos[indices[0]]["page_image"]
+            native_images = None
+            try:
+                _, _, batch_crop_qimage = _try_native()
+                if batch_crop_qimage is not None and page_image is not None:
+                    w, h = page_image.size
+                    if page_image.mode == "RGBA":
+                        page_rgba = page_image.tobytes("raw", "RGBA")
+                    else:
+                        page_rgba = page_image.convert("RGBA").tobytes("raw", "RGBA")
+                    bboxes = []
+                    for i in indices:
+                        bf = char_infos[i]["bbox_flat"]
+                        bboxes.append([
+                            int(round(bf[0])), int(round(bf[1])),
+                            int(round(bf[2])), int(round(bf[3])),
+                        ])
+                    native_results = batch_crop_qimage(page_rgba, w, h, bboxes, padding)
+                    if native_results is not None and len(native_results) == len(indices):
+                        from PIL import Image as _PILImage
+                        native_images = []
+                        for j, buf in enumerate(native_results):
+                            i = indices[j]
+                            cx1, cy1, cx2, cy2 = char_infos[i]["crop"]
+                            cw, ch = cx2 - cx1, cy2 - cy1
+                            if buf:
+                                try:
+                                    img = _PILImage.frombytes("RGBA", (cw, ch), buf)
+                                    if img.mode != page_image.mode:
+                                        img = img.convert(page_image.mode)
+                                    native_images.append(img)
+                                except Exception:
+                                    native_images.append(None)
+                            else:
+                                native_images.append(None)
+            except Exception:
+                native_images = None
+
+            # 分配裁切结果（native 失败或单张为空时回落到 PIL crop）
+            for j, i in enumerate(indices):
+                if native_images is not None and native_images[j] is not None:
+                    char_infos[i]["image"] = native_images[j]
+                else:
+                    char_infos[i]["image"] = char_infos[i]["page_image"].crop(
+                        char_infos[i]["crop"]
+                    )
+
+        # 第三遍：构建 CharSlice 并分组（保持原序）
+        for info in char_infos:
+            if info is None:
+                continue
+            cropped_image = info["image"] if info["valid"] else None
             char_slice = CharSlice(
-                page_num=page_num,
-                bbox=list(bbox_flat),
+                page_num=info["page_num"],
+                bbox=list(info["bbox_flat"]),
                 image=cropped_image,
-                text=char_text,
-                line_id=line_id,
-                char_id=char_id,
+                text=info["char_text"],
+                line_id=info["line_id"],
+                char_id=info["char_id"],
             )
 
-            if char_text not in grouped:
-                grouped[char_text] = []
-            grouped[char_text].append(char_slice)
+            if info["char_text"] not in grouped:
+                grouped[info["char_text"]] = []
+            grouped[info["char_text"]].append(char_slice)
 
         return grouped
 
@@ -662,13 +890,70 @@ class OCREngine:
             page_image = page_images[page_num] if page_num < len(page_images) else None
             lines_result = []
 
+            # H3: 预计算行 bbox 与裁切坐标，批量裁切
+            line_bboxes_flat = []
+            line_crop_coords = []
             for line in page_lines_list:
+                line_box = line.get("box", [0, 0, 0, 0])
+                line_bbox = flatten_bbox(line_box)
+                line_bboxes_flat.append(line_bbox)
+                if page_image:
+                    x1 = max(0, int(round(line_bbox[0])))
+                    y1 = max(0, int(round(line_bbox[1])))
+                    x2 = min(page_image.size[0], int(round(line_bbox[2])))
+                    y2 = min(page_image.size[1], int(round(line_bbox[3])))
+                else:
+                    x1 = y1 = x2 = y2 = 0
+                line_crop_coords.append((x1, y1, x2, y2))
+
+            # 尝试 native 批量裁切（padding=0）
+            line_images_native = None
+            try:
+                _, _, batch_crop_qimage = _try_native()
+                if batch_crop_qimage is not None and page_image is not None:
+                    w, h = page_image.size
+                    if page_image.mode == "RGBA":
+                        page_rgba = page_image.tobytes("raw", "RGBA")
+                    else:
+                        page_rgba = page_image.convert("RGBA").tobytes("raw", "RGBA")
+                    valid_bboxes = []
+                    valid_indices = []
+                    for idx, (x1, y1, x2, y2) in enumerate(line_crop_coords):
+                        if x2 > x1 and y2 > y1:
+                            lb = line_bboxes_flat[idx]
+                            valid_bboxes.append([
+                                int(round(lb[0])), int(round(lb[1])),
+                                int(round(lb[2])), int(round(lb[3])),
+                            ])
+                            valid_indices.append(idx)
+                    if valid_bboxes:
+                        native_results = batch_crop_qimage(page_rgba, w, h, valid_bboxes, 0)
+                        if native_results is not None and len(native_results) == len(valid_bboxes):
+                            from PIL import Image as _PILImage
+                            line_images_native = {}
+                            for j, buf in enumerate(native_results):
+                                idx = valid_indices[j]
+                                x1, y1, x2, y2 = line_crop_coords[idx]
+                                cw, ch = x2 - x1, y2 - y1
+                                if buf:
+                                    try:
+                                        img = _PILImage.frombytes("RGBA", (cw, ch), buf)
+                                        if img.mode != page_image.mode:
+                                            img = img.convert(page_image.mode)
+                                        line_images_native[idx] = img
+                                    except Exception:
+                                        line_images_native[idx] = None
+                                else:
+                                    line_images_native[idx] = None
+            except Exception:
+                line_images_native = None
+
+            for line_idx, line in enumerate(page_lines_list):
                 line_id = line.get("line_id", -1)
                 line_text = line.get("text", "")
                 line_score = line.get("score", 0)
-                line_box = line.get("box", [0, 0, 0, 0])
 
-                line_bbox = flatten_bbox(line_box)
+                line_bbox = line_bboxes_flat[line_idx]
 
                 updated_chars = []
                 updated_text_parts = []
@@ -700,13 +985,15 @@ class OCREngine:
                 if char_slices:
                     line_text = "".join(updated_text_parts)
 
+                # 行图像裁切：优先 native，失败则 PIL crop
+                x1, y1, x2, y2 = line_crop_coords[line_idx]
                 line_image = None
-                if page_image:
-                    x1 = max(0, int(round(line_bbox[0])))
-                    y1 = max(0, int(round(line_bbox[1])))
-                    x2 = min(page_image.size[0], int(round(line_bbox[2])))
-                    y2 = min(page_image.size[1], int(round(line_bbox[3])))
-                    if x2 > x1 and y2 > y1:
+                if page_image and x2 > x1 and y2 > y1:
+                    if (line_images_native is not None
+                            and line_idx in line_images_native
+                            and line_images_native[line_idx] is not None):
+                        line_image = line_images_native[line_idx]
+                    else:
                         line_image = page_image.crop((x1, y1, x2, y2))
 
                 line_slice = LineSlice(

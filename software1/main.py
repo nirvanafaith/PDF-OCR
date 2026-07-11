@@ -1,5 +1,16 @@
 import os
 import site
+import sys
+
+# 启动期诊断：打印 _hxnative C++ 加速扩展的加载状态（缺失不影响运行）
+try:
+    _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _root not in sys.path:
+        sys.path.insert(0, _root)
+    from software_common.native import native_status
+    print(native_status(), file=sys.stderr)
+except Exception as _e:
+    print(f"native: diagnostic skipped ({_e})", file=sys.stderr)
 
 site_dir = site.getsitepackages()[1]
 nvidia_base = os.path.join(site_dir, 'nvidia')

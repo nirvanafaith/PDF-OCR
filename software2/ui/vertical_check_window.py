@@ -26,14 +26,63 @@ from PyQt5.QtWidgets import (
     QToolTip,
     QStyledItemDelegate,
     QStyle,
+    QUndoStack,
+    QShortcut,
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QSize, QPoint, QEvent, QRect, QRectF, QPointF, QTimer
-from PyQt5.QtGui import QPixmap, QImage, QPen, QBrush, QColor, QCursor, QTransform
+from PyQt5.QtGui import QPixmap, QImage, QPen, QBrush, QColor, QCursor, QTransform, QKeySequence
 
 from collections import OrderedDict
 
 from models.data_models import CharSlice, flatten_bbox
 from ui.styles import get_stylesheet
+from undo_commands import (
+    ModifyCharCommand,
+    DeleteSliceCommand,
+    ModifyRedBoxCommand,
+    MoveSliceCommand,
+)
+
+
+_NATIVE_CACHE = None
+
+
+def _try_native():
+    """尝试加载 software_common.native 加速模块。
+
+    成功返回 (pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes, batch_crop_qimage)；
+    失败返回 (None, None, None)。所有 import 在函数内部完成，不影响模块加载。
+    结果缓存到模块级 _NATIVE_CACHE，进程生命周期内仅探测一次文件系统。
+    """
+    global _NATIVE_CACHE
+    if _NATIVE_CACHE is not None:
+        return _NATIVE_CACHE
+    try:
+        import sys as _sys
+        import os as _os
+        _d = _os.path.dirname(_os.path.abspath(__file__))
+        for _ in range(6):
+            if _os.path.isdir(_os.path.join(_d, "software_common")):
+                if _d not in _sys.path:
+                    _sys.path.insert(0, _d)
+                break
+            _p = _os.path.dirname(_d)
+            if _p == _d:
+                break
+            _d = _p
+        from software_common.native import has_native as _has_native
+        if not _has_native():
+            _NATIVE_CACHE = (None, None, None)
+            return _NATIVE_CACHE
+        from software_common.native import (
+            pixmap_bytes_to_qpixmap_buffer,
+            optimize_char_boxes,
+            batch_crop_qimage,
+        )
+        _NATIVE_CACHE = (pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes, batch_crop_qimage)
+    except Exception:
+        _NATIVE_CACHE = (None, None, None)
+    return _NATIVE_CACHE
 
 
 class PreviewGraphicsView(QGraphicsView):
@@ -60,6 +109,10 @@ class PreviewGraphicsView(QGraphicsView):
         self._resize_start_pos = None
         self._resized_dirty = False
         self._resized_rect = None
+        # 中键平移状态
+        self._mid_panning = False
+        self._mid_start_pos = QPoint()
+        self._mid_start_pixmap_pos = QPointF()
 
         self.setMouseTracking(True)
         self.setDragMode(QGraphicsView.NoDrag)
@@ -68,7 +121,7 @@ class PreviewGraphicsView(QGraphicsView):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
+        self.setViewportUpdateMode(QGraphicsView.SmartViewportUpdate)
         self.setSceneRect(QRectF(-50000, -50000, 100000, 100000))
 
     def _hit_red_rect_handle(self, view_pos):
@@ -127,6 +180,16 @@ class PreviewGraphicsView(QGraphicsView):
         return (pm.width(), pm.height())
 
     def mousePressEvent(self, event):
+        # 中键平移:启动拖拽(不影响左键交互)
+        if event.button() == Qt.MiddleButton:
+            self._mid_panning = True
+            self._mid_start_pos = QPoint(event.pos())
+            if self._pixmap_item is not None:
+                self._mid_start_pixmap_pos = QPointF(self._pixmap_item.pos())
+            self.setCursor(QCursor(Qt.ClosedHandCursor))
+            event.accept()
+            return
+
         if event.button() != Qt.LeftButton:
             super().mousePressEvent(event)
             return
@@ -181,6 +244,20 @@ class PreviewGraphicsView(QGraphicsView):
         event.accept()
 
     def mouseMoveEvent(self, event):
+        # 中键平移:按 delta/缩放因子平移 pixmap_item
+        if self._mid_panning:
+            delta = event.pos() - self._mid_start_pos
+            current_scale = self.transform().m11()
+            if current_scale != 0 and self._pixmap_item is not None:
+                dx_scene = delta.x() / current_scale
+                dy_scene = delta.y() / current_scale
+                self._pixmap_item.setPos(
+                    self._mid_start_pixmap_pos.x() + dx_scene,
+                    self._mid_start_pixmap_pos.y() + dy_scene,
+                )
+            event.accept()
+            return
+
         if self._resizing and self._rect_item is not None:
             delta = event.pos() - self._resize_start_pos
             scale = self.transform().m11()
@@ -279,6 +356,13 @@ class PreviewGraphicsView(QGraphicsView):
             super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+        # 中键释放:结束平移,恢复光标
+        if event.button() == Qt.MiddleButton and self._mid_panning:
+            self._mid_panning = False
+            self.unsetCursor()
+            event.accept()
+            return
+
         if event.button() == Qt.LeftButton and self._resizing:
             self._resizing = False
             if self._rect_item is not None and self._resize_start_rect is not None:
@@ -609,6 +693,8 @@ class VerticalCheckWindow(QWidget):
 
     finished_signal = pyqtSignal(dict, tuple)
     back_signal = pyqtSignal()
+    error_occurred = pyqtSignal(str)
+    save_requested = pyqtSignal(dict)  # 纵校阶段断点状态,由 MainWindow 接收并合并全局数据
 
     _K_SLICE_SIZE = 90
     _K_SLICE_SPACING = 8
@@ -624,6 +710,11 @@ class VerticalCheckWindow(QWidget):
         self.char_slices = char_slices
         self.page_images = page_images
         self.ocr_results = ocr_results if ocr_results is not None else ([], [])
+        # OCR 结果索引(线性扫描改 O(1) 查找)
+        self._char_index = {}
+        self._line_index = {}
+        self._line_chars_index = {}
+        self._build_indices()
         self._current_char_text = ""
         self._current_page = 0
         self._current_page_size = 100
@@ -651,6 +742,11 @@ class VerticalCheckWindow(QWidget):
         self._relayout_debounce_timer.setSingleShot(True)
         self._relayout_debounce_timer.setInterval(50)
         self._relayout_debounce_timer.timeout.connect(self._relayout_now)
+
+        # 撤销/重做栈
+        self._undo_stack = QUndoStack(self)
+        # 批量操作时抑制 _apply_xxx 内的标签列表刷新(避免循环中重复刷新)
+        self._suppress_label_refresh = False
 
         self._init_ui()
 
@@ -810,6 +906,11 @@ class VerticalCheckWindow(QWidget):
         self._recalc_layout()
         self._refresh_label_list()
 
+        # 注册 Ctrl+Z / Ctrl+Y / Ctrl+S 快捷键
+        QShortcut(QKeySequence.Undo, self, self._undo_stack.undo)   # Ctrl+Z 撤销
+        QShortcut(QKeySequence.Redo, self, self._undo_stack.redo)   # Ctrl+Y 重做
+        QShortcut(QKeySequence.Save, self, self._save_project)      # Ctrl+S 保存
+
     def _recalc_layout(self):
         """根据 viewport 宽度动态计算网格列数、行数和每页容量。"""
         viewport_width = self.scroll_area.viewport().width()
@@ -836,6 +937,17 @@ class VerticalCheckWindow(QWidget):
     def _relayout_now(self):
         """防抖触发的重新布局。"""
         self._recalc_layout()
+
+    def _report_error(self, exc):
+        """统一错误处理:打印 traceback 并发射 error_occurred 信号通知状态栏回显。
+
+        在 except 块内调用,traceback.print_exc() 依赖当前异常上下文。
+        """
+        traceback.print_exc()
+        try:
+            self.error_occurred.emit(f"操作失败：{exc}")
+        except Exception:
+            pass
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -877,9 +989,9 @@ class VerticalCheckWindow(QWidget):
             self._current_preview_index = None
             # 同一字符保留页码，切换才重置
             self._update_slice_display(char_text, char_text != self._current_char_text)
-        except Exception:
+        except Exception as exc:
             self.label_list.blockSignals(False)
-            traceback.print_exc()
+            self._report_error(exc)
 
     def _update_slice_display(self, char_text: str, reset_page: bool = True):
         self._current_char_text = char_text
@@ -939,8 +1051,8 @@ class VerticalCheckWindow(QWidget):
             self._last_clicked_index = slice_index
             self._refresh_slice_selection_visuals()
             self._preview_slice(slice_index)
-        except Exception:
-            traceback.print_exc()
+        except Exception as exc:
+            self._report_error(exc)
 
     def _refresh_slice_selection_visuals(self):
         """刷新所有切片的选中状态视觉效果。"""
@@ -968,11 +1080,10 @@ class VerticalCheckWindow(QWidget):
 
             lines, chars = self.ocr_results
             line_box = None
-            for line_data in lines:
-                if (line_data.get("page_num") == char_slice.page_num and
-                        line_data.get("line_id") == char_slice.line_id):
-                    line_box = line_data.get("box")
-                    break
+            line_key = (char_slice.page_num, char_slice.line_id)
+            line_idx = self._line_index.get(line_key)
+            if line_idx is not None:
+                line_box = lines[line_idx].get("box")
 
             page_num = char_slice.page_num
             if page_num >= len(self.page_images):
@@ -1038,10 +1149,10 @@ class VerticalCheckWindow(QWidget):
             overlay_rects = None
             if self.show_other_chars_cb.isChecked():
                 overlay_rects = []
-                for char_data in chars:
-                    if (char_data.get("page_num") == char_slice.page_num and
-                            char_data.get("line_id") == char_slice.line_id and
-                            char_data.get("char_id") != char_slice.char_id):
+                line_key = (char_slice.page_num, char_slice.line_id)
+                for char_idx in self._line_chars_index.get(line_key, []):
+                    char_data = chars[char_idx]
+                    if char_data.get("char_id") != char_slice.char_id:
                         ov_bbox = flatten_bbox(char_data.get("box", [0, 0, 0, 0]))
                         ox = ov_bbox[0] - crop_x1
                         oy = ov_bbox[1] - crop_y1
@@ -1056,8 +1167,8 @@ class VerticalCheckWindow(QWidget):
             # 居中: 使用 rect_item 的 sceneBoundingRect (反映 pixmap_item 的 pos 偏移)
             if self.preview_view._rect_item is not None:
                 self.preview_view.center_on_rect(self.preview_view._rect_item.sceneBoundingRect())
-        except Exception:
-            traceback.print_exc()
+        except Exception as exc:
+            self._report_error(exc)
 
     def _on_overlay_toggle(self, state):
         """复选框状态变化时重新渲染当前预览,以显示/隐藏蓝框叠加。"""
@@ -1065,8 +1176,8 @@ class VerticalCheckWindow(QWidget):
             self.preview_view._overlay_interaction_enabled = bool(state)
             if self._current_preview_index is not None:
                 self._preview_slice(self._current_preview_index)
-        except Exception:
-            traceback.print_exc()
+        except Exception as exc:
+            self._report_error(exc)
 
     def _compute_low_score_threshold(self, slices: list) -> float:
         if not slices:
@@ -1129,13 +1240,13 @@ class VerticalCheckWindow(QWidget):
             )
             self.prev_page_btn.setEnabled(self._current_page > 0)
             self.next_page_btn.setEnabled(self._current_page < total_pages - 1)
-        except Exception:
-            traceback.print_exc()
+        except Exception as exc:
+            self._report_error(exc)
 
     def _on_slice_modify_requested(self, slice_index: int, new_text: str):
         """处理就地修改请求(右下角输入框编辑完成)。
 
-        暂不移动切片,只更新 OCR results、记录挂起修改、刷新显示。
+        暂不移动切片,只通过 ModifyCharCommand 更新 OCR results、记录挂起修改。
         若该切片在选中集中且选中数>1,连锁同步所有选中切片。
         实际移动在 _flush_pending_modifications(下一步)时进行。
         """
@@ -1145,14 +1256,22 @@ class VerticalCheckWindow(QWidget):
             if slice_index < 0 or slice_index >= len(slices):
                 return
             char_slice = slices[slice_index]
-            # 更新 OCR results (复用修改字符的 JSON 更新逻辑)
-            self._update_ocr_results_char(char_slice, new_text)
+            # 通过 ModifyCharCommand 更新 OCR results(命令 redo 会刷新 widget)
+            lines, chars = self.ocr_results
+            key = (char_slice.page_num, char_slice.line_id, char_slice.char_id)
+            char_index = self._char_index.get(key)
+            if char_index is not None and 0 <= char_index < len(chars):
+                old_char = chars[char_index].get("char", "")
+                cmd = ModifyCharCommand(self, char_index, old_char, new_text)
+                self._undo_stack.push(cmd)
+            else:
+                # 回退:索引缺失时直接更新
+                self._update_ocr_results_char(char_slice, new_text)
+                widget = self._current_slice_widgets.get(slice_index)
+                if widget is not None:
+                    widget.set_char_text(new_text)
             # 记录挂起修改
             self._pending_modifications[slice_index] = new_text
-            # 更新当前 widget 显示
-            widget = self._current_slice_widgets.get(slice_index)
-            if widget is not None:
-                widget.set_char_text(new_text)
             # 连锁修改:若该切片在选中集中且选中数>1,同步所有选中切片
             if (slice_index in self._selected_indices
                     and len(self._selected_indices) > 1):
@@ -1162,13 +1281,23 @@ class VerticalCheckWindow(QWidget):
                     if idx < 0 or idx >= len(slices):
                         continue
                     sub_slice = slices[idx]
-                    self._update_ocr_results_char(sub_slice, new_text)
+                    sub_key = (sub_slice.page_num, sub_slice.line_id,
+                               sub_slice.char_id)
+                    sub_char_index = self._char_index.get(sub_key)
+                    if sub_char_index is not None and 0 <= sub_char_index < len(chars):
+                        sub_old_char = chars[sub_char_index].get("char", "")
+                        sub_cmd = ModifyCharCommand(
+                            self, sub_char_index, sub_old_char, new_text
+                        )
+                        self._undo_stack.push(sub_cmd)
+                    else:
+                        self._update_ocr_results_char(sub_slice, new_text)
+                        sub_widget = self._current_slice_widgets.get(idx)
+                        if sub_widget is not None:
+                            sub_widget.set_char_text(new_text)
                     self._pending_modifications[idx] = new_text
-                    sub_widget = self._current_slice_widgets.get(idx)
-                    if sub_widget is not None:
-                        sub_widget.set_char_text(new_text)
-        except Exception:
-            traceback.print_exc()
+        except Exception as exc:
+            self._report_error(exc)
 
     def _apply_modify_to_selection(self, slice_index: int, new_text: str):
         """将修改应用到指定索引的切片(对话框方式立即移动)。
@@ -1181,53 +1310,64 @@ class VerticalCheckWindow(QWidget):
             if slice_index < 0 or slice_index >= len(slices):
                 return
             char_slice = slices[slice_index]
-            self._update_ocr_results_char(char_slice, new_text)
+            # 通过 ModifyCharCommand 更新 OCR results
+            lines, chars = self.ocr_results
+            key = (char_slice.page_num, char_slice.line_id, char_slice.char_id)
+            char_index = self._char_index.get(key)
+            if char_index is not None and 0 <= char_index < len(chars):
+                old_char = chars[char_index].get("char", "")
+                self._undo_stack.push(
+                    ModifyCharCommand(self, char_index, old_char, new_text)
+                )
+            else:
+                self._update_ocr_results_char(char_slice, new_text)
+            # 通过 MoveSliceCommand 移动切片到新字符集合
             self._move_slice_to_new_char(slice_index, new_text)
-        except Exception:
-            traceback.print_exc()
+        except Exception as exc:
+            self._report_error(exc)
 
     def _move_slice_to_new_char(self, slice_index: int, new_text: str):
-        """实际移动切片到新字符集合(在 flush 或对话框确认时调用)。"""
+        """移动切片到新字符集合(通过 MoveSliceCommand,支持撤销/重做)。
+
+        在 flush 或对话框确认时调用。实际移动逻辑由 _apply_move_slice 完成。
+        """
         try:
             current_char = self._current_char_text
             slices = self.char_slices.get(current_char, [])
             if slice_index < 0 or slice_index >= len(slices):
                 return
             char_slice = slices[slice_index]
-
-            keys_to_remove = [k for k in self._pixmap_cache
-                              if k[0] in (current_char, new_text)]
-            for k in keys_to_remove:
-                del self._pixmap_cache[k]
-
-            slices.pop(slice_index)
-            char_slice.text = new_text
-
-            if new_text not in self.char_slices:
-                self.char_slices[new_text] = []
-            self.char_slices[new_text].append(char_slice)
-
-            if not slices:
-                del self.char_slices[current_char]
-        except Exception:
-            traceback.print_exc()
+            # 推入 MoveSliceCommand,redo 时由 _apply_move_slice 执行实际移动
+            cmd = MoveSliceCommand(
+                self, current_char, slice_index, new_text, char_slice
+            )
+            self._undo_stack.push(cmd)
+        except Exception as exc:
+            self._report_error(exc)
 
     def _flush_pending_modifications(self):
         """批量应用所有挂起的修改(按索引降序处理以避免偏移问题)。
 
         若集合键发生变化(有删除或新增),刷新左侧导航栏。
+        批量操作期间抑制 _apply_move_slice 内部的标签刷新,避免循环中重复刷新。
         """
         if not self._pending_modifications:
             return
         # 记录 flush 前的集合键,用于检测变化
         old_keys = set(self.char_slices.keys())
-        for idx in sorted(self._pending_modifications.keys(), reverse=True):
-            new_text = self._pending_modifications[idx]
-            self._move_slice_to_new_char(idx, new_text)
+        # 批量操作:抑制 _apply_move_slice 内部的标签列表刷新
+        self._suppress_label_refresh = True
+        try:
+            for idx in sorted(self._pending_modifications.keys(), reverse=True):
+                new_text = self._pending_modifications[idx]
+                self._move_slice_to_new_char(idx, new_text)
+        finally:
+            self._suppress_label_refresh = False
         self._pending_modifications.clear()
-        # 若集合发生变化(有删除或新增),刷新导航栏
+        # 若集合发生变化(有删除或新增),刷新导航栏与当前页
         if set(self.char_slices.keys()) != old_keys:
             self._refresh_label_list()
+        self._render_current_page()
 
     def flush_current_pending(self):
         """公共方法：刷新当前字符组的挂起修改。
@@ -1298,12 +1438,12 @@ class VerticalCheckWindow(QWidget):
             elif self.label_list.count() > 0:
                 self.label_list.setCurrentRow(0)
             self.label_list.blockSignals(False)
-        except Exception:
+        except Exception as exc:
             self.label_list.blockSignals(False)
-            traceback.print_exc()
+            self._report_error(exc)
 
     def _on_delete_slice(self, slice_index: int):
-        """处理切片删除操作。"""
+        """处理切片删除操作(通过 DeleteSliceCommand,支持撤销/重做)。"""
         try:
             self._pending_modifications.clear()
             current_item = self.label_list.currentItem()
@@ -1315,18 +1455,11 @@ class VerticalCheckWindow(QWidget):
             if slice_index < 0 or slice_index >= len(slices):
                 return
             char_slice = slices[slice_index]
-            self._update_ocr_results_char(char_slice, "")
+            # 推入 DeleteSliceCommand,redo 时由 _apply_delete_slice 执行删除
+            cmd = DeleteSliceCommand(self, current_char, slice_index, char_slice)
+            self._undo_stack.push(cmd)
 
-            keys_to_remove = [k for k in self._pixmap_cache
-                              if k[0] == current_char]
-            for k in keys_to_remove:
-                del self._pixmap_cache[k]
-
-            slices.pop(slice_index)
-            if not slices:
-                del self.char_slices[current_char]
-            self._refresh_label_list()
-
+            # 导航:尽量停留在当前字符集合,否则跳到下一个
             self.label_list.blockSignals(True)
             if current_char in self.char_slices:
                 for i in range(self.label_list.count()):
@@ -1343,9 +1476,9 @@ class VerticalCheckWindow(QWidget):
                 if current_item:
                     self._update_slice_display(current_item.data(Qt.UserRole))
             self.label_list.blockSignals(False)
-        except Exception:
+        except Exception as exc:
             self.label_list.blockSignals(False)
-            traceback.print_exc()
+            self._report_error(exc)
 
     def _on_next_step(self):
         """处理"下一步"按钮点击事件。
@@ -1393,10 +1526,10 @@ class VerticalCheckWindow(QWidget):
                     self.finished_signal.emit(self.char_slices, self.ocr_results)
                 finally:
                     QApplication.restoreOverrideCursor()
-        except Exception:
+        except Exception as exc:
             from PyQt5.QtWidgets import QApplication
             QApplication.restoreOverrideCursor()
-            traceback.print_exc()
+            self._report_error(exc)
 
     def _refresh_label_list(self):
         """刷新左侧字符列表。"""
@@ -1422,9 +1555,43 @@ class VerticalCheckWindow(QWidget):
     def _pil_to_pixmap(self, pil_image) -> QPixmap:
         if pil_image is None:
             return QPixmap()
+        # H1: native 直通路径
+        try:
+            pixmap_bytes_to_qpixmap_buffer = _try_native()[0]
+            if pixmap_bytes_to_qpixmap_buffer is not None:
+                if pil_image.mode == "RGBA":
+                    raw = pil_image.tobytes("raw", "RGBA")
+                    n = 4
+                    fmt = QImage.Format_RGBA8888
+                elif pil_image.mode == "RGB":
+                    raw = pil_image.tobytes("raw", "RGB")
+                    n = 3
+                    fmt = QImage.Format_RGB888
+                else:
+                    pil_image = pil_image.convert("RGBA")
+                    raw = pil_image.tobytes("raw", "RGBA")
+                    n = 4
+                    fmt = QImage.Format_RGBA8888
+                buf = pixmap_bytes_to_qpixmap_buffer(
+                    raw, pil_image.width, pil_image.height, n, 0
+                )
+                if buf is not None:
+                    qimage = QImage(
+                        buf,
+                        pil_image.width,
+                        pil_image.height,
+                        pil_image.width * n,
+                        fmt,
+                    )
+                    # .copy() 确保 QPixmap 持有独立数据，buf 可在 fromImage 后释放
+                    return QPixmap.fromImage(qimage.copy())
+        except Exception:
+            pass
+        # Fallback: 原 PIL→QImage 路径
         if pil_image.mode != "RGBA":
             pil_image = pil_image.convert("RGBA")
-        data = pil_image.tobytes("raw", "RGBA")
+        # bytearray 持有可变副本，避免 PIL 释放后 bytes 失效导致花屏
+        data = bytearray(pil_image.tobytes("raw", "RGBA"))
         qimage = QImage(
             data,
             pil_image.width,
@@ -1497,35 +1664,35 @@ class VerticalCheckWindow(QWidget):
                 if self._selected_indices:
                     first = min(self._selected_indices)
                     self._preview_slice(first)
-        except Exception:
-            traceback.print_exc()
+        except Exception as exc:
+            self._report_error(exc)
 
     def _delete_selected(self):
-        """删除所有选中的切片（Keyboard Delete 键）。"""
+        """删除所有选中的切片（Keyboard Delete 键,通过 DeleteSliceCommand 支持撤销/重做）。"""
         if not self._selected_indices:
             return
         try:
             current_char = self._current_char_text
             original_row = self.label_list.currentRow()
             slices = self.char_slices.get(current_char, [])
-            for idx in sorted(self._selected_indices, reverse=True):
-                if 0 <= idx < len(slices):
-                    char_slice = slices[idx]
-                    self._update_ocr_results_char(char_slice, "")
-            keys_to_remove = [k for k in self._pixmap_cache if k[0] == current_char]
-            for k in keys_to_remove:
-                del self._pixmap_cache[k]
-
-            for idx in sorted(self._selected_indices, reverse=True):
-                if 0 <= idx < len(slices):
-                    slices.pop(idx)
+            # 批量操作:抑制 _apply_delete_slice 内部的标签刷新
+            self._suppress_label_refresh = True
+            try:
+                # 按索引降序处理以避免偏移问题
+                for idx in sorted(self._selected_indices, reverse=True):
+                    if 0 <= idx < len(slices):
+                        char_slice = slices[idx]
+                        cmd = DeleteSliceCommand(
+                            self, current_char, idx, char_slice
+                        )
+                        self._undo_stack.push(cmd)
+            finally:
+                self._suppress_label_refresh = False
 
             self._selected_indices.clear()
             self._last_clicked_index = None
 
-            if not slices:
-                del self.char_slices[current_char]
-
+            # 批量删除后统一刷新
             self._refresh_label_list()
 
             if current_char in self.char_slices:
@@ -1542,31 +1709,227 @@ class VerticalCheckWindow(QWidget):
                 current_item = self.label_list.currentItem()
                 if current_item:
                     self._update_slice_display(current_item.data(Qt.UserRole))
-        except Exception:
-            traceback.print_exc()
+        except Exception as exc:
+            self._report_error(exc)
+
+    def _build_indices(self):
+        """构建 OCR 结果索引,将线性扫描改为 O(1) 查找。
+
+        _char_index: {(page_num, line_id, char_id): index_in_chars_list}
+        _line_index: {(page_num, line_id): index_in_lines_list}
+        _line_chars_index: {(page_num, line_id): [indices_in_chars_list]}
+
+        注意:当前代码仅就地修改 chars 字典字段(char/box),不从列表增删条目,
+        故索引在会话期内保持有效。若后续支持增删 chars 条目,需重建或增量更新索引。
+        """
+        lines, chars = self.ocr_results
+        self._char_index = {}
+        self._line_index = {}
+        self._line_chars_index = {}
+        for i, line_data in enumerate(lines):
+            key = (line_data.get("page_num"), line_data.get("line_id"))
+            self._line_index[key] = i
+        for i, char_data in enumerate(chars):
+            key = (char_data.get("page_num"), char_data.get("line_id"))
+            self._line_chars_index.setdefault(key, []).append(i)
+            char_key = (char_data.get("page_num"), char_data.get("line_id"),
+                        char_data.get("char_id"))
+            self._char_index[char_key] = i
 
     def _update_ocr_results_char(self, char_slice: CharSlice, new_text: str):
         lines, chars = self.ocr_results
         if not chars:
             return
-        for char_data in chars:
-            if (char_data.get("page_num") == char_slice.page_num and
-                char_data.get("line_id") == char_slice.line_id and
-                char_data.get("char_id") == char_slice.char_id):
-                char_data["char"] = new_text
-                break
+        key = (char_slice.page_num, char_slice.line_id, char_slice.char_id)
+        idx = self._char_index.get(key)
+        if idx is not None:
+            chars[idx]["char"] = new_text
 
     def _update_ocr_results_char_box(self, char_slice: CharSlice, new_bbox):
         """更新 ocr_results 中匹配字符的 box 字段为新的扁平 bbox。"""
         lines, chars = self.ocr_results
         if not chars:
             return
-        for char_data in chars:
-            if (char_data.get("page_num") == char_slice.page_num and
-                char_data.get("line_id") == char_slice.line_id and
-                char_data.get("char_id") == char_slice.char_id):
-                char_data["box"] = list(new_bbox)
+        key = (char_slice.page_num, char_slice.line_id, char_slice.char_id)
+        idx = self._char_index.get(key)
+        if idx is not None:
+            chars[idx]["box"] = list(new_bbox)
+
+    # ==================== 撤销/重做命令的 _apply_xxx 辅助方法 ====================
+    # 这些方法直接修改数据并刷新界面,供命令类的 redo/undo 调用。
+    # 注意:不要再 push 命令(避免无限递归)。
+
+    def _apply_char_modify(self, char_index, new_char):
+        """直接修改 ocr_results 中指定索引字符的 char 字段并刷新对应 widget。
+
+        供 ModifyCharCommand.redo/undo 调用。
+
+        参数:
+            char_index: ocr_results chars 列表中的索引。
+            new_char: 新的字符文本。
+        """
+        lines, chars = self.ocr_results
+        if not (0 <= char_index < len(chars)):
+            return
+        chars[char_index]["char"] = new_char
+        # 查找当前页可见的对应 widget 并更新显示
+        char_data = chars[char_index]
+        target_key = (char_data.get("page_num"), char_data.get("line_id"),
+                      char_data.get("char_id"))
+        slices = self.char_slices.get(self._current_char_text, [])
+        for idx, char_slice in enumerate(slices):
+            if (char_slice.page_num, char_slice.line_id,
+                    char_slice.char_id) == target_key:
+                widget = self._current_slice_widgets.get(idx)
+                if widget is not None:
+                    widget.set_char_text(new_char)
                 break
+
+    def _apply_delete_slice(self, char_text, slice_index):
+        """从 char_slices[char_text] 删除指定索引的切片并刷新界面。
+
+        供 DeleteSliceCommand.redo 调用。
+
+        参数:
+            char_text: 字符集合键。
+            slice_index: 待删除切片在集合中的索引。
+        """
+        slices = self.char_slices.get(char_text, [])
+        if slice_index < 0 or slice_index >= len(slices):
+            return
+        char_slice = slices[slice_index]
+        # 同步 ocr_results 中对应字符标记为空(逻辑删除)
+        self._update_ocr_results_char(char_slice, "")
+        # 失效该字符集合的 pixmap 缓存
+        keys_to_remove = [k for k in self._pixmap_cache if k[0] == char_text]
+        for k in keys_to_remove:
+            del self._pixmap_cache[k]
+        slices.pop(slice_index)
+        if not slices:
+            del self.char_slices[char_text]
+        # 刷新界面
+        if not self._suppress_label_refresh:
+            self._refresh_label_list()
+            self._render_current_page()
+
+    def _apply_insert_slice(self, char_text, slice_index, slice_data):
+        """在 char_slices[char_text] 的指定索引插入切片并刷新界面。
+
+        供 DeleteSliceCommand.undo 调用(恢复被删除的切片)。
+
+        参数:
+            char_text: 字符集合键。
+            slice_index: 插入位置的索引。
+            slice_data: CharSlice 对象。
+        """
+        slices = self.char_slices.setdefault(char_text, [])
+        if slice_index < 0:
+            slice_index = 0
+        if slice_index > len(slices):
+            slice_index = len(slices)
+        # 同步 ocr_results 中对应字符恢复
+        if hasattr(slice_data, "text"):
+            self._update_ocr_results_char(slice_data, slice_data.text)
+        # 失效该字符集合的 pixmap 缓存
+        keys_to_remove = [k for k in self._pixmap_cache if k[0] == char_text]
+        for k in keys_to_remove:
+            del self._pixmap_cache[k]
+        slices.insert(slice_index, slice_data)
+        # 刷新界面
+        if not self._suppress_label_refresh:
+            self._refresh_label_list()
+            self._render_current_page()
+
+    def _apply_red_box(self, line_index, new_rect):
+        """修改 ocr_results 中指定索引字符的 box,重新裁切图像并刷新预览。
+
+        供 ModifyRedBoxCommand.redo/undo 调用。
+        参数 line_index 实际为 ocr_results chars 列表中的索引。
+
+        参数:
+            line_index: ocr_results chars 列表中的索引。
+            new_rect: 新的 bbox 列表 [x1, y1, x2, y2]。
+        """
+        lines, chars = self.ocr_results
+        if not (0 <= line_index < len(chars)):
+            return
+        new_bbox = list(new_rect)
+        chars[line_index]["box"] = new_bbox
+        char_data = chars[line_index]
+        target_key = (char_data.get("page_num"), char_data.get("line_id"),
+                      char_data.get("char_id"))
+        # 在所有 char_slices 中查找匹配的 char_slice
+        for char_text, slice_list in self.char_slices.items():
+            for idx, char_slice in enumerate(slice_list):
+                if (char_slice.page_num, char_slice.line_id,
+                        char_slice.char_id) == target_key:
+                    char_slice.bbox = list(new_bbox)
+                    # 重新裁切图像
+                    page_num = char_slice.page_num
+                    if page_num < len(self.page_images):
+                        page_image = self.page_images[page_num]
+                        try:
+                            x1, y1, x2, y2 = new_bbox
+                            img_w, img_h = page_image.size
+                            x1 = max(0, min(x1, img_w))
+                            y1 = max(0, min(y1, img_h))
+                            x2 = max(0, min(x2, img_w))
+                            y2 = max(0, min(y2, img_h))
+                            if x2 > x1 and y2 > y1:
+                                char_slice.image = page_image.crop((x1, y1, x2, y2))
+                        except Exception as exc:
+                            self._report_error(exc)
+                    # 失效 pixmap 缓存
+                    cache_key = (char_text, idx)
+                    self._pixmap_cache.pop(cache_key, None)
+                    # 刷新 widget(若可见)
+                    if char_text == self._current_char_text:
+                        self._refresh_slice_widget(idx)
+                        # 重新预览当前切片(若正在预览)
+                        if self._current_preview_index == idx:
+                            self._preview_slice(idx)
+                    return
+
+    def _apply_move_slice(self, src_char_text, slice_index, dst_char_text):
+        """从源字符集合删除切片并插入目标字符集合,返回新索引。
+
+        供 MoveSliceCommand.redo/undo 调用。
+
+        参数:
+            src_char_text: 源字符集合键。
+            slice_index: 源集合中的切片索引。
+            dst_char_text: 目标字符集合键。
+
+        返回:
+            int: 切片在目标集合中的新索引,失败返回 -1。
+        """
+        slices = self.char_slices.get(src_char_text, [])
+        if slice_index < 0 or slice_index >= len(slices):
+            return -1
+        char_slice = slices[slice_index]
+        # 失效相关 pixmap 缓存
+        keys_to_remove = [k for k in self._pixmap_cache
+                          if k[0] in (src_char_text, dst_char_text)]
+        for k in keys_to_remove:
+            del self._pixmap_cache[k]
+        # 从源集合删除
+        slices.pop(slice_index)
+        char_slice.text = dst_char_text
+        # 插入目标集合
+        if dst_char_text not in self.char_slices:
+            self.char_slices[dst_char_text] = []
+        self.char_slices[dst_char_text].append(char_slice)
+        new_index = len(self.char_slices[dst_char_text]) - 1
+        # 源集合为空则删除键
+        if not slices:
+            del self.char_slices[src_char_text]
+        # 刷新界面
+        if not self._suppress_label_refresh:
+            self._refresh_label_list()
+            self._render_current_page()
+        return new_index
+
+    # ==================== _apply_xxx 方法结束 ====================
 
     def _refresh_slice_widget(self, idx: int):
         """刷新指定索引切片的缩略图显示(若该切片在当前页可见)。
@@ -1591,11 +1954,11 @@ class VerticalCheckWindow(QWidget):
             self._pixmap_cache.popitem(last=False)
 
     def _commit_pending_red_box_resize(self):
-        """焦点切换前提交红框拖拽修改:按新红框重新裁切切片并更新 JSON。
+        """焦点切换前提交红框拖拽修改:通过 ModifyRedBoxCommand 支持撤销/重做。
 
         红框 _resized_rect 为 pixmap 本地坐标(行裁剪图坐标系),
-        叠加 _current_crop_offset 后还原为页面绝对坐标,据此重新裁切
-        page_image 并更新 char_slice.image/bbox 与 ocr_results 的 box。
+        叠加 _current_crop_offset 后还原为页面绝对坐标,据此计算新 bbox。
+        实际裁切与更新由 _apply_red_box 完成(命令 redo 时调用)。
         """
         view = self.preview_view
         if not getattr(view, "_resized_dirty", False) or self._current_preview_index is None:
@@ -1628,18 +1991,26 @@ class VerticalCheckWindow(QWidget):
             return
 
         new_bbox = [new_x1, new_y1, new_x2, new_y2]
-        try:
-            char_slice.image = page_image.crop((new_x1, new_y1, new_x2, new_y2))
-        except Exception:
-            traceback.print_exc()
-            return
-        char_slice.bbox = list(new_bbox)
-        self._update_ocr_results_char_box(char_slice, new_bbox)
-        # 失效该切片的 pixmap 缓存,使下次渲染重新加载
-        cache_key = (self._current_char_text, idx)
-        self._pixmap_cache.pop(cache_key, None)
-        # 立即刷新该切片的网格缩略图显示(若在当前页可见)
-        self._refresh_slice_widget(idx)
+        old_bbox = list(char_slice.bbox) if char_slice.bbox else [0, 0, 0, 0]
+        # 获取 ocr_results chars 索引(作为命令的 line_index 参数)
+        key = (char_slice.page_num, char_slice.line_id, char_slice.char_id)
+        char_index = self._char_index.get(key)
+        if char_index is not None:
+            # 推入 ModifyRedBoxCommand,redo 时由 _apply_red_box 执行裁切与更新
+            cmd = ModifyRedBoxCommand(self, char_index, old_bbox, new_bbox)
+            self._undo_stack.push(cmd)
+        else:
+            # 回退:索引缺失时直接修改
+            try:
+                char_slice.image = page_image.crop((new_x1, new_y1, new_x2, new_y2))
+            except Exception as exc:
+                self._report_error(exc)
+                return
+            char_slice.bbox = list(new_bbox)
+            self._update_ocr_results_char_box(char_slice, new_bbox)
+            cache_key = (self._current_char_text, idx)
+            self._pixmap_cache.pop(cache_key, None)
+            self._refresh_slice_widget(idx)
         # 清除脏状态,避免重复提交
         view._resized_dirty = False
         view._resized_rect = None
@@ -1701,8 +2072,8 @@ class VerticalCheckWindow(QWidget):
             self._last_clicked_index = new_global_idx
             self._refresh_slice_selection_visuals()
             self._preview_slice(new_global_idx)
-        except Exception:
-            traceback.print_exc()
+        except Exception as exc:
+            self._report_error(exc)
 
     def _on_prev_page(self):
         # 焦点切换前提交红框拖拽修改
@@ -1752,9 +2123,9 @@ class VerticalCheckWindow(QWidget):
                 self._last_clicked_index = None
                 self._current_preview_index = None
                 self._update_slice_display(char_text, reset_page=True)
-        except Exception:
+        except Exception as exc:
             self.label_list.blockSignals(False)
-            traceback.print_exc()
+            self._report_error(exc)
 
     def _goto_prev_char(self):
         """Ctrl+↑: 跳转到上一个字符集合(不触发返回导入)。"""
@@ -1827,5 +2198,84 @@ class VerticalCheckWindow(QWidget):
                 QMessageBox.warning(
                     self, "未找到", f"没有找到字符: {text}"
                 )
-        except Exception:
-            traceback.print_exc()
+        except Exception as exc:
+            self._report_error(exc)
+
+    # ==================== Ctrl+S 保存与断点恢复 ====================
+
+    def _save_project(self):
+        """Ctrl+S 保存:收集当前纵校阶段断点状态,发射 save_requested 信号。
+
+        MainWindow 接收信号后合并全局数据(ocr_results/char_slices 等)
+        并调用 SessionManager.save 完成持久化。
+        """
+        try:
+            # 焦点切换前提交红框拖拽修改,避免丢失
+            self._commit_pending_red_box_resize()
+            # flush 挂起的就地修改
+            self._flush_pending_modifications()
+            # 收集当前阶段断点状态
+            breakpoints = {
+                'current_char_text': self._current_char_text,
+                'current_page': self._current_page,
+                'current_preview_index': self._current_preview_index,
+            }
+            # 发射信号,由 MainWindow 合并全局数据并调用 SessionManager
+            self.save_requested.emit(breakpoints)
+            # 标记撤销栈为干净状态(所有已执行命令均已保存)
+            self._undo_stack.setClean()
+        except Exception as exc:
+            self._report_error(exc)
+
+    def _restore_breakpoint_state(self, breakpoints):
+        """恢复断点状态:跳转到保存时的字符集合、页码、预览索引。
+
+        由 MainWindow 在加载工程后调用。
+
+        参数:
+            breakpoints: 断点字典,含 current_char_text/current_page/current_preview_index。
+        """
+        if not breakpoints:
+            return
+        try:
+            char_text = breakpoints.get('current_char_text')
+            if char_text and char_text in self.char_slices:
+                # 跳转到对应字符集合
+                self.label_list.blockSignals(True)
+                for i in range(self.label_list.count()):
+                    item = self.label_list.item(i)
+                    if item.data(Qt.UserRole) == char_text:
+                        self.label_list.setCurrentRow(i)
+                        break
+                self.label_list.blockSignals(False)
+                # 恢复页码
+                page = breakpoints.get('current_page', 0)
+                slices = self.char_slices.get(char_text, [])
+                total_pages = max(
+                    1,
+                    (len(slices) + self._current_page_size - 1) // self._current_page_size
+                )
+                self._current_page = max(0, min(page, total_pages - 1))
+                self._current_char_text = char_text
+                self._render_current_page()
+                self._update_nav_button_texts()
+                # 恢复预览索引
+                preview_idx = breakpoints.get('current_preview_index')
+                if preview_idx is not None and 0 <= preview_idx < len(slices):
+                    self._selected_indices = {preview_idx}
+                    self._last_clicked_index = preview_idx
+                    self._refresh_slice_selection_visuals()
+                    self._preview_slice(preview_idx)
+                else:
+                    # 默认选中第一个切片
+                    first_idx = self._current_page * self._current_page_size
+                    if 0 <= first_idx < len(slices):
+                        self._selected_indices = {first_idx}
+                        self._last_clicked_index = first_idx
+                        self._refresh_slice_selection_visuals()
+                        self._preview_slice(first_idx)
+            elif self.label_list.count() > 0:
+                # 字符集合不存在(可能已被删除),跳转到第一个
+                self.label_list.setCurrentRow(0)
+        except Exception as exc:
+            self._report_error(exc)

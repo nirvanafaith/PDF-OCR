@@ -1,0 +1,70 @@
+cmake_minimum_required(VERSION 3.18...4.0)
+project(hxnative LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+endif()
+
+# User-configurable flag: build with Windows 7 SP1 compatibility
+# (software2 部署目标). Off by default for software1 (PyQt6) builds.
+option(HXNATIVE_WIN7_COMPAT "Build _hxnative for Windows 7 SP1 runtime" OFF)
+option(HXNATIVE_PYBIND11_FETCH "Fetch pybind11 via FetchContent" ON)
+
+if(HXNATIVE_PYBIND11_FETCH)
+    include(FetchContent)
+    set(PYBIND11_FINDPYTHON ON CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        pybind11_src
+        GIT_REPOSITORY https://github.com/pybind/pybind11.git
+        GIT_TAG        v2.13.6
+    )
+    FetchContent_MakeAvailable(pybind11_src)
+endif()
+
+# pybind11 已经处理 Python 解释器/Extension 开发组件检索
+# (PYBIND11_FINDPYTHON=ON 时使用 CMake 现代 FindPython)
+
+pybind11_add_module(_hxnative
+    src/hxnative.cpp
+)
+
+target_include_directories(_hxnative PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_compile_definitions(_hxnative PRIVATE
+    NOMINMAX
+    WIN32_LEAN_AND_MEAN
+    UNICODE
+    _UNICODE
+)
+
+if(HXNATIVE_WIN7_COMPAT)
+    target_compile_definitions(_hxnative PRIVATE
+        _WIN32_WINNT=0x0601
+        WINVER=0x0601
+    )
+    message(STATUS "hxnative: Windows 7 SP1 compatibility enabled (_WIN32_WINNT=0x0601)")
+endif()
+
+# 将 .pyd 直接输出到当前目录 (software_common/native/)，
+# 使 Python 端可以 `from software_common.native._hxnative import ...`。
+set_target_properties(_hxnative PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY         ${CMAKE_CURRENT_SOURCE_DIR}
+    RUNTIME_OUTPUT_DIRECTORY         ${CMAKE_CURRENT_SOURCE_DIR}
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG   ${CMAKE_CURRENT_SOURCE_DIR}
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+if(MSVC)
+    target_compile_options(_hxnative PRIVATE /W3 /utf-8)
+endif()
+
+# MinGW-w64: 静态链接运行时库 (libgcc/libstdc++/libwinpthread)，
+# 避免分发时 .pyd 找不到 MinGW DLL
+if(MINGW OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_link_options(_hxnative PRIVATE -static-libgcc -static-libstdc++ -static)
+    target_compile_options(_hxnative PRIVATE -static-libgcc -static-libstdc++)
+endif()

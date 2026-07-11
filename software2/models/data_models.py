@@ -81,6 +81,33 @@ class CharSlice:
     char_id: int = -1
     score: float = 1.0
 
+    def to_dict(self):
+        """序列化为可 JSON 化的字典。
+
+        image 字段为运行期对象，不参与序列化。
+        """
+        return {
+            'page_num': self.page_num,
+            'bbox': list(self.bbox) if self.bbox else [0, 0, 0, 0],
+            'text': self.text,
+            'line_id': self.line_id,
+            'char_id': self.char_id,
+            'score': self.score,
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        """从字典构造 CharSlice，image 置 None（需由调用方重新裁切）。"""
+        return cls(
+            page_num=d.get('page_num', 0),
+            bbox=d.get('bbox', [0, 0, 0, 0]),
+            image=None,
+            text=d.get('text', ''),
+            line_id=d.get('line_id', -1),
+            char_id=d.get('char_id', -1),
+            score=d.get('score', 1.0),
+        )
+
 
 @dataclass
 class LineSlice:
@@ -106,6 +133,45 @@ class LineSlice:
     confidence: float
     chars: list = field(default_factory=list)
     image: object = None
+
+    def to_dict(self):
+        """序列化为可 JSON 化的字典。
+
+        image 字段为运行期对象，不参与序列化。
+        chars 元素若为数据类（含 to_dict）则递归序列化，否则原样保留（如已是字典）。
+        _ignored 为横校窗口动态设置的忽略标记，一并保留。
+        """
+        chars_serialized = []
+        for c in self.chars:
+            if hasattr(c, 'to_dict'):
+                chars_serialized.append(c.to_dict())
+            else:
+                chars_serialized.append(c)
+        return {
+            'page_num': self.page_num,
+            'bbox': list(self.bbox) if self.bbox else [0, 0, 0, 0],
+            'polygon': [list(p) for p in self.polygon] if self.polygon else [],
+            'text': self.text,
+            'confidence': self.confidence,
+            'chars': chars_serialized,
+            'ignored': bool(getattr(self, '_ignored', False)),
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        """从字典构造 LineSlice，image 置 None，并恢复 _ignored 标记。"""
+        obj = cls(
+            page_num=d.get('page_num', 0),
+            bbox=d.get('bbox', [0, 0, 0, 0]),
+            polygon=d.get('polygon', []),
+            text=d.get('text', ''),
+            confidence=d.get('confidence', 1.0),
+            chars=d.get('chars', []),
+            image=None,
+        )
+        if d.get('ignored', False):
+            obj._ignored = True
+        return obj
 
 
 @dataclass
@@ -207,6 +273,27 @@ class RefineTextItem:
     page_num: int
     font_size: float = 12.0
     ignored: bool = False
+
+    def to_dict(self):
+        """序列化为可 JSON 化的字典。"""
+        return {
+            'text': self.text,
+            'bbox': list(self.bbox) if self.bbox else [0, 0, 0, 0],
+            'page_num': self.page_num,
+            'font_size': self.font_size,
+            'ignored': self.ignored,
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        """从字典构造 RefineTextItem。"""
+        return cls(
+            text=d.get('text', ''),
+            bbox=d.get('bbox', [0, 0, 0, 0]),
+            page_num=d.get('page_num', 0),
+            font_size=d.get('font_size', 12.0),
+            ignored=d.get('ignored', False),
+        )
 
 
 @dataclass

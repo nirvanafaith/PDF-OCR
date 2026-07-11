@@ -11,12 +11,20 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QMessageBox,
     QGroupBox,
+    QApplication,
+    QShortcut,
+    QDialog,
+    QDialogButtonBox,
+    QListWidget,
+    QListWidgetItem,
+    QAbstractItemView,
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QThread, QObject
-from PyQt5.QtGui import QTextCursor
+from PyQt5.QtGui import QTextCursor, QKeySequence
 
 from pdf_processor import PDFProcessor
 from ocr_engine import OCREngine
+from session_manager import SessionManager, ProjectData
 from ui.styles import get_stylesheet
 
 
@@ -51,7 +59,7 @@ class ImportWorker(QObject):
         try:
             self.progress_signal.emit("正在加载PDF页面图像...")
             self.page_images = self.pdf_processor.convert_to_images(
-                self.pdf_path, dpi=200
+                self.pdf_path, dpi=300
             )
             self.progress_signal.emit(f"已加载 {len(self.page_images)} 页图像")
 
@@ -80,18 +88,25 @@ class ImportWindow(QWidget):
 
     用户在此窗口选择PDF文件和OCR结果JSON文件，点击加载后
     在子线程中完成数据加载，加载完成后通过finished_signal通知主窗口。
+    也可通过"打开已有项目"按钮加载之前保存的工程断点，加载完成后通过
+    project_loaded_signal通知主窗口。
 
     信号:
         finished_signal (pyqtSignal(list, tuple, dict)): 加载完成信号，
             发射 (page_images, ocr_results, char_slices)。
+        project_loaded_signal (pyqtSignal(object)): 打开已有工程完成信号，
+            发射 ProjectData 对象。
     """
 
     finished_signal = pyqtSignal(list, tuple, dict)
+    project_loaded_signal = pyqtSignal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.pdf_processor = PDFProcessor()
         self.ocr_engine = OCREngine()
+        # 本地 SessionManager 实例，仅用于列出/加载工程，不启动自动保存
+        self.session_manager = SessionManager(self)
         self._worker = None
         self._thread = None
         self.setStyleSheet(get_stylesheet())
@@ -184,7 +199,17 @@ class ImportWindow(QWidget):
 
         main_layout.addWidget(file_group)
 
-        # 开始加载按钮
+        # 操作按钮区：打开已有项目 / 开始加载
+        self.open_project_btn = QPushButton("打开已有项目")
+        self.open_project_btn.setStyleSheet(
+            "QPushButton { background-color: #ffffff; color: #0D6EFD; "
+            "border: 1px solid #0D6EFD; min-height: 44px; min-width: 140px; "
+            "padding: 10px 24px; border-radius: 6px; font-size: 14px; }"
+            "QPushButton:hover { background-color: #f0f6ff; }"
+            "QPushButton:disabled { color: #6c757d; border-color: #adb5bd; }"
+        )
+        self.open_project_btn.clicked.connect(self._on_open_project)
+
         self.load_btn = QPushButton("开始加载")
         self.load_btn.setEnabled(False)
         self.load_btn.setStyleSheet(
@@ -197,6 +222,8 @@ class ImportWindow(QWidget):
         self.load_btn.clicked.connect(self._on_load)
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
+        btn_layout.addWidget(self.open_project_btn)
+        btn_layout.addSpacing(16)
         btn_layout.addWidget(self.load_btn)
         btn_layout.addStretch()
         main_layout.addLayout(btn_layout)
@@ -210,6 +237,10 @@ class ImportWindow(QWidget):
             "border: 1px solid #3c3c3c; border-radius: 4px; padding: 8px; }"
         )
         main_layout.addWidget(self.status_text, 1)
+
+        # Return 快捷键：触发当前焦点按钮，否则触发默认"开始加载"按钮
+        self.return_shortcut = QShortcut(QKeySequence("Return"), self)
+        self.return_shortcut.activated.connect(self._on_return_pressed)
 
     def _detect_json_files(self, pdf_dir: str):
         """根据PDF所在目录自动检测lines.json与字符JSON文件。
@@ -317,3 +348,111 @@ class ImportWindow(QWidget):
 
     def cleanup(self):
         self._cleanup_thread()
+
+    # ---- 打开已有项目 ----
+
+    def _on_open_project(self):
+        """打开已有工程：列表选择 → 加载 → 校验PDF → 发射信号。
+
+        采用方案 B（列表选择对话框）：列出所有已保存工程供用户选择，
+        加载后检查源 PDF 是否存在，缺失则让用户重新指定。
+        """
+        project_path = self._show_project_list_dialog()
+        if not project_path:
+            return
+
+        # 加载工程（显示等待光标），json 损坏会抛异常
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            project_data = self.session_manager.load(project_path)
+        except Exception as e:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.critical(
+                self, "加载失败", f"工程文件损坏或读取失败：\n{e}"
+            )
+            return
+        QApplication.restoreOverrideCursor()
+
+        # 校验源 PDF 文件是否存在，缺失则让用户重新指定
+        pdf_path = project_data.source_pdf_path
+        if not pdf_path or not os.path.exists(pdf_path):
+            new_pdf_path, _ = QFileDialog.getOpenFileName(
+                self, "指定源PDF文件", "", "PDF文件 (*.pdf)"
+            )
+            if not new_pdf_path:
+                return  # 用户取消，静默中止
+            project_data.source_pdf_path = new_pdf_path
+            if not project_data.source_pdf_name:
+                project_data.source_pdf_name = os.path.splitext(
+                    os.path.basename(new_pdf_path)
+                )[0]
+
+        self._append_status(
+            f"已加载工程：{project_data.source_pdf_name}（保存于 {project_data.saved_at}）"
+        )
+        self.project_loaded_signal.emit(project_data)
+
+    def _show_project_list_dialog(self):
+        """显示工程列表选择对话框，返回选中的工程路径，取消则返回 None。
+
+        列表项格式：工程名 + 保存时间 + 路径，按保存时间倒序展示。
+        双击列表项可直接确认选择。
+        """
+        projects = self.session_manager.list_projects()
+        if not projects:
+            QMessageBox.information(self, "提示", "暂无已保存的工程")
+            return None
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("选择工程")
+        dialog.setMinimumWidth(560)
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        hint = QLabel("请选择要打开的工程：")
+        layout.addWidget(hint)
+
+        list_widget = QListWidget()
+        list_widget.setSelectionMode(QAbstractItemView.SingleSelection)
+        list_widget.setAlternatingRowColors(True)
+        list_widget.setMinimumHeight(300)
+        for name, path, saved_at in projects:
+            display = f"{name}    [{saved_at}]\n{path}"
+            item = QListWidgetItem(display)
+            item.setData(Qt.UserRole, path)
+            list_widget.addItem(item)
+        if list_widget.count() > 0:
+            list_widget.setCurrentRow(0)
+        layout.addWidget(list_widget, 1)
+
+        btn_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btn_box.accepted.connect(dialog.accept)
+        btn_box.rejected.connect(dialog.reject)
+        layout.addWidget(btn_box)
+
+        # 双击列表项直接确认
+        list_widget.itemDoubleClicked.connect(dialog.accept)
+
+        if dialog.exec_() != QDialog.Accepted:
+            return None
+
+        current_item = list_widget.currentItem()
+        if current_item is None:
+            return None
+        return current_item.data(Qt.UserRole)
+
+    # ---- Return 快捷键 ----
+
+    def _on_return_pressed(self):
+        """Return 键回调：触发当前焦点按钮，否则触发默认"开始加载"按钮。
+
+        简化实现：若当前焦点在 QPushButton 上则点击该按钮，
+        否则点击主操作按钮 load_btn（仅在可用时）。
+        """
+        focus_widget = QApplication.focusWidget()
+        if isinstance(focus_widget, QPushButton):
+            focus_widget.click()
+            return
+        if self.load_btn.isEnabled():
+            self.load_btn.click()

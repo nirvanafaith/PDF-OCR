@@ -18,3 +18,57 @@ compile_out.txt
 # 临时文件
 *.tmp
 *.bak
+
+# === 新增：构建产物 ===
+# Python venv（含全部依赖，395MB）
+software_common/native/venv_py38/
+
+# CMake 构建目录
+software_common/native/build_py38/
+software_common/native/build_py312/
+
+# PyInstaller 构建目录
+build_pyinstaller/
+
+# PyInstaller 分发产物（作为 release asset，不入 git）
+dist/
+
+# Python 备份目录
+backup_python_20260706/
+
+# 错误 Python 版本的编译产物
+software_common/native/_hxnative.cp314-win_amd64.pyd
+
+# 保留 C++ 优化成果（覆盖上方 *.py[cod] 对 .pyd 的忽略）
+!software_common/native/_hxnative.cp38-win_amd64.pyd
+
+# 根目录杂项压缩包（非源码）
+PDF-ocr.zip
+
+# === 新增：# OS / IDE
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# 临时验证/运行脚本
+software1/_run_full_ocr.py
+software1/_verify_new_json.py
+software2/_verify_final.py
+software2/_verify_slices.py
+
+# 测试 PDF 和中间文件
+software1/从零开始*.pdf
+software1/*_middle.json
+
+# Trae 工作区
+.trae/
+
+# 发布说明草稿
+release_notes_v1.0.0.md
+
+# === 参赛材料（仅本地保留，不提交 GitHub） ===
+创意提案文档.md
+showcase.html

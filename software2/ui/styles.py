@@ -250,6 +250,27 @@ SliceItemWidget[state="warn"]:hover {
     border: 2px solid #0D6EFD;
     background-color: #e7f1ff;
 }
+
+/* 焦点样式：为可聚焦控件提供统一的 :focus 边框，方便键盘用户辨识当前焦点 */
+QPushButton:focus {
+    border: 2px solid #0d6efd;
+    outline: none;
+}
+QSpinBox:focus, QDoubleSpinBox:focus {
+    border: 2px solid #0d6efd;
+}
+QCheckBox:focus {
+    outline: 2px solid #0d6efd;
+}
+QListWidget:focus {
+    border: 2px solid #0d6efd;
+}
+QGraphicsView:focus {
+    border: 2px solid #0d6efd;
+}
+QLineEdit:focus, QComboBox:focus {
+    border: 2px solid #0d6efd;
+}
 """
 
 

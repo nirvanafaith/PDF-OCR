@@ -1,3 +1,5 @@
+import traceback
+
 from PyQt5.QtWidgets import (
     QWidget,
     QHBoxLayout,
@@ -18,13 +20,79 @@ from PyQt5.QtWidgets import (
     QRubberBand,
     QMessageBox,
     QInputDialog,
+    QUndoStack,
+    QShortcut,
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QEvent, QRectF, QPointF, QTimer, QRect
-from PyQt5.QtGui import QPixmap, QImage, QFont, QFontMetrics, QMouseEvent, QWheelEvent, QPainter, QPen, QBrush
+from PyQt5.QtGui import (
+    QPixmap,
+    QImage,
+    QFont,
+    QFontMetrics,
+    QMouseEvent,
+    QWheelEvent,
+    QPainter,
+    QPen,
+    QBrush,
+    QKeySequence,
+)
 
 from models.data_models import LineSlice, CorrectedLine
 from ui.styles import get_stylesheet
 from ui.zoom_utils import calculate_wheel_zoom, ZOOM_MIN, ZOOM_MAX
+from undo_commands import (
+    ModifyLineTextCommand,
+    ToggleIgnoreCommand,
+    RelocateLineFrameCommand,
+)
+
+# 模块级 native 探测结果缓存：None 表示尚未探测，非 None 表示已缓存（含失败结果）。
+# 进程生命周期内只执行一次文件系统探测，后续调用直接返回缓存值。
+_NATIVE_CACHE = None
+
+
+def _try_native():
+    """尝试加载 software_common.native 加速模块。
+
+    成功返回 (pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes, batch_crop_qimage)；
+    失败返回 (None, None, None)。所有 import 在函数内部完成，不影响模块加载。
+
+    结果缓存到模块级 ``_NATIVE_CACHE``，首次调用后不再重复探测。
+    """
+    global _NATIVE_CACHE
+    if _NATIVE_CACHE is not None:
+        return _NATIVE_CACHE
+    try:
+        import sys as _sys
+        import os as _os
+        _d = _os.path.dirname(_os.path.abspath(__file__))
+        for _ in range(6):
+            if _os.path.isdir(_os.path.join(_d, "software_common")):
+                if _d not in _sys.path:
+                    _sys.path.insert(0, _d)
+                break
+            _p = _os.path.dirname(_d)
+            if _p == _d:
+                break
+            _d = _p
+        from software_common.native import has_native as _has_native
+        if not _has_native():
+            _NATIVE_CACHE = (None, None, None)
+            return _NATIVE_CACHE
+        from software_common.native import (
+            pixmap_bytes_to_qpixmap_buffer,
+            optimize_char_boxes,
+            batch_crop_qimage,
+        )
+        _NATIVE_CACHE = (
+            pixmap_bytes_to_qpixmap_buffer,
+            optimize_char_boxes,
+            batch_crop_qimage,
+        )
+        return _NATIVE_CACHE
+    except Exception:
+        _NATIVE_CACHE = (None, None, None)
+        return _NATIVE_CACHE
 
 
 class HorizontalCheckWindow(QWidget):
@@ -46,6 +114,9 @@ class HorizontalCheckWindow(QWidget):
 
     finished_signal = pyqtSignal(list)
     back_signal = pyqtSignal()
+    error_occurred = pyqtSignal(str)
+    # Ctrl+S 保存时发射，携带本阶段断点字典，由 MainWindow 合并后交 SessionManager.save
+    save_requested = pyqtSignal(dict)
 
     def __init__(self, page_lines: dict, page_images: list, parent=None):
         """初始化横校窗口。
@@ -70,16 +141,29 @@ class HorizontalCheckWindow(QWidget):
         self.total_pages = len(page_images)
         self.modifications = []
         self._first_render = True
+        # 撤销/重做栈：所有行文本修改、忽略切换、行框重定位均通过 push 命令进入栈
+        self._undo_stack = QUndoStack(self)
         self._hover_pixmap_item = None
         self._hover_rect_item = None
         self._slice_cache_id = None
         self._slice_cache_pixmap = None
         self._pixmap_cache = {}
+        self._pixmap_cache_max = 20
         self._draw_box_mode = False
         self._draw_box_target = None  # LineSlice 或 None
         self._draw_box_text = None    # 新文本或 None
         self._draw_rubber_band = None
         self._draw_start_pos = None
+        # 中键平移状态
+        self._mid_panning = False
+        self._mid_start_pos = None
+        self._mid_start_pixmap_pos = None
+        self._mid_panning_view = None
+        self._mid_prev_cursor = None
+        # 页码输入防抖计时器
+        self._page_debounce = QTimer()
+        self._page_debounce.setSingleShot(True)
+        self._page_debounce.timeout.connect(self._do_render_page)
         self._init_ui()
 
     def _init_ui(self):
@@ -120,7 +204,7 @@ class HorizontalCheckWindow(QWidget):
         self.page_spin = QSpinBox()
         self.page_spin.setRange(1, self.total_pages)
         self.page_spin.setValue(1)
-        self.page_spin.valueChanged.connect(self._on_goto_page)
+        self.page_spin.valueChanged.connect(self._on_page_spin_changed)
         toolbar.addWidget(self.page_spin)
 
         self.next_btn = QPushButton("下一页")
@@ -213,7 +297,36 @@ class HorizontalCheckWindow(QWidget):
         bottom_layout.addWidget(self.finish_btn)
         main_layout.addLayout(bottom_layout)
 
+        # 注册全局快捷键（窗口级，任意子控件焦点均生效）
+        self._register_shortcuts()
+
         self._render_page()
+
+    def _register_shortcuts(self):
+        """注册撤销/重做/保存与翻页/缩放快捷键。
+
+        - Ctrl+Z / Ctrl+Y：撤销 / 重做
+        - Ctrl+S：保存工程（发射 save_requested 信号）
+        - PgUp / PgDn：上一页 / 下一页
+        - Home / End：首页 / 末页
+        - Ctrl+Plus / Ctrl+Minus / Ctrl+0：放大 / 缩小 / 重置缩放
+        """
+        # 撤销/重做
+        QShortcut(QKeySequence.Undo, self, self._undo_stack.undo)
+        QShortcut(QKeySequence.Redo, self, self._undo_stack.redo)
+        # 保存
+        QShortcut(QKeySequence.Save, self, self._save_project)
+        # 翻页
+        QShortcut(QKeySequence("PgUp"), self,
+                  lambda: self._goto_page_relative(-1))
+        QShortcut(QKeySequence("PgDown"), self,
+                  lambda: self._goto_page_relative(1))
+        QShortcut(QKeySequence("Home"), self, self._goto_first_page)
+        QShortcut(QKeySequence("End"), self, self._goto_last_page)
+        # 缩放
+        QShortcut(QKeySequence("Ctrl+Plus"), self, self._zoom_in)
+        QShortcut(QKeySequence("Ctrl+Minus"), self, self._zoom_out)
+        QShortcut(QKeySequence("Ctrl+0"), self, self._zoom_reset)
 
     def _calculate_line_font_size(self, line_bbox, text, zoom_level):
         """根据行 bbox 的宽高比判断横排/竖排，计算整行最大可容纳字号。
@@ -325,6 +438,13 @@ class HorizontalCheckWindow(QWidget):
 
         return result
 
+    def _put_pixmap_cache(self, key, pixmap):
+        """写入像素缓存，超出上限时淘汰最旧项（FIFO）。"""
+        self._pixmap_cache[key] = pixmap
+        if len(self._pixmap_cache) > self._pixmap_cache_max:
+            _oldest = next(iter(self._pixmap_cache))
+            del self._pixmap_cache[_oldest]
+
     def _render_page(self):
         """渲染当前页面的图像与行切片文本到图形场景中。
 
@@ -412,7 +532,7 @@ class HorizontalCheckWindow(QWidget):
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation,
                 )
-                self._pixmap_cache[cache_key] = scaled_pixmap
+                self._put_pixmap_cache(cache_key, scaled_pixmap)
             w = img.width * self.zoom_level
             h = img.height * self.zoom_level
             self.scene.setSceneRect(QRectF(0, 0, w, h))
@@ -428,7 +548,7 @@ class HorizontalCheckWindow(QWidget):
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation,
                 )
-                self._pixmap_cache[pdf_cache_key] = pdf_scaled
+                self._put_pixmap_cache(pdf_cache_key, pdf_scaled)
             bg_item = QGraphicsPixmapItem(self._pixmap_cache[pdf_cache_key])
             self.pdf_scene.addItem(bg_item)
             self.pdf_scene.setSceneRect(QRectF(0, 0, w, h))
@@ -461,6 +581,39 @@ class HorizontalCheckWindow(QWidget):
             self.pdf_scene.removeItem(self._hover_rect_item)
             self._hover_rect_item = None
 
+    def _handle_mid_pan(self, event, view):
+        """处理中键拖拽平移，返回 True 表示事件已被处理。
+
+        在左视图和右视图的 eventFilter 中共用。中键按下时记录起始全局坐标
+        和滚动条位置，移动时按 delta 平移滚动条，释放时恢复光标。
+        不影响左键画框、右键菜单等现有交互。
+        """
+        if not isinstance(event, QMouseEvent):
+            return False
+        if event.type() == QEvent.MouseButtonPress and event.button() == Qt.MiddleButton:
+            self._mid_panning = True
+            self._mid_panning_view = view
+            self._mid_start_pos = event.globalPos()
+            self._mid_start_pixmap_pos = (
+                view.horizontalScrollBar().value(),
+                view.verticalScrollBar().value(),
+            )
+            self._mid_prev_cursor = view.cursor()
+            view.setCursor(Qt.ClosedHandCursor)
+            return True
+        if event.type() == QEvent.MouseMove and self._mid_panning and self._mid_panning_view is view:
+            delta = event.globalPos() - self._mid_start_pos
+            view.horizontalScrollBar().setValue(self._mid_start_pixmap_pos[0] - delta.x())
+            view.verticalScrollBar().setValue(self._mid_start_pixmap_pos[1] - delta.y())
+            return True
+        if event.type() == QEvent.MouseButtonRelease and event.button() == Qt.MiddleButton:
+            if self._mid_panning and self._mid_panning_view is view:
+                self._mid_panning = False
+                self._mid_panning_view = None
+                view.setCursor(self._mid_prev_cursor)
+                return True
+        return False
+
     def eventFilter(self, obj, event):
         """事件过滤器，处理鼠标悬停时显示行切片图像预览。
 
@@ -484,6 +637,8 @@ class HorizontalCheckWindow(QWidget):
             - PyQt5.QGraphicsPixmapItem: 预览图元
         """
         if obj is self.view.viewport():
+            if self._handle_mid_pan(event, self.view):
+                return True
             new_zoom = calculate_wheel_zoom(event, self.zoom_level)
             if new_zoom is not None:
                 self.zoom_level = new_zoom
@@ -570,6 +725,8 @@ class HorizontalCheckWindow(QWidget):
                         self._remove_hover_pixmap()
             return False
         elif obj is self.pdf_view.viewport():
+            if self._handle_mid_pan(event, self.pdf_view):
+                return True
             if self._draw_box_mode and isinstance(event, QMouseEvent):
                 if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
                     self._draw_start_pos = event.pos()
@@ -753,9 +910,10 @@ class HorizontalCheckWindow(QWidget):
         if not new_text or new_text == ls.text:
             return
         old_text = ls.text
-        ls.text = new_text
-        self._sync_chars_with_text(ls)
-        self._render_page()
+        # 通过撤销栈 push 命令执行修改，命令 redo 会调用 _apply_modify_line_text
+        self._undo_stack.push(
+            ModifyLineTextCommand(self, ls, old_text, new_text)
+        )
         self.modifications.append(
             {"type": "modify_text", "old_text": old_text, "details": new_text}
         )
@@ -801,6 +959,45 @@ class HorizontalCheckWindow(QWidget):
                 })
             ls.chars = new_chars
 
+    # ============== 撤销/重做命令的 _apply_xxx 辅助方法 ==============
+    # 约定：这些方法仅直接修改数据并刷新界面，不要再 push 命令（避免递归）。
+    # line_index 参数实际传入 LineSlice 对象引用，保证 undo/redo 时即使翻页也能改对。
+
+    def _apply_modify_line_text(self, line_index, new_text):
+        """修改指定行的文本并刷新界面（供 ModifyLineTextCommand 调用）。
+
+        参数:
+            line_index: 实际为 LineSlice 对象引用。
+            new_text: 新文本内容。
+        """
+        ls = line_index
+        ls.text = new_text
+        self._sync_chars_with_text(ls)
+        self._render_page()
+
+    def _apply_toggle_ignore(self, line_index, new_ignored):
+        """切换指定行的忽略状态并刷新界面（供 ToggleIgnoreCommand 调用）。
+
+        参数:
+            line_index: 实际为 LineSlice 对象引用。
+            new_ignored: bool，True 表示忽略，False 表示取消忽略。
+        """
+        ls = line_index
+        ls._ignored = bool(new_ignored)
+        self._render_page()
+
+    def _apply_relocate_line(self, line_index, new_box):
+        """重新定位指定行的框并刷新界面（供 RelocateLineFrameCommand 调用）。
+
+        参数:
+            line_index: 实际为 LineSlice 对象引用。
+            new_box: 新框坐标 [x1, y1, x2, y2]（图像像素坐标）。
+        """
+        ls = line_index
+        # 复用 _relocate_line_frame 的核心数据修改逻辑（不记录 modifications）
+        self._relocate_line_frame(ls, list(new_box))
+        self._render_page()
+
     def _on_ignore_line(self, item: QGraphicsTextItem):
         """切换指定行切片的忽略状态，并在界面上以灰色/正常显示。
 
@@ -817,20 +1014,16 @@ class HorizontalCheckWindow(QWidget):
         ls = item.data(1)
         if ls is None:
             return
-        if hasattr(ls, "_ignored") and ls._ignored:
-            # 已忽略: 取消忽略
-            ls._ignored = False
-            self._render_page()
-            self.modifications.append(
-                {"type": "unignore", "text": ls.text, "details": "unignored"}
-            )
-        else:
-            # 未忽略: 标记为忽略
-            ls._ignored = True
-            self._render_page()
-            self.modifications.append(
-                {"type": "ignore", "text": ls.text, "details": "ignored"}
-            )
+        old_ignored = bool(getattr(ls, "_ignored", False))
+        new_ignored = not old_ignored
+        # 通过撤销栈 push 命令执行切换，命令 redo 会调用 _apply_toggle_ignore
+        self._undo_stack.push(
+            ToggleIgnoreCommand(self, ls, old_ignored, new_ignored)
+        )
+        self.modifications.append(
+            {"type": "ignore" if new_ignored else "unignore",
+             "text": ls.text, "details": "ignored" if new_ignored else "unignored"}
+        )
 
     def _enter_draw_box_mode(self, target_ls=None, new_text=None):
         """进入画框模式，等待用户在右侧PDF上绘制矩形。
@@ -919,11 +1112,16 @@ class HorizontalCheckWindow(QWidget):
             return
         # 根据状态执行对应操作
         if self._draw_box_target is not None:
-            self._relocate_line_frame(self._draw_box_target, new_bbox)
+            target_ls = self._draw_box_target
+            old_box = list(target_ls.bbox)
+            # 通过撤销栈 push 命令执行重定位，命令 redo 会调用 _apply_relocate_line
+            self._undo_stack.push(
+                RelocateLineFrameCommand(self, target_ls, old_box, list(new_bbox))
+            )
         elif self._draw_box_text is not None:
             self._add_new_text_segment(self._draw_box_text, new_bbox)
+            self._render_page()
         self._exit_draw_box_mode()
-        self._render_page()
 
     def _add_new_text_segment(self, text, new_bbox):
         """创建新的 LineSlice 并添加到当前页。
@@ -983,7 +1181,10 @@ class HorizontalCheckWindow(QWidget):
         self.modifications.append({"type": "add_text_segment", "details": text})
 
     def _relocate_line_frame(self, line_slice, new_bbox):
-        """重新定位行框，更新 bbox、chars 分布和 image。
+        """重新定位行框，更新 bbox、chars 分布和 image（核心数据修改，不记录 modifications）。
+
+        被 _apply_relocate_line 调用。仅修改数据，不渲染、不记录 modifications，
+        避免命令 undo/redo 时重复记录。
 
         参数:
             line_slice: 要更新的 LineSlice 对象
@@ -1017,7 +1218,6 @@ class HorizontalCheckWindow(QWidget):
             y2 = min(page_img.height, int(round(new_bbox[3])))
             if x2 > x1 and y2 > y1:
                 line_slice.image = page_img.crop((x1, y1, x2, y2))
-        self.modifications.append({"type": "relocate_line", "details": line_slice.text})
 
     def _on_hand_tool_toggle(self):
         """切换手型拖拽工具的启用状态。
@@ -1071,6 +1271,18 @@ class HorizontalCheckWindow(QWidget):
             - 调用 _render_page 重新渲染页面
         """
         idx = page_num - 1
+        if 0 <= idx < self.total_pages:
+            self.current_page = idx
+            self._render_page()
+
+    def _on_page_spin_changed(self, _value):
+        """页码微调框值变化时启动防抖计时器，避免长按箭头堆积渲染。"""
+        # start(300) 会自动重置正在运行的计时器，等效于先 stop 再 start
+        self._page_debounce.start(300)
+
+    def _do_render_page(self):
+        """防抖计时器超时后执行实际翻页渲染。"""
+        idx = self.page_spin.value() - 1
         if 0 <= idx < self.total_pages:
             self.current_page = idx
             self._render_page()
@@ -1176,12 +1388,17 @@ class HorizontalCheckWindow(QWidget):
             corrected = self._build_corrected_lines()
             self.finished_signal.emit(corrected)
 
+    def _report_error(self, exc):
+        """打印异常 traceback 并通过 error_occurred 信号回显到状态栏。"""
+        traceback.print_exc()
+        self.error_occurred.emit(f"操作失败：{exc}")
+
     def _pil_to_pixmap(self, pil_image) -> QPixmap:
         """将 PIL Image 对象转换为 QPixmap。
 
         被 _render_page, eventFilter, _make_slice_pixmap 调用。
-        若图像模式非 RGBA 则先进行转换，然后通过 RGBA 字节数据
-        构建 QImage 再转换为 QPixmap。
+        优先调用 native (H1) 直通路径，跳过 PIL convert + tobytes 的多次拷贝；
+        native 不可用时回落到原 PIL→QImage 路径，行为不变。
 
         参数:
             pil_image: PIL Image 对象，支持任意图像模式。
@@ -1195,9 +1412,42 @@ class HorizontalCheckWindow(QWidget):
         """
         if pil_image is None:
             return QPixmap()
+        # H1: native 直通路径
+        try:
+            pixmap_bytes_to_qpixmap_buffer = _try_native()[0]
+            if pixmap_bytes_to_qpixmap_buffer is not None:
+                if pil_image.mode == "RGBA":
+                    raw = bytearray(pil_image.tobytes("raw", "RGBA"))
+                    n = 4
+                    fmt = QImage.Format_RGBA8888
+                elif pil_image.mode == "RGB":
+                    raw = bytearray(pil_image.tobytes("raw", "RGB"))
+                    n = 3
+                    fmt = QImage.Format_RGB888
+                else:
+                    pil_image = pil_image.convert("RGBA")
+                    raw = bytearray(pil_image.tobytes("raw", "RGBA"))
+                    n = 4
+                    fmt = QImage.Format_RGBA8888
+                buf = pixmap_bytes_to_qpixmap_buffer(
+                    raw, pil_image.width, pil_image.height, n, 0
+                )
+                if buf is not None:
+                    qimage = QImage(
+                        buf,
+                        pil_image.width,
+                        pil_image.height,
+                        pil_image.width * n,
+                        fmt,
+                    )
+                    # .copy() 确保 QPixmap 持有独立数据，buf 可在 fromImage 后释放
+                    return QPixmap.fromImage(qimage.copy())
+        except Exception as exc:
+            self._report_error(exc)
+        # Fallback: 原 PIL→QImage 路径
         if pil_image.mode != "RGBA":
             pil_image = pil_image.convert("RGBA")
-        data = pil_image.tobytes("raw", "RGBA")
+        data = bytearray(pil_image.tobytes("raw", "RGBA"))
         qimage = QImage(
             data,
             pil_image.width,
@@ -1247,3 +1497,91 @@ class HorizontalCheckWindow(QWidget):
             self._exit_draw_box_mode()
             return
         super().keyPressEvent(event)
+
+    # ============== Ctrl+S 保存与断点恢复 ==============
+
+    def _save_project(self):
+        """Ctrl+S 保存入口：收集本阶段断点并发射 save_requested 信号。
+
+        由 MainWindow 接收信号后合并全局数据，再调用 SessionManager.save。
+        断点结构：
+            {"horizontal": {"current_page": ..., "zoom_level": ...}}
+        """
+        breakpoints = {
+            "horizontal": {
+                "current_page": self.current_page,
+                "zoom_level": self.zoom_level,
+            }
+        }
+        self.save_requested.emit(breakpoints)
+
+    def _restore_breakpoint_state(self, breakpoints):
+        """恢复横校阶段断点状态。
+
+        参数:
+            breakpoints: 横校阶段断点字典，形如
+                {"current_page": int, "zoom_level": float}；
+                也兼容传入外层 {"horizontal": {...}} 结构。
+        """
+        # 兼容传入外层 {"horizontal": {...}} 或直接 {...}
+        if isinstance(breakpoints, dict) and "horizontal" in breakpoints:
+            bp = breakpoints.get("horizontal", {}) or {}
+        else:
+            bp = breakpoints or {}
+
+        page = bp.get("current_page", 0)
+        try:
+            page = int(page)
+        except (TypeError, ValueError):
+            page = 0
+        if 0 <= page < self.total_pages:
+            self.current_page = page
+
+        zoom = bp.get("zoom_level", 1.0)
+        try:
+            zoom = float(zoom)
+        except (TypeError, ValueError):
+            zoom = 1.0
+        # 与 Phase 1 缩放逻辑保持一致：通过 zoom_level 重新渲染（而非 view.scale）
+        self.zoom_level = zoom
+
+        # 同步页码微调框（阻塞信号避免触发防抖），再即时渲染当前页
+        self.page_spin.blockSignals(True)
+        self.page_spin.setValue(self.current_page + 1)
+        self.page_spin.blockSignals(False)
+        self._do_render_page()
+
+    # ============== 翻页与缩放辅助方法（供快捷键调用） ==============
+
+    def _goto_page_relative(self, delta):
+        """相对翻页：从当前页前进/后退 delta 页。
+
+        参数:
+            delta: 整数，正为向后翻，负为向前翻。
+        """
+        max_page = self.total_pages if self.total_pages > 0 else 1
+        # current_page 为 0-based，page_spin 为 1-based
+        new_page = max(1, min(max_page, self.current_page + 1 + delta))
+        self.page_spin.setValue(new_page)
+
+    def _goto_first_page(self):
+        """跳转到首页。"""
+        self.page_spin.setValue(1)
+
+    def _goto_last_page(self):
+        """跳转到末页。"""
+        if self.total_pages > 0:
+            self.page_spin.setValue(self.total_pages)
+
+    def _zoom_in(self):
+        """放大一级（复用工具栏 _on_zoom_in 逻辑）。"""
+        self._on_zoom_in()
+
+    def _zoom_out(self):
+        """缩小一级（复用工具栏 _on_zoom_out 逻辑）。"""
+        self._on_zoom_out()
+
+    def _zoom_reset(self):
+        """重置缩放至 100%。"""
+        self.zoom_level = 1.0
+        self._render_page()

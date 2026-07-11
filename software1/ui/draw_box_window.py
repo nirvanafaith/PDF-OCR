@@ -27,6 +27,38 @@ from ui.styles import get_stylesheet
 from ui.zoom_utils import calculate_wheel_zoom, ZOOM_MIN, ZOOM_MAX
 
 
+def _try_native():
+    """尝试加载 software_common.native 加速模块。
+
+    成功返回 (pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes, batch_crop_qimage)；
+    失败返回 (None, None, None)。所有 import 在函数内部完成，不影响模块加载。
+    """
+    try:
+        import sys as _sys
+        import os as _os
+        _d = _os.path.dirname(_os.path.abspath(__file__))
+        for _ in range(6):
+            if _os.path.isdir(_os.path.join(_d, "software_common")):
+                if _d not in _sys.path:
+                    _sys.path.insert(0, _d)
+                break
+            _p = _os.path.dirname(_d)
+            if _p == _d:
+                break
+            _d = _p
+        from software_common.native import has_native as _has_native
+        if not _has_native():
+            return None, None, None
+        from software_common.native import (
+            pixmap_bytes_to_qpixmap_buffer,
+            optimize_char_boxes,
+            batch_crop_qimage,
+        )
+        return pixmap_bytes_to_qpixmap_buffer, optimize_char_boxes, batch_crop_qimage
+    except Exception:
+        return None, None, None
+
+
 class DrawBoxWindow(QWidget):
     """画框步骤窗口，用于加载PDF并在每页上绘制矩形框标记需要识别的文本区域。
 
@@ -208,7 +240,7 @@ class DrawBoxWindow(QWidget):
         try:
             if self._lazy_loader is not None:
                 self._lazy_loader.close()
-            self._lazy_loader = self._pdf_processor.get_lazy_loader(pdf_path)
+            self._lazy_loader = self._pdf_processor.get_lazy_loader(pdf_path, dpi=300)
             self._page_count = self._lazy_loader.page_count
         except RuntimeError as e:
             QMessageBox.critical(self, "加载失败", str(e))
@@ -836,8 +868,8 @@ class DrawBoxWindow(QWidget):
     def _pil_to_pixmap(self, pil_image) -> QPixmap:
         """将 PIL Image 对象转换为 QPixmap。
 
-        若图像模式非 RGBA 则先进行转换，然后通过 RGBA 字节数据
-        构建 QImage 再转换为 QPixmap。
+        优先调用 native (H1) 直通路径，跳过 PIL convert + tobytes 的多次拷贝；
+        native 不可用时回落到原 PIL→QImage 路径，行为不变。
 
         参数:
             pil_image: PIL Image 对象，支持任意图像模式。
@@ -847,6 +879,39 @@ class DrawBoxWindow(QWidget):
         """
         if pil_image is None:
             return QPixmap()
+        # H1: native 直通路径
+        try:
+            pixmap_bytes_to_qpixmap_buffer = _try_native()[0]
+            if pixmap_bytes_to_qpixmap_buffer is not None:
+                if pil_image.mode == "RGBA":
+                    raw = pil_image.tobytes("raw", "RGBA")
+                    n = 4
+                    fmt = QImage.Format.Format_RGBA8888
+                elif pil_image.mode == "RGB":
+                    raw = pil_image.tobytes("raw", "RGB")
+                    n = 3
+                    fmt = QImage.Format.Format_RGB888
+                else:
+                    pil_image = pil_image.convert("RGBA")
+                    raw = pil_image.tobytes("raw", "RGBA")
+                    n = 4
+                    fmt = QImage.Format.Format_RGBA8888
+                buf = pixmap_bytes_to_qpixmap_buffer(
+                    raw, pil_image.width, pil_image.height, n, 0
+                )
+                if buf is not None:
+                    qimage = QImage(
+                        buf,
+                        pil_image.width,
+                        pil_image.height,
+                        pil_image.width * n,
+                        fmt,
+                    )
+                    # .copy() 确保 QPixmap 持有独立数据，buf 可在 fromImage 后释放
+                    return QPixmap.fromImage(qimage.copy())
+        except Exception:
+            pass
+        # Fallback: 原 PIL→QImage 路径
         if pil_image.mode != "RGBA":
             pil_image = pil_image.convert("RGBA")
         data = pil_image.tobytes("raw", "RGBA")

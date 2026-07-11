@@ -157,7 +157,7 @@ class DataLoadWorker(QObject):
         """
         try:
             self.progress_signal.emit("正在加载PDF页面图像...")
-            page_images = self.pdf_processor.convert_to_images(self.pdf_path)
+            page_images = self.pdf_processor.convert_to_images(self.pdf_path, dpi=300)
             self.progress_signal.emit(f"已加载 {len(page_images)} 页图像")
             self.progress_signal.emit("正在解析JSON结果...")
             if self.ocr_engine.results is not None:

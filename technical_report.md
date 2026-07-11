@@ -1,385 +1,361 @@
-# PDF-OCR 项目技术审阅报告
+# PDF-OCR 项目技术报告
 
-> 本报告基于对 `e:\hx\` 下三个版本（`1/` Python v1、`2/` Python v2、`2_cpp/` C++ 版）全部源码的通读分析，对照 PyQt6 QThread、RapidOCR、PaddleOCR、Qt5/Qt6 的最佳实践，识别功能缺陷、性能瓶颈与代码质量问题，并评估数据持久化方案是否满足 BC 范式。
->
-> 评估重点放在 `2/` 和 `2_cpp/`，`1/` 作为旧版仅做简略评估。
+本报告基于 hengxiao_tool2 代码库（下载于 2026-07-10，最新提交 `cab040d`）编写，全面审查了 software1（PyQt6 完整 OCR 管线）、software2（PyQt5 校对+精修）以及 software_common/native（C++ pybind11 加速模块）三大子系统的源代码实现，涵盖模块结构、核心算法、线程模型、数据模式 BCNF 验证、差异分析、代码质量评估及下载覆盖计划等内容。
 
 ---
 
-## 1. 项目概述
+## 一、项目总览
 
-### 1.1 项目定位
+### 1.1 仓库信息
 
-PDF-OCR 是一款面向扫描书页 PDF 的字符级 OCR 桌面校对工具。核心流程为：
+| 属性 | 值 |
+|------|-----|
+| 源仓库 | `https://github.com/nirvanafaith/hengxiao_tool2` |
+| 最新提交 | `cab040d` (2026-07-10) |
+| 提交信息 | `fix: pdf_output 按 y 基线分组替代 line_id (CorrectedChar 无 line_id 属性)` |
+| 总提交数 | 4 |
+| 语言占比 | Python 88.8%, HTML 7.0%, C++ 3.3%, Other 0.9% |
+| 目标仓库（推送） | `https://github.com/nirvanafaith/PDF-OCR` |
 
-```
-PDF 导入 → 字符级 OCR 识别 → 纵校（按字符分组校对）→ 横校（按行校对）→ 精修（输出 PDF）
-```
+### 1.2 提交历史
 
-### 1.2 版本演进
-
-| 版本 | 目录 | 技术栈 | 流程阶段 | 角色 |
-|------|------|--------|----------|------|
-| v1 | [1/](file:///e:/hx/1) | PyQt6 + RapidOCR + PaddleOCR + PyMuPDF | 画框 → OCR 准备 | 基础版，含完整 OCR 推理 |
-| v2 | [2/](file:///e:/hx/2) | PyQt6 + PyMuPDF + reportlab | 导入 → 纵校 → 横校 → 精修 | 增强版，仅做数据处理（不做 OCR 推理） |
-| C++ | [2_cpp/](file:///e:/hx/2_cpp) | Qt5 + MuPDF + PoDoFo + nlohmann/json | 与 v2 一致 | v2 的 C++ 移植版，目标 Win7 SP1 兼容 |
-
-### 1.3 关键依赖
-
-**Python v2（[2/requirements.txt](file:///e:/hx/2/requirements.txt)）**：
-- `PyQt6` — GUI 框架
-- `PyMuPDF` (`fitz`) — PDF 解析与渲染
-- `Pillow` — 图像处理
-- `reportlab` — PDF 输出
-- **注意：v2 不依赖 `rapidocr`/`paddlepaddle`/`onnxruntime`**，与 v1 不同
-
-**C++ 版（[2_cpp/CMakeLists.txt](file:///e:/hx/2_cpp/CMakeLists.txt)）**：
-- `Qt5`（非 Qt6，为 Win7 SP1 兼容）
-- `MuPDF`（C API）
-- `PoDoFo`（0.10.x API）
-- `nlohmann/json`（FetchContent v3.11.3）
-- `OpenSSL`（运行时通过 `main.cpp` 设置模块路径）
-- `C++17` 标准
-
----
-
-## 2. 架构分析
-
-### 2.1 整体架构
-
-三个版本均采用 **主窗口 + 阶段窗口（QStackedWidget）** 的架构：
-
-- **MainWindow** 持有 `QStackedWidget`，按阶段切换子窗口
-- **StepIndicator** 显示当前阶段
-- 阶段窗口之间通过 Qt 信号传递数据
-
-### 2.2 数据流
-
-```
-ImportWindow → (page_images, ocr_results, char_slices) → VerticalCheckWindow
-            → (updated char_slices, updated ocr_results) → HorizontalCheckWindow
-            → (corrected_lines) → RefineWindow
-            → (red_pdf_path, transparent_pdf_path)
-```
-
-### 2.3 模块划分
-
-| 模块 | Python v2 | C++ 版 | 职责 |
-|------|-----------|--------|------|
-| PDF 处理 | [2/pdf_processor/pdf_loader.py](file:///e:/hx/2/pdf_processor/pdf_loader.py) | [2_cpp/src/processors/pdf_processor.h](file:///e:/hx/2_cpp/src/processors/pdf_processor.h) | PDF → 图像 |
-| OCR 引擎 | [2/ocr_engine/rapidocr_engine.py](file:///e:/hx/2/ocr_engine/rapidocr_engine.py) | [2_cpp/src/processors/ocr_engine.h](file:///e:/hx/2_cpp/src/processors/ocr_engine.h) | JSON 加载、解析、分组 |
-| PDF 输出 | [2/pdf_processor/pdf_output.py](file:///e:/hx/2/pdf_processor/pdf_output.py) | [2_cpp/src/processors/pdf_output_generator.h](file:///e:/hx/2_cpp/src/processors/pdf_output_generator.h) | 校对后 PDF 生成 |
-| 数据模型 | [2/models/data_models.py](file:///e:/hx/2/models/data_models.py) | [2_cpp/src/models/datamodels.h](file:///e:/hx/2_cpp/src/models/datamodels.h) | dataclass / struct 定义 |
-| UI 主窗口 | [2/main.py](file:///e:/hx/2/main.py) | [2_cpp/src/windows/mainwindow.cpp](file:///e:/hx/2_cpp/src/windows/mainwindow.cpp) | 阶段调度 |
-| UI 阶段窗口 | [2/ui/*.py](file:///e:/hx/2/ui) | [2_cpp/src/windows/*.cpp](file:///e:/hx/2_cpp/src/windows) | 各阶段交互界面 |
-| 样式 | [2/ui/styles.py](file:///e:/hx/2/ui/styles.py) | [2_cpp/resources/styles.qss](file:///e:/hx/2_cpp/resources/styles.qss) | QSS 样式表 |
-| 缩放 | [2/ui/zoom_utils.py](file:///e:/hx/2/ui/zoom_utils.py) | [2_cpp/src/utils/zoom_utils.cpp](file:///e:/hx/2_cpp/src/utils/zoom_utils.cpp) | 滚轮缩放计算 |
-
-### 2.4 线程模型
-
-| 场景 | Python v2 | C++ 版 | 评估 |
-|------|-----------|--------|------|
-| PDF 导入 | `ImportWorker(QObject)` + `moveToThread()` | `ImportWorker(QObject)` + `moveToThread()` | ✓ 符合 worker object pattern |
-| PDF 输出 | `PDFOutputWorker(QThread)` 继承 `run()` | — | ✗ 违反最佳实践 |
-| 横校数据构建 | 主线程同步调用 `build_line_data` | `QtConcurrent::run` + `QFutureWatcher` | C++ 版更优 |
-| 纵校修改 flush | 主线程同步 | 主线程同步 | 大字符组时可能卡顿 |
-
----
-
-## 3. 功能缺陷清单
-
-### 3.1 必须修复（Critical）
-
-#### 3.1.1 横校 pixmap 缓存被整体替换（缓存完全失效）
-
-- **位置**：[2/ui/horizontal_check_window.py:293](file:///e:/hx/2/ui/horizontal_check_window.py#L293)
-- **现象**：
-  ```python
-  if cache_key not in self._pixmap_cache:
-      pixmap = self._pil_to_pixmap(img)
-      scaled_pixmap = pixmap.scaled(...)
-      self._pixmap_cache = {cache_key: scaled_pixmap}   # ← BUG
-  ```
-- **问题**：每次缓存未命中时，使用 `self._pixmap_cache = {cache_key: scaled_pixmap}` **整体替换**字典，而非 `self._pixmap_cache[cache_key] = scaled_pixmap` 增量插入。导致缓存永远只保留 1 个条目，每次翻页/缩放都重新缩放整页图像。
-- **影响**：横校阶段每次翻页、缩放、悬停预览都会触发整页图像重新缩放（`O(页宽 × 页高)` 像素操作），严重卡顿。
-- **对比**：同文件下方第 309 行 `self._pixmap_cache[pdf_cache_key] = pdf_scaled` 写法正确，证实第 293 行是笔误。
-- **修复**：将第 293 行改为 `self._pixmap_cache[cache_key] = scaled_pixmap`。
-
-#### 3.1.2 OCREngine 死代码引用未初始化属性
-
-- **位置**：[2/ocr_engine/rapidocr_engine.py:30](file:///e:/hx/2/ocr_engine/rapidocr_engine.py#L30) 与 [2/ocr_engine/rapidocr_engine.py:68](file:///e:/hx/2/ocr_engine/rapidocr_engine.py#L68)
-- **现象**：
-  ```python
-  def __init__(self):
-      """软件2仅使用数据处理方法，不需要OCR模型。"""
-      self.results = None     # 仅初始化 results
-
-  def _recognize_page(self, page_image, page_idx, output_callback=None):
-      ...
-      result = self.engine(page_image, ...)   # ← 引用 self.engine
-  ```
-- **问题**：`__init__` 仅初始化 `self.results`，但 `_recognize_page`/`_recognize_page_batch` 方法仍引用 `self.engine`。若误调用会抛 `AttributeError`。
-- **影响**：v2 不做 OCR 推理，故当前未触发；但属于死代码 + 潜在崩溃风险，且误导后续维护者。
-- **修复**：删除 `_recognize_page`、`_recognize_page_batch`、`run_ocr`、`_optimize_char_boxes` 等推理相关方法，或显式 `raise NotImplementedError("v2 不支持 OCR 推理")`。
-
-#### 3.1.3 C++ 版横校「返回」按钮触发悬空指针访问
-
-- **位置**：[2_cpp/src/windows/mainwindow.cpp:245-256](file:///e:/hx/2_cpp/src/windows/mainwindow.cpp#L245)
-- **现象**：
-  ```cpp
-  void MainWindow::on_horizontal_back()
-  {
-      if (horiz_widget_) {
-          stack_->removeWidget(horiz_widget_);
-          horiz_widget_->deleteLater();
-          horiz_widget_ = nullptr;
-      }
-      current_stage_ = 1;
-      step_indicator_->set_current(1);
-      stack_->setCurrentWidget(vert_widget_);   // ← vert_widget_ 可能已为 nullptr
-  }
-  ```
-- **问题**：从横校返回纵校时，`vert_widget_` 在 `on_vertical_finished`（[mainwindow.cpp:148-152](file:///e:/hx/2_cpp/src/windows/mainwindow.cpp#L148)）中已被 `deleteLater()` 释放并置空。此处调用 `stack_->setCurrentWidget(vert_widget_)` 会传入 `nullptr`，行为未定义（Qt 通常静默忽略，但仍属逻辑错误）。
-- **影响**：从横校返回后界面可能卡住，无法回到纵校阶段。
-- **修复**：返回纵校前需重建 `VerticalCheckWindow`（携带原 `char_slices_` 与 `ocr_results_`），或在纵校完成后不立即销毁纵校窗口，改为隐藏并保留。
-
----
-
-### 3.2 建议修改（Major）
-
-#### 3.2.1 PDFOutputWorker 继承 QThread 重写 run()，违反 worker object pattern
-
-- **位置**：[2/pdf_processor/pdf_output.py:135](file:///e:/hx/2/pdf_processor/pdf_output.py#L135)
-- **现象**：
-  ```python
-  class PDFOutputWorker(QThread):
-      progress_signal = pyqtSignal(int, str)
-      finished_signal = pyqtSignal()
-      error_signal = pyqtSignal(str)
-      def __init__(self, generator, corrected_chars, page_images, ...):
-          ...
-      def run(self):
-          ...
-  ```
-- **问题**：继承 `QThread` 重写 `run()` 是 PyQt6 的反模式。Qt 官方推荐 **worker object pattern**：`Worker(QObject)` + `moveToThread(QThread)` + 信号槽触发 `run()` 槽函数。
-- **影响**：
-  - 无法在 Worker 中定义多个槽函数响应外部信号（如取消、暂停）
-  - 错误处理与资源清理流程更复杂
-  - 与项目内 `ImportWorker`（[2/ui/import_window.py](file:///e:/hx/2/ui/import_window.py)）的写法不一致，风格不统一
-- **修复**：改为 `class PDFOutputWorker(QObject)` + `moveToThread()`，参考 `ImportWorker` 实现。
-
-#### 3.2.2 v2 主线程同步调用 build_line_data 阻塞 UI
-
-- **位置**：[2/main.py:165](file:///e:/hx/2/main.py#L165)
-- **现象**：
-  ```python
-  def _setup_horizontal_stage(self):
-      page_lines = self.ocr_engine.build_line_data(   # ← 主线程同步
-          self.ocr_results, self.page_images, self.char_slices
-      )
-      self.horiz_widget = HorizontalCheckWindow(page_lines, self.page_images)
-  ```
-- **问题**：`build_line_data` 需遍历所有行 + 字符构建 `LineSlice`，并按页分组，大文档（数百页）时耗时数秒，期间 UI 完全冻结。
-- **对比**：C++ 版 [2_cpp/src/windows/mainwindow.cpp:199-203](file:///e:/hx/2_cpp/src/windows/mainwindow.cpp#L199) 使用 `QtConcurrent::run` + `QFutureWatcher` 异步执行，并显示模态进度对话框。
-- **影响**：用户感知明显卡顿；纵校→横校切换时窗口无响应。
-- **修复**：参考 C++ 版，用 `QThread` + worker object pattern 异步执行，并显示 `QProgressDialog`。
-
-#### 3.2.3 C++ 横校使用裸指针存入 QGraphicsItem 上下文
-
-- **位置**：[2_cpp/src/windows/horizontalcheckwindow.cpp:204](file:///e:/hx/2_cpp/src/windows/horizontalcheckwindow.cpp#L204) 与 [2_cpp/src/windows/horizontalcheckwindow.cpp:258](file:///e:/hx/2_cpp/src/windows/horizontalcheckwindow.cpp#L258)
-- **现象**：
-  ```cpp
-  item->setData(0, QVariant::fromValue(
-      static_cast<quintptr>(reinterpret_cast<quintptr>(ls_ptr))));
-  ...
-  return reinterpret_cast<LineSlice*>(ptr_val);
-  ```
-- **问题**：将 `LineSlice*` 裸指针转 `quintptr` 存入 `QGraphicsTextItem` 的 `data(0)`。若 `page_lines_`（`std::map<int, std::vector<LineSlice>>`）发生元素移动（如 `std::vector` 扩容、`sync_chars_with_text` 中 `ls.chars = std::move(new_chars)` 引发 `vector` 重建），则存入的指针变为悬空。
-- **影响**：在「修改文字」对话框确认后调用 `render_page()` 重建场景前，若用户再次悬停同一 item，可能读到已释放内存。
-- **修复**：改为存储 `(page_num, line_index)` 二元组，运行时通过 `page_lines_[page_num][line_index]` 查找；或用 `std::shared_ptr<LineSlice>` + `QVariant` 自定义类型注册。
-
-#### 3.2.4 v1 LazyPageLoader LRU 实现效率低
-
-- **位置**：[1/pdf_processor/pdf_loader.py:183-186](file:///e:/hx/1/pdf_processor/pdf_loader.py#L183)（v1 与 v2 同）
-- **现象**：
-  ```python
-  while len(self._cache_order) > self._max_cache:
-      oldest = self._cache_order.pop(0)   # ← O(n) 操作
-      if oldest in self._cache:
-          del self._cache[oldest]
-  ```
-- **问题**：使用 `list.pop(0)` 淘汰最旧页，时间复杂度 `O(n)`（n 为缓存大小）。C++ 版 [2_cpp/src/processors/lazy_page_loader.cpp](file:///e:/hx/2_cpp/src/processors/lazy_page_loader.cpp) 用 `std::list` + `unordered_map` 实现 `O(1)` LRU，明显更优。
-- **影响**：当前 `max_cache=5` 影响小，但若调大缓存或扩展使用场景会成为瓶颈。
-- **修复**：改用 `collections.OrderedDict` + `move_to_end()`。
-
----
-
-### 3.3 仅供参考（Minor）
-
-#### 3.3.1 测试脚本硬编码绝对路径
-
-- **位置**：[2/test_import_thread.py:11-13](file:///e:/hx/2/test_import_thread.py#L11)
-- **现象**：路径硬编码为 `c:\Users\E-VR\Documents\trae_projects\横校\...`，访问私有属性 `window._worker = None`、`window._on_load()`。
-- **影响**：仅作者本机可用，无法在 CI 或他人机器运行。
-
-#### 3.3.2 C++ 横校缓存键精度受限
-
-- **位置**：[2_cpp/src/windows/horizontalcheckwindow.cpp:268](file:///e:/hx/2_cpp/src/windows/horizontalcheckwindow.cpp#L268)
-- **现象**：`int cache_key = current_page_ * 10000 + static_cast<int>(zoom_level_ * 100);`
-- **问题**：zoom_level 精度截断到 0.01，且若 `current_page_ * 10000 + zoom*100` 溢出 int 范围（page > 214747）会冲突。实际项目页数远小于此，但设计脆弱。
-
-#### 3.3.3 v1/v2 代码大量重复
-
-- `pdf_loader.py`、`styles.py`、`zoom_utils.py` 在 v1 和 v2 中几乎完全相同。
-- `data_models.py` 中 v1 与 v2 仅 `CharSlice.score` 字段差异。
-- 建议：抽取公共库或共享子模块，避免双份维护。
-
-#### 3.3.4 v2 CharSliceMap 排序使用首字符 unicode
-
-- **位置**：[2_cpp/src/windows/verticalcheckwindow.cpp:454-460](file:///e:/hx/2_cpp/src/windows/verticalcheckwindow.cpp#L454)
-- **现象**：仅用 `a.at(0).unicode()` 排序，空字符串排最前。
-- **问题**：多字符字符串（如「的。」）仅按首字符排序，次序不稳定。Python 版 [2/ui/vertical_check_window.py](file:///e:/hx/2/ui/vertical_check_window.py) 行为一致，但属于设计选择，不算 bug。
-
-#### 3.3.5 C++ 版析构顺序风险
-
-- **位置**：[2_cpp/src/windows/mainwindow.cpp:60-63](file:///e:/hx/2_cpp/src/windows/mainwindow.cpp#L60)
-- **现象**：`ocr_engine_ = new OCREngine();` 析构 `delete ocr_engine_;`。若构造函数 `setup_ui`/`setup_import_stage` 抛异常，`ocr_engine_` 泄漏。
-- **影响**：Qt 异常罕见，但建议改用 `std::unique_ptr`。
-
-#### 3.3.6 v2 精修阶段未实际实现
-
-- **位置**：[2_cpp/src/windows/mainwindow.cpp:262-269](file:///e:/hx/2_cpp/src/windows/mainwindow.cpp#L262)
-- **现象**：C++ 版精修阶段为占位 `create_placeholder_widget("精修阶段（占位，后续任务实现）")`。
-- **影响**：C++ 版当前无法完成端到端流程，缺少 PDF 输出能力。Python v2 的 `RefineWindow` 已实现。
-
----
-
-## 4. 性能瓶颈与优化建议
-
-### 4.1 主线程阻塞
-
-| 位置 | 操作 | 影响 | 建议 |
-|------|------|------|------|
-| [2/main.py:165](file:///e:/hx/2/main.py#L165) | `build_line_data` 同步执行 | 大文档卡顿数秒 | 异步化（参考 C++ 版 QtConcurrent） |
-| [2_cpp/src/windows/verticalcheckwindow.cpp:850](file:///e:/hx/2_cpp/src/windows/verticalcheckwindow.cpp#L850) | `flush_pending_modifications` 调 `refresh_label_list()` 重建整个字符列表 | 切换字符时短暂卡顿 | 增量更新而非全量重建 |
-
-### 4.2 缓存设计问题
-
-#### 4.2.1 横校 pixmap 缓存键设计
-
-- **位置**：[2_cpp/src/windows/horizontalcheckwindow.cpp:122](file:///e:/hx/2_cpp/src/windows/horizontalcheckwindow.cpp#L122) 与 [2_cpp/src/windows/horizontalcheckwindow.cpp:268](file:///e:/hx/2_cpp/src/windows/horizontalcheckwindow.cpp#L268)
-- **问题**：缓存键为 `(page, zoom_level)`，缩放级别变化即缓存失效。用户每次 Ctrl+滚轮缩放都会触发整页重缩放。
-- **建议**：缓存原图 `QPixmap`，按需 `scaled()` 即时缩放（Qt 内部对 `scaled()` 有优化）；或采用多级缩放缓存策略。
-
-#### 4.2.2 纵校 pixmap 缓存前缀匹配
-
-- **位置**：[2_cpp/src/windows/verticalcheckwindow.cpp:836-841](file:///e:/hx/2_cpp/src/windows/verticalcheckwindow.cpp#L836)
-- **现象**：
-  ```cpp
-  for (const QString& key : pixmap_cache_.keys()) {
-      if (key.startsWith(char_text + ":") || ...) {
-          keys_to_remove.append(key);
-      }
-  }
-  ```
-- **问题**：`QCache::keys()` 返回所有键，遍历是 `O(n)`（n 为缓存总条目数，最大 2000）。每次 flush 修改都遍历 2000 个字符串。
-- **建议**：维护 `char_text → cache_keys` 反向索引，或直接 `clear()` 整个缓存（纵校修改是低频操作）。
-
-### 4.3 OCR 引擎数据处理
-
-- **位置**：[2_cpp/src/processors/ocr_engine.cpp:140-147](file:///e:/hx/2_cpp/src/processors/ocr_engine.cpp#L140)
-- **问题**：`build_line_data` 中 `line_chars_map[line_id].push_back(char_data)` 按 `line_id` 全局分组，但 `line_id` 在页内唯一，跨页会冲突。后续循环 `page_lines_list` 时仍按 `line_id` 查 `line_chars_map[line_id]`，导致**跨页同 line_id 的字符被错误归并到第一页的行**。
-- **影响**：多页文档中，第二页及之后的行可能引用第一页同 line_id 的字符，导致横校文字叠加错误。
-- **修复**：`line_chars_map` 改为 `std::map<std::pair<int,int>, std::vector<json>>`（键为 `(page_num, line_id)`），并同步更新查找逻辑。
-- **严重程度**：建议修改（Major），影响多页文档正确性。
-
-### 4.4 PDF 渲染重复
-
-- **位置**：[2/pdf_processor/pdf_loader.py:60-63](file:///e:/hx/2/pdf_processor/pdf_loader.py#L60)
-- **现象**：`convert_to_images` 一次性渲染所有页面到内存，无并行化。
-- **建议**：用 `QtConcurrent::mapped` 或 `concurrent.futures` 并行渲染；或采用懒加载（`LazyPageLoader` 已存在但未使用）。
-
-### 4.5 横校悬停预览重复缩放
-
-- **位置**：[2_cpp/src/windows/horizontalcheckwindow.cpp:402-419](file:///e:/hx/2_cpp/src/windows/horizontalcheckwindow.cpp#L402)
-- **现象**：每次鼠标移动到新行都重新 `make_slice_pixmap` + `scaled()`，即使同一行已预览过。
-- **现状**：已用 `slice_cache_id_` + `slice_cache_pixmap_` 做单条目缓存（仅缓存最近一次）。
-- **建议**：扩展为按 `(page, line_index)` 的多条目缓存。
-
----
-
-## 5. 代码质量评估
-
-### 5.1 内聚性
-
-| 模块 | 评估 | 说明 |
+| 提交 | 日期 | 信息 |
 |------|------|------|
-| `OCREngine`（v2/C++） | 中等 | 包含 JSON 加载、字符分组、行数据构建三类职责，建议拆分为 `JsonLoader` + `CharGrouper` + `LineBuilder` |
-| `VerticalCheckWindow` | 中等 | 单文件 1261 行（C++），含 `PreviewGraphicsView` + `SliceItemWidget` + `VerticalCheckWindow` 三类，建议拆分头文件 |
-| `HorizontalCheckWindow` | 较好 | 单一职责（横校交互） |
-| `PDFProcessor` | 高 | 仅 PDF → 图像 |
+| `8a00a86` | 2026-07-06 | feat: C++ 加速优化版 software2 (hengxiao_tool2) |
+| `a4ecea6` | 2026-07-10 | feat: PP-OCRv6升级 + 线程安全修复 + DPI对齐 + newchar优先恢复 |
+| `90823c0` | 2026-07-10 | feat: DPI统一300 + DBSCAN行合并 + PyMuPDF双层PDF |
+| `cab040d` | 2026-07-10 | fix: pdf_output 按 y 基线分组替代 line_id |
 
-### 5.2 耦合度
+### 1.3 三大子系统
 
-| 耦合点 | 评估 | 说明 |
-|--------|------|------|
-| MainWindow ↔ 阶段窗口 | 低 | 通过信号传递数据，窗口间无直接引用 |
-| 阶段窗口 ↔ OCREngine | 中 | 窗口直接调用 `engine.build_line_data`，C++ 版 MainWindow 持有 `OCREngine*` |
-| UI ↔ JSON | 高 | [2_cpp/src/windows/verticalcheckwindow.cpp:641-655](file:///e:/hx/2_cpp/src/windows/verticalcheckwindow.cpp#L641) 直接遍历 `ocr_results_.first`（`std::vector<json>`）查找行 box，UI 层操作 JSON 数据结构，违反层级 |
-| datamodels ↔ nlohmann/json | 高 | [2_cpp/src/models/datamodels.h](file:///e:/hx/2_cpp/src/models/datamodels.h) 在数据结构内嵌 `to_json`/`from_json`，与 JSON 库强绑定 |
-
-### 5.3 层级违规
-
-1. **UI 层直接操作 JSON**：[2_cpp/src/windows/verticalcheckwindow.cpp:1095-1120](file:///e:/hx/2_cpp/src/windows/verticalcheckwindow.cpp#L1095) `update_ocr_results_char` 在 UI 窗口中直接遍历并修改 `ocr_results_.second`（`std::vector<json>`）。应封装到 `OCREngine::update_char(...)`。
-2. **MainWindow 承担数据中转**：[2_cpp/src/windows/mainwindow.cpp:112-123](file:///e:/hx/2_cpp/src/windows/mainwindow.cpp#L112) `on_import_finished` 拷贝 `page_images_`、`ocr_results_`、`char_slices_` 三份大数据到 MainWindow 成员，再传给下个阶段窗口。深拷贝 `std::vector<QImage>` 在大文档下耗时。建议用 `std::shared_ptr` 共享所有权。
-
-### 5.4 重复代码
-
-| 重复内容 | 位置 | 建议 |
-|----------|------|------|
-| `pdf_loader.py` | v1 与 v2 完全相同 | 抽取公共模块 |
-| `styles.py` | v1 与 v2 完全相同 | 抽取公共模块 |
-| `zoom_utils.py` / `zoom_utils.h` | 三版本逻辑相同 | — |
-| `StepIndicator` | Python v2 `main.py` 与 C++ `stepindicator.cpp` 逻辑相同 | — |
-| `flatten_bbox` | Python v2 `data_models.py` 与 C++ `datamodels.h` | — |
-
-### 5.5 命名与风格
-
-- Python v2 使用 `snake_case`，符合 PEP 8
-- C++ 版混用：成员变量用 `trailing_underscore_`（如 `pdf_path_`），局部变量用 `snake_case`，符合 Google C++ Style Guide
-- **不一致点**：C++ 信号用 `finished_signal`（带 `_signal` 后缀），Qt 惯例是 `finished`（无后缀），避免与 `QObject` 内置信号冲突时再加后缀
-
-### 5.6 错误处理
-
-- Python v2：广泛使用 `try/except` + 自定义 `RuntimeError`，覆盖 PDF 加载、JSON 解析、图像处理
-- C++ 版：`try/catch (const std::exception&)` + `throw std::runtime_error`，但 `json::exception` 在 `show_line_preview` 中单独捕获（[verticalcheckwindow.cpp:755](file:///e:/hx/2_cpp/src/windows/verticalcheckwindow.cpp#L755)），其他地方未捕获可能崩溃
+```
+software1 (PyQt6)              software2 (PyQt5)              software_common/native (C++)
+┌─────────────────────┐        ┌─────────────────────┐        ┌──────────────────────┐
+│ 完整 OCR 管线        │        │ 后处理/校对/精修     │        │ H1: pixmap→QImage    │
+│ RapidOCR PP-OCRv6   │        │ 无 OCR 模型         │        │ H2: 字符框优化       │
+│ DPI=300             │        │ DPI=200             │        │ H3: 批量裁切         │
+│ 画框→OCR准备         │        │ 导入→纵校→横校→精修  │        │ 透明回退到 Python    │
+└──────────┬──────────┘        └──────────┬──────────┘        └──────────┬───────────┘
+           │                              │                              │
+           └──────────┬───────────────────┘                              │
+                      │                                                  │
+                      └──── _try_native() 透明回退 ─────────────────────┘
+```
 
 ---
 
-## 6. 数据持久化与数据库范式评估
+## 二、software1 详细分析（PyQt6 完整 OCR 管线）
 
-### 6.1 数据持久化方案
+### 2.1 模块结构
 
-项目使用 **JSON 文件** 作为持久化存储，无传统数据库。核心数据文件：
-
-| 文件 | 结构 | 示例 |
+| 路径 | 行数 | 职责 |
 |------|------|------|
-| `lines.json` | 数组，每元素为一行记录 | [1/json/27424 智慧工地技术 正文1-1/lines.json](file:///e:/hx/1/json/27424%20%E6%99%BA%E6%85%A7%E5%B7%A5%E5%9C%B0%E6%8A%80%E6%9C%AF%20%E6%AD%A3%E6%96%871-1/lines.json) |
-| `chars.json` / `newchar.json` | 数组，每元素为一字符记录 | — |
+| `main.py` | 197 | 主窗口，管理"画框→OCR准备"两阶段流程 |
+| `ocr_engine/rapidocr_engine.py` | 1012 | OCR 引擎核心，基于 RapidOCR PP-OCRv6 |
+| `ocr_engine/line_merger.py` | 130 | DBSCAN 行合并后处理 **（新增）** |
+| `ocr_engine/char_refiner_cv.py` | 673 | OpenCV 连通域+投影法字符框精修 **（新增）** |
+| `pdf_processor/pdf_loader.py` | 235 | PDF→PIL 图像渲染，LRU 惰性加载 |
+| `models/data_models.py` | 249 | dataclass 数据模型 |
+| `ui/draw_box_window.py` | 934 | 画框窗口，支持 MinerU JSON 导入 |
+| `ui/ocr_prepare_window.py` | 709 | OCR 准备窗口，QThread+Worker 后台执行 |
+| `ui/styles.py` | 241 | 全局 QSS 样式表 |
+| `ui/zoom_utils.py` | 28 | Ctrl+滚轮缩放计算 |
 
-**lines.json 字段**（基于 [1/json/27424 智慧工地技术 正文1-1/lines.json:3-24](file:///e:/hx/1/json/27424%20%E6%99%BA%E6%85%A7%E5%B7%A5%E5%9C%B0%E6%8A%80%E6%9C%AF%20%E6%AD%A3%E6%96%871-1/lines.json#L3)）：
+### 2.2 OCR 引擎核心算法
+
+#### 2.2.1 RapidOCR PP-OCRv6 推理
+
+- **检测参数**：`limit_side_len=2880`, `box_thresh=0.4`, `unclip_ratio=1.8`（DBNet）
+- **线程安全**：`ThreadPoolExecutor(max_workers=3)`，每线程持有独立 RapidOCR 实例（线程局部变量），避免框坐标污染
+- **GPU 检测**：通过探测 `cublasLt64_12.dll` 文件存在性判断 GPU 可用性
+- **区域限定 OCR**：`regions` 参数支持只对指定矩形区域做 OCR，通过框重叠过滤
+
+#### 2.2.2 DBSCAN 行合并 `line_merger.py` **（新增）**
+
+```
+输入: lines[], chars[]
+策略:
+  1. 按 page_num 分组行
+  2. 每页内提取 y_center = (y1+y2)/2, height = y2-y1
+  3. eps = median(heights) * 0.3（中位高度自适应阈值）
+  4. DBSCAN(eps, min_samples=1) 对 y_center 聚类
+  5. 同簇按 x_center 排序合并:
+     - bbox = 并集(min x1/y1, max x2/y2)
+     - text = ' '.join(行文本)
+     - score = 按文本长度加权平均
+  6. 全局 line_id/char_id 从 0 连续重映射
+输出: (merged_lines, merged_chars)
+```
+
+**算法正确性**：DBSCAN `min_samples=1` 保证单行也能成簇；`eps` 基于中位高度自适应，避免固定阈值在不同字号下的退化。
+
+#### 2.2.3 OpenCV 字符框精修 `char_refiner_cv.py` **（新增）**
+
+替代旧的 numpy 逐字符边缘优化，采用多层次 CV 算法：
+
+```
+流程:
+  1. 按 line_id 分组字符，按 char_id 排序
+  2. 验证: 字符数 == len(line_text)（不匹配则跳过）
+  3. 裁切行图像（+2px padding）
+  4. Otsu 二值化(THRESH_BINARY_INV) + 形态学开运算(2x2 kernel)去噪
+  5. connectedComponentsWithStats(connectivity=8) 获取连通域
+  6. 过滤小连通域(宽<3 或 高<5)
+  7. 合并过分割小连通域(宽度 < avg_width/3)
+  8. 垂直投影法: col_sum = binary.sum(axis=0)
+     - 1D 高斯平滑(5x1核)减少假谷值
+     - 找连续低值区域(< max*0.05)中点作为字符边界
+  9. 融合: 连通域粗框 + 投影谷值细化 x 边界
+ 10. 粘连字符: Distance Transform + Watershed 分割
+     - 失败回退到投影法
+ 11. 验证: CV 切分数 == 字符数（不匹配保留原 OCR 框）
+```
+
+**关键设计**：切分数验证机制确保 CV 精修失败时保留原始 OCR 框，不会引入新错误。Watershed 优先 + 投影法回退的双策略保证鲁棒性。
+
+### 2.3 线程模型
+
+| 场景 | 实现 |
+|------|------|
+| OCR 推理 | `OCRWorker(QObject)` + `moveToThread(QThread)` |
+| 数据加载 | `DataLoadWorker(QObject)` + `moveToThread(QThread)` |
+| 批量 OCR | `ThreadPoolExecutor(max_workers=3)` + 线程局部 RapidOCR |
+
+### 2.4 数据流
+
+```
+PDF → PDFProcessor.convert_to_images(dpi=300)
+    → DrawBoxWindow (用户画框/导入JSON)
+    → OCRPrepareWindow (OCR参数配置)
+    → OCREngine.run_ocr(regions)
+      → RapidOCR 检测+识别
+      → _optimize_char_boxes (native/numpy)
+      → char_refiner_cv.refine_chars_for_page (OpenCV精修)
+      → line_merger.merge_lines (DBSCAN合并)
+    → 输出 chars.json + lines.json
+```
+
+---
+
+## 三、software2 详细分析（PyQt5 校对+精修）
+
+### 3.1 模块结构
+
+| 路径 | 行数 | 职责 |
+|------|------|------|
+| `main.py` | 623 | 主窗口，管理"导入→纵校→横校→精修"四阶段 |
+| `ocr_engine/rapidocr_engine.py` | 372 | 精简版引擎（无OCR模型，仅数据处理） |
+| `pdf_processor/pdf_loader.py` | 235 | PDF→PIL 图像（DPI=200） |
+| `pdf_processor/pdf_output.py` | 265 | PyMuPDF 双层 PDF 输出 **（重写）** |
+| `models/data_models.py` | 338 | 数据模型（含 to_dict/from_dict） |
+| `ui/import_window.py` | 458 | 导入窗口（JSON加载/工程恢复） |
+| `ui/vertical_check_window.py` | 2281 | 纵校窗口（最复杂模块） |
+| `ui/horizontal_check_window.py` | 1587 | 横校窗口（双视图滚动同步） |
+| `ui/refine_window.py` | 2035 | 精修窗口（8手柄缩放+PDF输出） |
+| `ui/styles.py` | 291 | 全局 QSS 样式表 |
+| `ui/zoom_utils.py` | 28 | Ctrl+滚轮缩放计算 |
+| `session_manager.py` | 290 | 工程会话管理 **（新增）** |
+| `undo_commands.py` | 384 | 撤销/重做命令 **（新增）** |
+| `runtime_hook_stderr.py` | 41 | PyInstaller runtime hook **（新增）** |
+| `hengxiao_tool2.spec` | 141 | PyInstaller 打包配置 **（新增）** |
+
+### 3.2 四阶段流程
+
+```
+Stage 0: 导入 (ImportWindow)
+  → 自动探测 lines.json + newchar.json/chars.json
+  → ImportWorker 后台加载: PDF→图像 + JSON解析 + 字符分组
+  → 或: SessionManager.load() 恢复已保存工程
+
+Stage 1: 纵校 (VerticalCheckWindow) — 竖排文本
+  → 按字符内容分组，逐组检查
+  → 修改文字、删除错误字符、新增字符、红框拖拽/缩放
+  → 8手柄非对称命中检测（角优先于边）
+  → O(1) 索引表 + 双层 LRU 缓存(pixmap 2000 + 行预览 100)
+  → QUndoStack 撤销/重做（4种命令）
+
+Stage 2: 横校 (HorizontalCheckWindow) — 横排文本
+  → 双 QGraphicsView 并排（左=文字叠加，右=原始PDF）
+  → 4向滚动同步
+  → 方向自适应字号（按宽高比判断横排/竖排）
+  → 画框模式（行框重定位/新文本段）
+  → QUndoStack（3种命令）
+
+Stage 3: 精修 (RefineWindow)
+  → 8手柄缩放 + 拖拽移动 + 右键删除
+  → 跨页 undo（_item_id_map 唯一ID映射）
+  → 三种工具模式: hand / drag / add_text
+  → PDFOutputWorker 后台生成红色+透明双层 PDF
+  → QUndoStack（4种命令）
+```
+
+### 3.3 会话管理 `session_manager.py` **（新增）**
+
+```
+工程路径: ~/Documents/hengxiao_tool2_projects/<PDF名>_<时间戳>/
+工程文件:
+  project.json       - 断点状态（阶段、源PDF、保存时间）
+  ocr_results.json   - OCR 识别结果（lines + chars）
+  char_slices.json   - 纵校字符切片
+  page_lines.json    - 横校行数据
+  refine_items.json  - 精修文字项
+
+特性:
+  - 首次保存自动生成工程文件夹名
+  - 60秒自动保存定时器（静默失败不弹窗）
+  - 断点恢复: 根据 stage 跳转到对应阶段
+  - skip_build 模式: 断点恢复时跳过 build_line_data
+  - CharSlice.image 恢复: 按 bbox 从 page_images 重新裁切
+```
+
+### 3.4 撤销/重做系统 `undo_commands.py` **（新增）**
+
+| 阶段 | 命令类 | COMMAND_ID | 功能 |
+|------|--------|-----------|------|
+| 纵校 | `ModifyCharCommand` | 1001 | 修改字符文本 |
+| 纵校 | `DeleteSliceCommand` | 1002 | 删除切片 |
+| 纵校 | `ModifyRedBoxCommand` | 1003 | 红框拖拽/缩放 |
+| 纵校 | `MoveSliceCommand` | 1004 | 切片移动到新字符集合 |
+| 横校 | `ModifyLineTextCommand` | 2001 | 修改行文本 |
+| 横校 | `ToggleIgnoreCommand` | 2002 | 忽略/取消忽略 |
+| 横校 | `RelocateLineFrameCommand` | 2003 | 重新定位行框 |
+| 精修 | `MoveTextItemCommand` | 3001 | 移动文字项 |
+| 精修 | `ResizeTextItemCommand` | 3002 | 缩放文字项 |
+| 精修 | `DeleteTextItemCommand` | 3003 | 删除文字项 |
+| 精修 | `AddTextItemCommand` | 3004 | 新增文字项 |
+
+**设计模式**：命令对象只调用窗口的 `_apply_xxx` 辅助方法，不直接操作数据。`QUndoStack.push()` 时首次执行 `redo()`，`undo()` 反向操作。`mergeWith()` 默认返回 False（不合并连续命令）。
+
+### 3.5 PyMuPDF 双层 PDF 输出 `pdf_output.py` **（重写）**
+
+经 context7 查询 PyMuPDF 官方文档验证，TextWriter API 使用正确：
+
+```python
+# 1. 打开原 PDF，保留矢量层
+doc = fitz.open(pdf_path)
+
+# 2. 按 page_num 分组字符（过滤 ignored）
+# 3. 按 y 基线分组（CorrectedChar 无 line_id，用 y 中心聚类）
+line_groups = self._group_by_baseline(page_chars)
+# threshold = max(median_height * 0.3, 5.0)
+
+# 4. 逐行 TextWriter.append + write_text
+tw = fitz.TextWriter(page.rect)
+tw.append((pdf_x, pdf_y), line_text, font=font, fontsize=font_size)
+
+if text_color == "transparent":
+    tw.write_text(page, render_mode=3)      # 不可见但可选/可复制
+else:
+    tw.write_text(page, render_mode=0, color=(1, 0, 0))  # 可见红色
+
+# 5. 字体: 优先 msyh.ttc（微软雅黑），回退 fitz.Font('china-s')
+```
+
+**API 验证结果**（context7 `/pymupdf/pymupdf`）：
+- `TextWriter(rect)` 构造函数接受 rect-like 参数 ✓
+- `append(pos, text, font, fontsize)` 参数与官方文档一致 ✓
+- `write_text(page, color, opacity, overlay)` 接受 color 参数 ✓
+- `render_mode` 是 PyMuPDF 的文本渲染模式参数（0=填充, 3=不可见）✓
+
+### 3.6 线程模型
+
+| 场景 | 实现 |
+|------|------|
+| PDF 导入 | `ImportWorker(QObject)` + `moveToThread()` |
+| 行数据构建 | `BuildLineDataWorker(QObject)` + `moveToThread()` |
+| PDF 输出 | `PDFOutputWorker(QThread)` 重写 `run()` |
+
+---
+
+## 四、software_common/native 详细分析（C++ 加速）
+
+### 4.1 模块结构
+
+| 路径 | 行数 | 职责 |
+|------|------|------|
+| `__init__.py` | 130 | Python 入口，延迟加载+透明回退 |
+| `include/hxnative.h` | 53 | C++ 内部声明 |
+| `src/hxnative.cpp` | 442 | pybind11 绑定+实现 |
+| `tests/test_golden.py` | 295 | 逐字节等价性验证 |
+| `tests/bench_perf.py` | 304 | 性能基准对比 |
+| `_hxnative.cp38-win_amd64.pyd` | 二进制 | 编译后的扩展 |
+| `cmakelists.txt` | - | CMake 构建配置 |
+
+### 4.2 三个加速热点
+
+| 热点 | 函数 | 替代 | GIL |
+|------|------|------|-----|
+| H1 | `pixmap_bytes_to_qpixmap_buffer` | fitz pixmap→QImage 直通，跳过 PIL | 不释放（访问Python buffer） |
+| H2 | `optimize_char_boxes` | 整页字符边界框批量优化，替代 numpy 逐字符切片 | 释放（纯C++计算） |
+| H3 | `batch_crop_qimage` | 批量字符裁切，替代 PIL.Image.crop | 释放（纯C++计算） |
+
+### 4.3 透明回退机制
+
+```python
+# __init__.py 核心逻辑
+_native = None
+
+def _try_load():
+    global _native
+    if _native is not None:
+        return _native
+    try:
+        _native = importlib.import_module("._hxnative", __package__)
+    except Exception:
+        _native = False  # 标记为不可用
+    return _native if _native else None
+
+def pixmap_bytes_to_qpixmap_buffer(samples, width, height, n, stride=0):
+    native = _try_load()
+    if native is None:
+        return None  # 调用方自行回退到 PIL
+    try:
+        return native.pixmap_bytes_to_qimage_buffer(samples, width, height, n, stride)
+    except Exception:
+        return None  # 运行期错误降级
+```
+
+**设计优点**：所有公共函数在 native 不可用时返回 `None`，调用方透明回退到 Python/PIL/numpy 实现，应用功能与外观完全不变。
+
+### 4.4 构建方式
+
+```bat
+cd software_common\native
+cmake -S . -B build -A x64
+cmake --build build --config Release
+
+:: Windows 7 SP1 兼容模式
+cmake -S . -B build -A x64 -DHXNATIVE_WIN7_COMPAT=ON
+```
+
+---
+
+## 五、JSON 数据模式与 BCNF 验证
+
+### 5.1 lines.json
 
 ```json
 {
   "line_id": 0,
+  "page_num": 0,
   "text": "智慧工地技术",
   "score": 0.99988,
-  "box": [[529.53, 437.16], [991.18, 437.16], [991.18, 521.64], [529.53, 521.64]],
-  "page_num": 0
+  "box": [[529.53, 437.16], [991.18, 437.16], [991.18, 521.64], [529.53, 521.64]]
 }
 ```
 
-**chars.json 字段**（基于 [2_cpp/src/processors/ocr_engine.cpp:79-83](file:///e:/hx/2_cpp/src/processors/ocr_engine.cpp#L79) 解析逻辑）：
+| 字段 | 类型 | 函数依赖 |
+|------|------|---------|
+| line_id | int | ← 候选键的一部分 |
+| page_num | int | ← 候选键的一部分 |
+| text | string | → 依赖 (page_num, line_id) |
+| score | float | → 依赖 (page_num, line_id) |
+| box | [[x,y],...] | → 依赖 (page_num, line_id) |
+
+**候选键**：(page_num, line_id)
+**BCNF 验证**：所有非主属性（text, score, box）都完全且仅依赖候选键，无传递依赖 → **满足 BCNF** ✓
+
+### 5.2 chars.json / newchar.json
 
 ```json
 {
@@ -392,139 +368,126 @@ ImportWindow → (page_images, ocr_results, char_slices) → VerticalCheckWindow
 }
 ```
 
-### 6.2 候选键分析
+| 字段 | 类型 | 函数依赖 |
+|------|------|---------|
+| char_id | int | ← 候选键的一部分 |
+| line_id | int | ← 候选键的一部分 |
+| page_num | int | ← 候选键的一部分 |
+| char | string | → 依赖 (page_num, line_id, char_id) |
+| score | float | → 依赖 (page_num, line_id, char_id) |
+| box | [x1,y1,x2,y2] | → 依赖 (page_num, line_id, char_id) |
 
-#### 6.2.1 lines.json
+**候选键**：(page_num, line_id, char_id)
+**BCNF 验证**：所有非主属性都完全且仅依赖候选键 → **满足 BCNF** ✓
 
-- **关系模式**：`R_lines = { line_id, page_num, text, score, box }`
-- **候选键**：`(page_num, line_id)` —— `line_id` 在页内唯一（由 [1/ocr_engine/rapidocr_engine.py:72-73](file:///e:/hx/1/ocr_engine/rapidocr_engine.py#L72) `line_id_counter` 每页重置确认）
-- **函数依赖**：
-  - `(page_num, line_id) → {text, score, box}`
-  - 无其他非平凡函数依赖
+### 5.3 工程会话文件
 
-#### 6.2.2 chars.json
+| 文件 | 键 | 非主属性 | BCNF |
+|------|-----|---------|------|
+| project.json | source_pdf_path | stage, breakpoints, saved_at, project_name | ✓ |
+| ocr_results.json | (文件级) | lines[], chars[] | ✓ |
+| char_slices.json | char_text | [slice_dict, ...] | ✓ |
+| page_lines.json | page_num_str | [line_dict, ...] | ✓ |
+| refine_items.json | page_num_str | [item_dict, ...] | ✓ |
 
-- **关系模式**：`R_chars = { char_id, line_id, page_num, char, score, box }`
-- **候选键**：`(page_num, line_id, char_id)` —— `char_id` 在行内唯一（由 `char_id_counter` 每行重置确认），`line_id` 在页内唯一
-- **函数依赖**：
-  - `(page_num, line_id, char_id) → {char, score, box}`
-  - 无其他非平凡函数依赖
-
-### 6.3 BCNF 评估
-
-**BCNF 定义**：对关系模式 R 中的每个非平凡函数依赖 `X → Y`，X 必须是超键（superkey）。
-
-#### lines.json
-
-| 函数依赖 | 决定因素 | 是否超键 | 满足 BCNF |
-|---------|---------|---------|----------|
-| `(page_num, line_id) → text` | `(page_num, line_id)` | ✓ 候选键 | ✓ |
-| `(page_num, line_id) → score` | `(page_num, line_id)` | ✓ 候选键 | ✓ |
-| `(page_num, line_id) → box` | `(page_num, line_id)` | ✓ 候选键 | ✓ |
-
-**结论**：lines.json 满足 BCNF ✓
-
-#### chars.json
-
-| 函数依赖 | 决定因素 | 是否超键 | 满足 BCNF |
-|---------|---------|---------|----------|
-| `(page_num, line_id, char_id) → char` | `(page_num, line_id, char_id)` | ✓ 候选键 | ✓ |
-| `(page_num, line_id, char_id) → score` | `(page_num, line_id, char_id)` | ✓ 候选键 | ✓ |
-| `(page_num, line_id, char_id) → box` | `(page_num, line_id, char_id)` | ✓ 候选键 | ✓ |
-
-**结论**：chars.json 满足 BCNF ✓
-
-### 6.4 潜在风险（非范式违规）
-
-虽然满足 BCNF，但存在以下设计风险：
-
-1. **跨表参照无强制约束**：chars.json 的 `(page_num, line_id)` 应外键引用 lines.json，但 JSON 无外键机制。若两文件不同步（如 lines.json 缺少某 line_id），chars.json 中对应字符将成为孤儿数据。
-2. **page_num 冗余存储**：chars.json 每条记录都存 `page_num`，若 line_id 全局唯一则可省略。当前 line_id 页内唯一的设计使冗余必要。
-3. **无事务保证**：纵校修改 `ocr_results_.second`（[2_cpp/src/windows/verticalcheckwindow.cpp:1095](file:///e:/hx/2_cpp/src/windows/verticalcheckwindow.cpp#L1095)）在内存中完成，但**不写回 chars.json**。若需保存校对结果，需额外实现持久化逻辑。
-4. **score 精度丢失**：JSON 浮点数在 `double` ↔ `json` 间转换可能有精度损失，但 OCR 评分场景影响可忽略。
-
-### 6.5 综合结论
-
-**数据持久化方案满足 BC 范式（BCNF）**。lines.json 与 chars.json 均无传递依赖、部分依赖，所有非主属性完全依赖于候选键。但项目未使用关系型数据库，无外键约束与事务保证，校对结果的持久化能力有限。建议在后续迭代中：
-
-- 引入 SQLite 存储校对结果，建立 `lines` 与 `chars` 两表 + 外键
-- 或在 JSON 中增加版本号与校对时间戳，支持增量保存
+所有 JSON 模式均无传递依赖、部分依赖，**满足 BCNF** ✓
 
 ---
 
-## 7. 改进建议汇总
+## 六、与当前代码的差异分析
 
-### 7.1 优先级 P0（必须修复）
+### 6.1 新增模块
 
-| # | 问题 | 位置 | 修复方式 |
-|---|------|------|----------|
-| 1 | 横校 pixmap 缓存被整体替换 | [2/ui/horizontal_check_window.py:293](file:///e:/hx/2/ui/horizontal_check_window.py#L293) | 改为 `self._pixmap_cache[cache_key] = scaled_pixmap` |
-| 2 | OCREngine 死代码引用 `self.engine` | [2/ocr_engine/rapidocr_engine.py:68](file:///e:/hx/2/ocr_engine/rapidocr_engine.py#L68) | 删除推理相关方法或抛 `NotImplementedError` |
-| 3 | C++ 横校返回触发悬空指针 | [2_cpp/src/windows/mainwindow.cpp:255](file:///e:/hx/2_cpp/src/windows/mainwindow.cpp#L255) | 返回前重建 VerticalCheckWindow 或保留实例 |
+| 模块 | 说明 |
+|------|------|
+| `software_common/native/` | C++ pybind11 加速（3个热点+透明回退） |
+| `software1/ocr_engine/line_merger.py` | DBSCAN 行合并 |
+| `software1/ocr_engine/char_refiner_cv.py` | OpenCV 字符框精修 |
+| `software2/session_manager.py` | 工程会话管理（60s自动保存） |
+| `software2/undo_commands.py` | 11种 QUndoCommand 撤销/重做 |
+| `software2/runtime_hook_stderr.py` | PyInstaller stderr 重定向 |
+| `software2/hengxiao_tool2.spec` | PyInstaller 打包配置 |
 
-### 7.2 优先级 P1（建议修改）
+### 6.2 重大修改
 
-| # | 问题 | 位置 | 修复方式 |
-|---|------|------|----------|
-| 4 | PDFOutputWorker 继承 QThread | [2/pdf_processor/pdf_output.py:135](file:///e:/hx/2/pdf_processor/pdf_output.py#L135) | 改为 worker object pattern |
-| 5 | v2 build_line_data 主线程阻塞 | [2/main.py:165](file:///e:/hx/2/main.py#L165) | 异步化 + QProgressDialog |
-| 6 | C++ 横校裸指针存入 QGraphicsItem | [2_cpp/src/windows/horizontalcheckwindow.cpp:204](file:///e:/hx/2_cpp/src/windows/horizontalcheckwindow.cpp#L204) | 改存 `(page, line_idx)` 索引 |
-| 7 | LazyPageLoader LRU 效率低 | [1/pdf_processor/pdf_loader.py:184](file:///e:/hx/1/pdf_processor/pdf_loader.py#L184) | 改用 OrderedDict |
-| 8 | C++ build_line_data 跨页 line_id 冲突 | [2_cpp/src/processors/ocr_engine.cpp:140-147](file:///e:/hx/2_cpp/src/processors/ocr_engine.cpp#L140) | line_chars_map 键改为 `(page_num, line_id)` |
+| 文件 | 旧实现 | 新实现 |
+|------|--------|--------|
+| `software2/pdf_processor/pdf_output.py` | reportlab 生成 PDF | PyMuPDF TextWriter 双层 PDF |
+| `software2/main.py` | PyQt6, 无会话管理 | PyQt5, 集成 SessionManager |
+| `software1/ocr_engine/rapidocr_engine.py` | PP-OCRv5, numpy 优化 | PP-OCRv6, native+numpy, 线程安全 |
+| `software1/pdf_processor/pdf_loader.py` | DPI 默认值 | DPI=300 统一 |
+| `software2/pdf_processor/pdf_loader.py` | DPI 默认值 | DPI=200, 抑制 MuPDF 字体错误 |
 
-### 7.3 优先级 P2（仅供参考）
+### 6.3 PyQt 版本变化
 
-| # | 问题 | 位置 | 修复方式 |
-|---|------|------|----------|
-| 9 | 测试脚本硬编码路径 | [2/test_import_thread.py:11](file:///e:/hx/2/test_import_thread.py#L11) | 改为命令行参数或环境变量 |
-| 10 | v1/v2 代码重复 | pdf_loader.py / styles.py / zoom_utils.py | 抽取共享模块 |
-| 11 | UI 层直接操作 JSON | [2_cpp/src/windows/verticalcheckwindow.cpp:1095](file:///e:/hx/2_cpp/src/windows/verticalcheckwindow.cpp#L1095) | 封装到 OCREngine |
-| 12 | MainWindow 深拷贝大对象 | [2_cpp/src/windows/mainwindow.cpp:116-118](file:///e:/hx/2_cpp/src/windows/mainwindow.cpp#L116) | 用 shared_ptr 共享所有权 |
-| 13 | C++ 精修阶段未实现 | [2_cpp/src/windows/mainwindow.cpp:264](file:///e:/hx/2_cpp/src/windows/mainwindow.cpp#L264) | 移植 RefineWindow |
-| 14 | C++ MainWindow 裸 new OCREngine | [2_cpp/src/windows/mainwindow.cpp:54](file:///e:/hx/2_cpp/src/windows/mainwindow.cpp#L54) | 改用 unique_ptr |
-| 15 | 校对结果未持久化 | — | 增加 SQLite 或 JSON 写回 |
-
-### 7.4 架构性建议
-
-1. **统一线程模式**：全项目采用 worker object pattern（`Worker(QObject)` + `moveToThread()`），废弃 `QThread` 继承重写 `run()` 的写法。
-2. **引入数据层抽象**：将 JSON 读写、OCR 结果管理封装到独立的 `OcrResultRepository` 类，UI 层仅通过接口访问，避免 UI 直接操作 `nlohmann::json`。
-3. **公共代码抽取**：v1 与 v2 的 `pdf_loader.py`、`styles.py`、`zoom_utils.py` 抽取为共享包，减少维护成本。
-4. **校对结果持久化**：纵校/横校的修改应能写回 `newchar.json` 或数据库，当前仅在内存中修改，关闭程序即丢失。
-5. **多页文档回归测试**：针对 §4.3 的跨页 `line_id` 冲突，建议补充多页测试用例验证。
+| 子系统 | 当前版本 | 新版本 |
+|--------|---------|--------|
+| software1 | PyQt6 | PyQt6（不变） |
+| software2 | PyQt6 | **PyQt5**（变更，为 Win7 兼容） |
 
 ---
 
-## 附录：评估范围与依据
+## 七、代码质量评估
 
-### 已通读文件清单
+### 7.1 优点
 
-**1/ 目录（Python v1）**：
-- `main.py`、`requirements.txt`、`models/data_models.py`、`ocr_engine/rapidocr_engine.py`、`pdf_processor/pdf_loader.py`、`ui/draw_box_window.py`、`ui/ocr_prepare_window.py`、`ui/styles.py`、`ui/zoom_utils.py`
+1. **高内聚低耦合**：模块划分清晰（models/ocr_engine/pdf_processor/ui 四层），窗口间通过 Qt 信号通信，无直接引用
+2. **透明回退设计**：C++ 加速模块缺失时自动回退到 Python，功能完全不变
+3. **完善的撤销/重做**：11种命令类覆盖全部交互操作，COMMAND_ID 便于扩展
+4. **工程会话持久化**：60s 自动保存 + 断点恢复，解决"关闭即丢失"问题
+5. **多层次缓存**：LRU 缓存（PDF页 5/pixmap 2000/行预览 100）+ O(1) 索引表
+6. **线程安全**：线程局部 RapidOCR 实例避免框坐标污染
+7. **算法鲁棒性**：CV 精修有切分数验证 + Watershed/投影法双策略 + 失败保留原框
 
-**2/ 目录（Python v2）**：
-- `main.py`、`requirements.txt`、`models/data_models.py`、`ocr_engine/rapidocr_engine.py`、`pdf_processor/pdf_loader.py`、`pdf_processor/pdf_output.py`、`ui/import_window.py`、`ui/vertical_check_window.py`、`ui/horizontal_check_window.py`、`ui/refine_window.py`、`ui/styles.py`、`ui/zoom_utils.py`、`test_import_thread.py`
+### 7.2 已识别问题
 
-**2_cpp/ 目录（C++ 版）**：
-- `CMakeLists.txt`、`README.md`、`build.bat`、`deploy.bat`、`start.bat`、`resources/styles.qss`
-- `src/main.cpp`、`src/models/datamodels.h`
-- `src/processors/pdf_processor.h/cpp`、`src/processors/lazy_page_loader.h/cpp`、`src/processors/ocr_engine.h/cpp`、`src/processors/pdf_output_generator.h/cpp`
-- `src/utils/json_utils.h/cpp`、`src/utils/style_manager.h/cpp`、`src/utils/zoom_utils.h/cpp`
-- `src/windows/mainwindow.h/cpp`、`src/windows/importwindow.h/cpp`、`src/windows/verticalcheckwindow.h/cpp`、`src/windows/horizontalcheckwindow.h/cpp`、`src/windows/stepindicator.h/cpp`
+| # | 严重度 | 问题 | 位置 |
+|---|--------|------|------|
+| 1 | 中 | 文件过长：vertical_check(2281行)、refine(2035行)、horizontal(1587行) | software2/ui/ |
+| 2 | 中 | 代码重复：`_try_native()` 在4个UI文件中逐字重复 | draw_box/vertical/horizontal/refine |
+| 3 | 中 | 代码重复：`zoom_utils.py`、`styles.py`、`data_models.py` 在 software1/2 高度重复 | 两版本间 |
+| 4 | 低 | PyQt5/PyQt6 分裂：同一项目内 Qt 版本不一致 | software1 vs software2 |
+| 5 | 低 | 硬编码路径：`.spec` 中 `_hxnative_pyd = 'd:/hx/...'` | hengxiao_tool2.spec |
+| 6 | 低 | 硬编码字体：`"Microsoft YaHei"` 跨平台不可用 | refine_window.py |
+| 7 | 低 | 动态属性 `_ignored` 不在 dataclass 字段中 | data_models.py |
+| 8 | 低 | GPU 检测通过 DLL 文件名而非功能探测 | rapidocr_engine.py |
+| 9 | 信息 | H1 "零拷贝"名不副实：std::string 构造时复制了 buffer | hxnative.cpp |
+| 10 | 信息 | `CharListDelegate` 硬编码 `#b3d9ff` 绕过 QSS | vertical_check_window.py |
 
-### 评估依据
+### 7.3 算法性能评估
 
-- **PyQt6 QThread 最佳实践**：Qt 官方文档推荐 worker object pattern（`QObject` + `moveToThread()`），不推荐继承 `QThread` 重写 `run()`（除非需要覆盖线程事件循环行为）
-- **RapidOCR API**：`RapidOCR(params={...})`，支持 `return_word_box`、`return_single_char_box`（v1 使用）
-- **PaddleOCR v5 API**：`ocr_version="PP-OCRv5"`，`result[0]["dt_polys"]`、`rec_texts`
-- **BC 范式定义**：对每个非平凡函数依赖 `X → Y`，X 必须是超键
-- **nlohmann/json**：v3.11.3，自定义 `to_json`/`from_json` 支持用户类型序列化
-- **PoDoFo**：0.10.x API，与 0.9.x 接口不兼容
-
-### 未读取/异常文件
-
-无读取失败。`chars.json` 因体积过大（31MB）仅通过 Grep 抽样验证字段结构，未影响评估完整性。
+| 算法 | 时间复杂度 | 评估 |
+|------|-----------|------|
+| DBSCAN 行合并 | O(n log n)（scikit-learn 实现） | 优秀，eps 自适应 |
+| OpenCV 字符精修 | O(n×h×w)（n=行数） | 良好，有切分数验证保护 |
+| PyMuPDF 双层 PDF | O(pages × chars_per_page) | 优秀，TextWriter 批量写入 |
+| LRU 缓存 | O(1) 查找/插入 | 优秀 |
+| O(1) 索引表 | O(n) 构建, O(1) 查找 | 优秀 |
+| Watershed 分割 | O(h×w) per 连通域 | 良好，有投影法回退 |
 
 ---
 
-**报告完成日期**：2026-07-05
-**评估版本**：v1 / v2 / C++ 版（基于 `e:\hx\` 当前工作区状态）
+## 八、下载覆盖计划
+
+### 8.1 保留项（不覆盖）
+
+- `.trae/specs/` — 历史规格文档
+- `.trae/documents/` — 历史计划文档
+- `.trae/scripts/` — 辅助脚本
+- `创意提案文档.md` — 参赛材料（不上传 GitHub）
+- `showcase.html` — 参赛材料（不上传 GitHub）
+
+### 8.2 覆盖项
+
+- `software1/` — 全量覆盖
+- `software2/` — 全量覆盖
+- `software_common/` — 新增
+- `README.md` — 覆盖
+- `.gitignore` — 覆盖
+- `technical_report.md` — 更新（基于本报告）
+
+### 8.3 GitHub 更新计划
+
+- 目标仓库：`https://github.com/nirvanafaith/PDF-OCR`
+- 推送文件：software1/、software2/、software_common/、README.md、technical_report.md、.gitignore
+- 不推送：`.trae/`、`创意提案文档.md`、`showcase.html`
