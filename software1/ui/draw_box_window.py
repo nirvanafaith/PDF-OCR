@@ -261,12 +261,23 @@ class DrawBoxWindow(QWidget):
                     "-b", "hybrid-auto-engine",
                     "--method", "ocr",
                     "--lang", "ch",
-                    "--format", "json"
                 ]
                 # 构建 MinerU 子进程环境变量
                 mineru_env = os.environ.copy()
                 # 优先使用 ModelScope（国内镜像，避免 HuggingFace SSL/网络问题）
                 mineru_env["MINERU_MODEL_SOURCE"] = "modelscope"
+                # 设置 CUDA_PATH：通过 junction 指向 torch 捆绑的 CUDA DLL
+                # lmdeploy turbomind 后端在 Windows 上需要 CUDA_PATH 环境变量
+                cuda_link_path = os.environ.get("CUDA_PATH", "")
+                if not cuda_link_path:
+                    # 如果系统未设置 CUDA_PATH，尝试使用预设的 junction 路径
+                    cuda_link_path = r"E:\cuda_link"
+                    if os.path.isdir(os.path.join(cuda_link_path, "bin")):
+                        mineru_env["CUDA_PATH"] = cuda_link_path
+                    else:
+                        cuda_link_path = ""
+                if cuda_link_path:
+                    mineru_env["CUDA_PATH"] = cuda_link_path
                 # 防御性：设置 CA 证书路径，确保 SSL 验证可用
                 try:
                     import certifi
