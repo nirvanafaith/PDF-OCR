@@ -1,0 +1,392 @@
+================================================================================
+【学习工作赛道】PDF-OCR 智能校对系统 —— 从画框标注到双层 PDF 的全流程工具
+================================================================================
+
+【标签】学习工作
+
+【标题】【学习工作赛道】PDF-OCR 智能校对系统 —— 从画框标注到双层 PDF 的全流程工具
+
+GitHub 仓库地址：https://github.com/nirvanafaith/PDF-OCR
+Release 下载（v3.0 软件1+软件2 完整打包）：https://github.com/nirvanafaith/PDF-OCR/releases/tag/v3.0
+
+
+================================================================================
+0. 先和大家打个招呼
+================================================================================
+
+大家好！
+
+我是 PDF-OCR 项目的开发者。我使用 TRAE IDE 作为全程开发环境，通过 /spec
+模式进行规格驱动开发，将整个项目从创意提案逐步落地为可运行的完整工具。
+
+我的开发方式是：
+- 使用 TRAE IDE 的 /spec 模式进行规格驱动开发
+- 每个功能模块先写技术报告和 spec 文档，获得批准后再实现
+- 使用 sequential-thinking MCP 工具进行深入研究
+- 使用 context7 MCP 工具查阅文档
+- C++ 加速模块使用 pybind11 编译为 .pyd，Python 端透明回退
+- 所有代码遵循高内聚低耦合的软件工程规范
+
+本项目由两个子系统组成：
+- 软件1（PyQt6）：画框标注 + OCR 识别（内置 MinerU + RapidOCR PP-OCRv6）
+- 软件2（PyQt5）：校对精修 + 双层 PDF 输出
+
+两个软件均已打包为 exe，无需安装 Python 环境即可运行。软件1更内置了
+MinerU、RapidOCR 以及 PP-OCRv6 模型，移植到任何 Windows 机器上都能直接
+打开使用，即使缺失 GPU 依赖也会给出友好的降级提示。
+
+
+================================================================================
+1. Demo 简介
+================================================================================
+
+是什么：
+  PDF-OCR 智能校对系统是一套面向 PDF 文档的 OCR 识别与人工校对工具，
+  包含两个独立子系统：
+  - 软件1：负责 PDF 导入、画框标注、OCR 识别（基于 RapidOCR PP-OCRv6）
+           内置 MinerU 预处理（Hybrid Auto Engine）+ ModelScope 模型缓存
+  - 软件2：负责校对精修（纵校→横校→精修），输出双层可搜索 PDF
+
+  整套系统将传统的 PDF 文字识别与人工校对流程完全数字化，从画框标注到
+  最终输出双层 PDF，全程在一个 GUI 工具中完成。
+
+面向谁：
+  - 需要将纸质文档数字化的档案管理人员
+  - 需要对 PDF 进行文字校对的编辑人员
+  - 需要生成可搜索 PDF 的文档处理人员
+  - 对 OCR 精度有较高要求的专业用户
+
+主要功能：
+
+① 软件1：画框标注
+
+  在 PDF 页面上手动绘制文本框，或导入 MinerU 预处理的中检 JSON 自动生成
+  画框。支持页面缩放、多页导航、框的增删改。
+
+【截图位置：软件一-画框功能】
+（请在此处插入软件1画框界面的截图）
+
+② 软件1：OCR 识别
+
+  基于 RapidOCR PP-OCRv6 模型，使用 ONNX Runtime GPU 加速（CUDA）。
+  支持批量识别、字符框精修（OpenCV 连通域 + 投影法）、DBSCAN 行合并。
+  识别结果可导出为 middle.json 供软件2使用。
+  软件1内置 MinerU CLI 独立入口（mineru_cli.exe），支持 hybrid-auto-engine
+  模式进行 PDF 预处理，无需额外安装 MinerU 环境。
+
+【截图位置：软件一-OCR识别结果】
+（请在此处插入软件1 OCR识别结果的截图）
+
+③ 软件2：导入 PDF
+
+  导入 PDF 文件和软件1生成的 middle.json，自动解析页面和字符数据。
+  支持页面导航、缩放预览。
+
+【截图位置：软件二-导入PDF界面】
+（请在此处插入软件2导入PDF界面的截图）
+
+④ 软件2：纵校校对
+
+  竖向逐字校对模式，显示原始图像与识别文本的对照。支持字符的增删改、
+  拖拽调整位置。使用 C++ H1-H4 加速模块优化渲染性能。
+
+【截图位置：软件二-纵校校对界面】
+（请在此处插入软件2纵校校对界面的截图）
+
+⑤ 软件2：横校精修
+
+  横向校对模式，按行显示字符。自动检测相邻字符渲染宽度重叠，调整整行
+  字号直到无重叠。使用 C++ H5 批量计算字号调整因子，保证排版美观。
+
+【截图位置：软件二-横校精修界面】
+（请在此处插入软件2横校精修界面的截图）
+
+⑥ 软件2：精修完成与双层 PDF 输出
+
+  精修完成后，使用 PyMuPDF 的 TextWriter 生成双层 PDF（上层为原始图像，
+  下层为可搜索文本层）。字符位置和字号精确保留，支持复制搜索。
+
+【截图位置：软件二-精修完成界面】
+（请在此处插入软件2精修完成界面的截图）
+
+
+================================================================================
+2. Demo 创作思路
+================================================================================
+
+灵感来源：
+
+  在数字化档案处理工作中，传统流程是：扫描纸质文档得到 PDF → 使用 OCR
+  软件识别文字 → 人工逐字校对 → 重新排版输出。
+
+  现有工具的问题：
+  - OCR 软件识别精度有限，漏识别和错识别频繁
+  - 人工校对缺乏直观的 GUI 工具，效率低下
+  - 校对后的结果难以精确保留原始排版位置
+  - 最终输出的 PDF 往往丢失原始图像，或文字层与图像层不对齐
+
+  我希望用一套工具解决从 OCR 识别到校对输出的完整流程，让每个环节都有
+  直观的 GUI 界面和高效的交互方式。
+
+想解决的问题：
+
+  1. OCR 识别精度问题：通过画框标注 + 字符框精修（OpenCV 连通域 + 投影法）
+     提高识别准确率，支持手动修正
+
+  2. 校对效率问题：提供纵校和横校两种校对模式，纵校逐字对照、横校按行
+     排版，校对人员可根据习惯选择
+
+  3. 字号重叠问题：OCR 识别后字符位置可能聚集导致渲染重叠，通过 C++ H5
+     算法自动检测并调整字号
+
+  4. 双层 PDF 输出：使用 PyMuPDF TextWriter 生成上层图像 + 下层文字的
+     双层 PDF，保留原始排版，支持搜索复制
+
+  5. 性能优化：C++ pybind11 加速模块（H1-H5）覆盖像素转换、字符框优化、
+     批量裁切、字号计算等热点，GPU 加速 OCR 推理
+
+为什么做这个方向：
+
+  - 实用性强：文档数字化是真实存在的需求，每天都有大量纸质文档需要处理
+  - 技术深度：涉及 OCR、计算机视觉、GUI 开发、C++ 加速、PDF 处理等多个领域
+  - 可展示性：GUI 工具直观易懂，评审可以清楚看到每个功能的效果
+  - 可扩展性：模块化架构，后续可扩展更多 OCR 引擎和校对模式
+
+
+================================================================================
+3. Demo 体验地址
+================================================================================
+
+GitHub 仓库：
+  https://github.com/nirvanafaith/PDF-OCR
+
+Release 下载（v3.0 软件1+软件2 完整打包）：
+  https://github.com/nirvanafaith/PDF-OCR/releases/tag/v3.0
+
+下载说明：
+
+  【软件1 下载（hengxiao_tool1，完整 OCR 管线，约5.5GB）】
+  1. 点击上方 Release 链接
+  2. 下载全部 3 个分卷文件：
+     - hengxiao_tool1.tar.gz.part0（1900 MB）
+     - hengxiao_tool1.tar.gz.part1（1900 MB）
+     - hengxiao_tool1.tar.gz.part2（1734 MB）
+  3. 合并并解压：
+     - 方法1：选中所有 part 文件 → 7-Zip → 解压到当前文件夹
+     - 方法2：命令行合并后解压
+       copy /b hengxiao_tool1.tar.gz.part0+hengxiao_tool1.tar.gz.part1+hengxiao_tool1.tar.gz.part2 hengxiao_tool1.tar.gz
+       然后用 7-Zip 解压 hengxiao_tool1.tar.gz
+  4. 运行 hengxiao_tool1.exe 启动 GUI
+  5. 如需 MinerU 预处理：mineru_cli.exe -p <pdf> -o <output> -b hybrid-auto-engine --method ocr --lang ch
+  6. 无需安装 Python 环境，开箱即用（推荐 NVIDIA GPU，无 GPU 自动降级 CPU 模式）
+
+  【软件2 下载（hengxiao_tool2，校对精修工具，约147MB）】
+  1. 下载 hengxiao_tool2.zip（约147MB）
+  2. 解压到任意目录
+  3. 双击 hengxiao_tool2.exe 运行
+  4. 无需安装 Python 环境，开箱即用
+
+系统要求：
+  - Windows 10/11（64位）
+  - 无需安装 Python 环境
+  - 软件1如需 GPU 加速，需 NVIDIA 显卡（非必需，CPU 模式也可运行，
+    会有友好降级提示）
+  - 软件2 纯 CPU 运行，无 GPU 要求
+
+操作视频：
+
+【操作视频放置位置：软件1操作演示视频】
+（请在此处放置软件1的操作演示视频，建议上传到 B站后附链接）
+  演示内容建议：导入PDF → 画框 → MinerU JSON导入 → OCR识别 → 导出middle.json
+
+【操作视频放置位置：软件2操作演示视频】
+（请在此处放置软件2的操作演示视频，建议上传到 B站后附链接）
+  演示内容建议：导入PDF+JSON → 纵校校对 → 横校精修 → 精修完成 → 导出双层PDF
+
+
+================================================================================
+4. TRAE 实践过程
+================================================================================
+
+本项目全程使用 TRAE IDE 开发，采用 /spec 规格驱动开发模式。以下是主要
+开发阶段：
+
+① 阶段一：项目初始化与架构设计
+
+  - 使用 /spec 模式创建项目规格说明
+  - 设计两大子系统的架构（software1 + software2）
+  - 确定技术栈：PyQt6/PyQt5 + RapidOCR + PyMuPDF + pybind11
+  - 数据库设计遵循 BCNF 范式
+
+  Session ID：6a49aa7d5395ffdf6871d290
+  （双击 TRAE 的对话复制 Session ID）
+
+【截图位置：TRAE实践-阶段一架构设计】
+（请在此处插入 TRAE IDE 中架构设计对话的截图）
+
+② 阶段二：软件1 OCR 管线开发
+
+  - 实现 PDF 加载（PyMuPDF → PIL 图像渲染）
+  - 实现画框窗口（QGraphicsScene + 鼠标交互）
+  - 集成 RapidOCR PP-OCRv6 模型
+  - 实现字符框精修（OpenCV 连通域 + 投影法）
+  - 实现 DBSCAN 行合并
+  - MinerU 子进程集成（CUDA_PATH 注入 + ModelScope 模型源）
+
+  Session ID：6a51963a400b231e63e79327
+
+【截图位置：TRAE实践-阶段二OCR开发】
+（请在此处插入 TRAE IDE 中 OCR 开发对话的截图）
+
+③ 阶段三：软件2 校对精修开发
+
+  - 实现纵校窗口（逐字对照校对）
+  - 实现横校窗口（按行排版校对）
+  - 实现精修窗口（字符拖拽调整）
+  - 实现字号重叠检测算法（C++ H5）
+  - 实现双层 PDF 输出（PyMuPDF TextWriter）
+  - 字符横向位置保留修复（bbox x1 不随字号变化）
+
+  Session ID：6a51963a400b231e63e79327
+
+【截图位置：TRAE实践-阶段三校对开发】
+（请在此处插入 TRAE IDE 中校对开发对话的截图）
+
+④ 阶段四：C++ 加速模块开发
+
+  - 使用 pybind11 编译 C++ 扩展（_hxnative.pyd）
+  - 实现 H1-H5 五个热点加速函数：
+    H1: fitz pixmap → QImage buffer（零拷贝）
+    H2: 字符边界框批量优化（替代 numpy 逐字符切片）
+    H3: 批量字符裁切（替代 PIL.Image.crop）
+    H4: PIL → QImage buffer（RGB→RGBA 扩展）
+    H5: 批量字号调整因子计算（O(n) 扫描相邻对，GIL 释放）
+  - Python 端透明回退机制（native 不可用时自动使用 Python 实现）
+  - 11 项 golden 测试 + 8 项 H5 专项测试全部通过
+
+  Session ID：6a51963a400b231e63e79327
+
+【截图位置：TRAE实践-阶段四C++加速】
+（请在此处插入 TRAE IDE 中 C++ 加速模块开发对话的截图）
+
+⑤ 阶段五：环境配置与性能优化
+
+  - 配置 RapidOCR + ONNX Runtime GPU（CUDA）
+  - 集中式 CUDA DLL 路径管理（cuda_dll_setup.py）
+  - cuDNN HEURISTIC 模式优化（避免 HEURISTIC_QUERY_FAILED）
+  - MinerU 子进程环境变量注入（MINERU_MODEL_SOURCE=modelscope）
+  - 字符横向位置保留修复
+  - 字号重叠检测与自动调整
+  - numpy 2.x 兼容性修复（提前 import 解决 "cannot load module
+    more than once per process" 问题）
+
+  Session ID：6a51963a400b231e63e79327
+
+【截图位置：TRAE实践-阶段五性能优化】
+（请在此处插入 TRAE IDE 中性能优化对话的截图）
+
+⑥ 阶段六：打包发布
+
+  - 软件2 打包：PyInstaller onedir 模式，hengxiao_tool2.spec 适配
+    Python 3.12，C++ 扩展打包到 _internal/native/，exe 启动测试通过
+  - 软件1 打包：PyInstaller onedir 模式，两个 exe 共享 _internal/
+    - hengxiao_tool1.exe（GUI 入口）
+    - mineru_cli.exe（MinerU CLI 入口）
+  - 内置 MinerU + RapidOCR + PP-OCRv6 模型 + ModelScope 缓存（2.2GB）
+  - boto3/botocore 桩模块（避免 AWS SDK 数据文件导致 reclassification 卡死）
+  - magika 模型手动复制（MinerU 文件类型检测依赖）
+  - GPU 不可用时友好降级提示，S3 不可用时明确报错提示
+  - 反复测试 exe 启动至完美运行
+  - GitHub Release v3.0 发布（软件1分卷上传 + 软件2 zip 上传）
+
+  Session ID：6a51963a400b231e63e79327
+
+【截图位置：TRAE实践-阶段六打包发布】
+（请在此处插入 TRAE IDE 中打包发布对话的截图）
+
+
+================================================================================
+5. 对应的报名审核通过的帖子链接
+================================================================================
+
+【请在此处填入报名审核通过的帖子链接】
+（附上报名帖链接，确保报名已通过审核）
+
+
+================================================================================
+附录：技术亮点
+================================================================================
+
+1. C++ 加速模块（H1-H5）
+
+  使用 pybind11 将 5 个性能热点编译为 C++ 扩展，GPU 加速 OCR 推理：
+  - H1: pixmap → QImage buffer（零拷贝路径）
+  - H2: 字符边界框批量优化（O(n) 连续内存扫描）
+  - H3: 批量字符裁切（逐行 memcpy）
+  - H4: PIL → QImage buffer（RGB→RGBA 扩展）
+  - H5: 批量字号调整因子计算（O(n) 相邻对扫描，GIL 释放）
+
+  Python 端透明回退：native 不可用时自动使用 Python 实现，不影响功能。
+
+2. 字号重叠检测算法
+
+  核心公式：factor = min((pos[i+1]-pos[i]) / width[i])
+  - 字符位置来自 bbox x1（不随字号变化）
+  - 渲染宽度与字号成正比
+  - 一步计算精确缩小因子，无需迭代
+  - 数学保证：最小因子即为整行所需因子
+
+3. 双层 PDF 输出
+
+  使用 PyMuPDF TextWriter 生成双层 PDF：
+  - 上层：原始页面图像
+  - 下层：可搜索文本层（字符位置和字号精确保留）
+  - 支持复制、搜索、高亮
+
+4. MinerU 深度集成
+
+  - 软件1内置 MinerU CLI（mineru_cli.exe），支持 hybrid-auto-engine 模式
+  - ModelScope 模型缓存（2.2GB）打包内置，无需在线下载
+  - MINERU_MODEL_SOURCE=modelscope 环境变量注入（避免 HuggingFace SSL 错误）
+  - CUDA_PATH 通过 junction 指向 torch 内置 CUDA DLLs
+  - boto3 桩模块：满足 MinerU S3 导入链而不包含完整 AWS SDK
+
+5. 高内聚低耦合架构
+
+  - 两大子系统完全解耦，独立运行
+  - C++ 模块封装在各自 native/ 目录，通过 __init__.py 统一入口
+  - 数据模型使用 dataclass，BCNF 范式
+  - GUI 窗口通过 QStackedWidget 管理流程切换
+
+6. 数据库设计（BCNF 范式）
+
+  项目数据模型遵循 BCNF 范式：
+  - CharSlice：字符切片（bbox, text, line_id）
+  - LineSlice：行切片（bbox, chars[]）
+  - RefineTextItem：精修文本项（text, bbox, font_size）
+  - ProjectData：项目数据（pages, chars, lines）
+  所有关系均满足 BCNF：每个决定因素都是候选键。
+
+7. 友好的依赖缺失提示
+
+  - GPU 不可用时自动降级 CPU 模式并提示
+  - native C++ 模块不可用时透明回退到 Python 实现
+  - S3 功能不可用时抛出明确的 RuntimeError 提示
+  - MinerU 启动失败时给出友好的错误提示
+
+
+================================================================================
+附录：GitHub 地址汇总
+================================================================================
+
+项目仓库：https://github.com/nirvanafaith/PDF-OCR
+Release v3.0（软件1+软件2 完整打包）：https://github.com/nirvanafaith/PDF-OCR/releases/tag/v3.0
+软件1 分卷下载：
+  part0: https://github.com/nirvanafaith/PDF-OCR/releases/download/v3.0/hengxiao_tool1.tar.gz.part0
+  part1: https://github.com/nirvanafaith/PDF-OCR/releases/download/v3.0/hengxiao_tool1.tar.gz.part1
+  part2: https://github.com/nirvanafaith/PDF-OCR/releases/download/v3.0/hengxiao_tool1.tar.gz.part2
+软件2 zip 下载：https://github.com/nirvanafaith/PDF-OCR/releases/download/v3.0/hengxiao_tool2.zip
+
+================================================================================
+文档结束
+================================================================================
