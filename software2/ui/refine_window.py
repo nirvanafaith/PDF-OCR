@@ -52,6 +52,7 @@ from undo_commands import (
     DeleteTextItemCommand,
     AddTextItemCommand,
 )
+from alignment import align_text_to_background
 
 
 _NATIVE_CACHE = None
@@ -582,10 +583,15 @@ class MovableTextItem(QGraphicsRectItem):
             return
         menu = QMenu()
         modify_action = menu.addAction("修改文字")
+        align_action = menu.addAction("对齐嵌回")
         delete_action = menu.addAction("删除")
         chosen = menu.exec(event.screenPos())
         if chosen == modify_action:
             self._edit_text()
+        elif chosen == align_action:
+            window = getattr(self, '_window', None)
+            if window is not None and self._item_id is not None:
+                window._align_item_to_background(self._item_id)
         elif chosen == delete_action:
             # 通过窗口的撤销栈 push 删除命令，支持 Ctrl+Z 恢复
             window = getattr(self, '_window', None)
@@ -1164,6 +1170,45 @@ class RefineWindow(QWidget):
             (new_pos.x() + rect.width()) / zoom,
             (new_pos.y() + rect.height()) / zoom,
         ]
+
+    def _align_item_to_background(self, item_id):
+        """将指定文字项与背景墨迹对齐。
+
+        调用对齐算法计算文字掩码与背景墨迹掩码的最佳平移偏移，
+        通过 MoveTextItemCommand 推入撤销栈，支持 Ctrl+Z 撤销。
+
+        参数:
+            item_id: 文字项唯一 ID。
+        """
+        item = self._item_id_map.get(item_id)
+        if item is None:
+            return
+        data = item._data
+        if not data.text:
+            return
+        # 获取当前页背景图
+        if not self.page_images or self.current_page >= len(self.page_images):
+            return
+        bg_img = self.page_images[self.current_page]
+        # 构造与 MovableTextItem 一致的字体（原始分辨率，不缩放）
+        line_bbox = data.line_bbox or [0, 0, 0, 0]
+        line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
+        grade = match_font_grade(line_height_pt)
+        font_size_px = int(FONT_SIZE_GRADES[grade] * (300.0 / 72.0))
+        if grade == 5:
+            font = QFont("SimSun")
+        else:
+            font = QFont("SimHei")
+        font.setPixelSize(max(font_size_px, 1))
+        # 调用对齐算法（原始坐标系）
+        dx, dy = align_text_to_background(data.text, font, data.bbox, bg_img)
+        if dx == 0 and dy == 0:
+            return
+        # 转换为场景坐标偏移并推入撤销栈
+        zoom = item._zoom_level
+        old_pos = item.pos()
+        new_pos = QPointF(old_pos.x() + dx * zoom, old_pos.y() + dy * zoom)
+        self._undo_stack.push(MoveTextItemCommand(self, item_id, old_pos, new_pos))
 
     def _apply_resize_item(self, item_id, new_font_size, new_rect):
         """修改字号和框（直接修改，不 push 命令）。
