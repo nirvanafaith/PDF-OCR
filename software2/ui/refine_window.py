@@ -36,7 +36,13 @@ from PyQt5.QtGui import (
 import os
 import traceback
 
-from models.data_models import RefineTextItem, CorrectedChar, LineSlice
+from models.data_models import (
+    RefineTextItem,
+    CorrectedChar,
+    LineSlice,
+    FONT_SIZE_GRADES,
+    match_font_grade,
+)
 from pdf_processor.pdf_output import PDFOutputGenerator, PDFOutputWorker
 from ui.styles import get_stylesheet
 from ui.zoom_utils import calculate_wheel_zoom, ZOOM_MIN, ZOOM_MAX
@@ -140,7 +146,14 @@ class MovableTextItem(QGraphicsRectItem):
         self.setAcceptHoverEvents(False)
         self.setPen(QPen(Qt.NoPen))
         self._text_item = QGraphicsTextItem(text_item_data.text, self)
-        font = QFont("Microsoft YaHei")
+        # 根据行框档位选择字体：五号用书宋体，其他用黑体
+        line_bbox = text_item_data.line_bbox or [0, 0, 0, 0]
+        line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
+        grade = match_font_grade(line_height_pt)
+        if grade == 5:
+            font = QFont("SimSun")
+        else:
+            font = QFont("SimHei")
         font.setPixelSize(max(int(h), 1))
         self._text_item.setFont(font)
         self._text_item.setDefaultTextColor(Qt.red)
@@ -194,10 +207,12 @@ class MovableTextItem(QGraphicsRectItem):
         self._text_item.setPos(x, y)
 
     def _calculate_max_font_size(self, text, frame_w, frame_h):
-        """计算框内能容纳的最大字体大小。
+        """计算框内能容纳的最大字体大小（基于字号档位）。
 
-        以框高为候选字号，用 QFontMetrics 测量字符宽高，
-        超出框宽/框高时按比例缩小，最小 1px。
+        从行框高度匹配中文字号档位，用档位磅值换算为像素字号
+        （按当前缩放级别换算为场景像素），再用 QFontMetrics 测量
+        字符宽高，超出框宽/框高时按比例缩小，最小 1px。
+        五号档位使用书宋体（SimSun），其他档位使用黑体（SimHei）。
 
         参数:
             text: 字符文本
@@ -207,13 +222,26 @@ class MovableTextItem(QGraphicsRectItem):
         返回:
             QFont: 设置好 pixelSize 的字体对象
         """
-        candidate = int(frame_h) if frame_h > 0 else 1
-        font = QFont("Microsoft YaHei")
+        # 从行框档位获取标准字号
+        line_bbox = self._data.line_bbox or [0, 0, 0, 0]
+        line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
+        grade = match_font_grade(line_height_pt)
+        font_size_pt = FONT_SIZE_GRADES[grade]
+        # 磅值 → 原始像素 → 场景像素（按缩放级别）
+        font_size_px = font_size_pt * (300.0 / 72.0)
+        zoom = self._zoom_level if self._zoom_level > 0 else 1.0
+        candidate = max(int(font_size_px * zoom), 1)
+        # 五号用书宋体，其他用黑体
+        if grade == 5:
+            font = QFont("SimSun")
+        else:
+            font = QFont("SimHei")
         font.setPixelSize(candidate)
         font.setStyleStrategy(QFont.PreferAntialias)
         fm = QFontMetrics(font)
         char_w = fm.horizontalAdvance(text) if text else 0
         char_h = fm.ascent() + fm.descent()
+        # 溢出检查：超框时按比例缩小
         if char_w > frame_w and frame_w > 0:
             candidate = int(candidate * frame_w / char_w)
         if char_h > frame_h and frame_h > 0:
@@ -809,7 +837,9 @@ class RefineWindow(QWidget):
 
         遍历所有页面的行数据，提取每个字符的文字内容和边界框，
         创建 RefineTextItem 实例并按页码归类存储到 page_items 中。
-        跳过已忽略的行和无效的字符数据。
+        跳过已忽略的行和无效的字符数据（bbox 长度不足或面积为零）。
+        字号基于行框高度匹配中文字号档位（1-5 号），存入 line_bbox
+        供后续字体选择与字号计算使用。
 
         调用关系:
             被 __init__ 调用。
@@ -817,6 +847,7 @@ class RefineWindow(QWidget):
         依赖:
             - models.data_models.RefineTextItem: 精修文字项数据模型
             - models.data_models.LineSlice: 行切片数据模型
+            - models.data_models.FONT_SIZE_GRADES, match_font_grade: 字号档位
         """
         for page_num, lines in self.page_lines.items():
             if page_num not in self.page_items:
@@ -824,20 +855,27 @@ class RefineWindow(QWidget):
             for ls in lines:
                 if hasattr(ls, "_ignored") and ls._ignored:
                     continue
+                # 行框高度 → 磅值 → 档位 → 字号磅值
+                line_bbox = list(ls.bbox) if ls.bbox else [0, 0, 0, 0]
+                line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
+                grade = match_font_grade(line_height_pt)
+                font_size = FONT_SIZE_GRADES[grade]
                 for char_data in ls.chars:
                     text = char_data.get("text", "")
+                    # 空文本字符保留占位（空格），避免静默丢失
                     if not text:
-                        continue
+                        text = " "
+                    # bbox 有效性检查：长度不足或面积为零时跳过
                     bbox = char_data.get("bbox", [0, 0, 0, 0])
-                    if len(bbox) < 4:
+                    if len(bbox) < 4 or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
                         continue
-                    font_size = bbox[3] - bbox[1]
                     item = RefineTextItem(
                         text=text,
                         bbox=list(bbox),
                         page_num=ls.page_num,
                         font_size=font_size,
                         ignored=False,
+                        line_bbox=line_bbox,
                     )
                     self.page_items[page_num].append(item)
 

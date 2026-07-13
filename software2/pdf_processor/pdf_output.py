@@ -16,7 +16,7 @@ import os
 import fitz  # PyMuPDF
 from PyQt5.QtCore import QThread, pyqtSignal
 
-from models.data_models import flatten_bbox
+from models.data_models import flatten_bbox, FONT_SIZE_GRADES, match_font_grade
 
 
 class PDFOutputGenerator:
@@ -70,14 +70,11 @@ class PDFOutputGenerator:
                 chars_by_page[page] = []
             chars_by_page[page].append(char)
 
-        # 3. 加载中文字体
-        font = self._get_font()
-
-        # 4. DPI（与 software1 OCR 一致，ocr_dpi=300）
+        # 3. DPI（与 software1 OCR 一致，ocr_dpi=300）
         ocr_dpi = 300
         scale = 72.0 / ocr_dpi
 
-        # 5. 逐页处理
+        # 4. 逐页处理
         for page_idx in range(total_pages):
             page = doc[page_idx]
             page_chars = chars_by_page.get(page_idx, [])
@@ -93,33 +90,40 @@ class PDFOutputGenerator:
                         line_chars,
                         key=lambda c: flatten_bbox(c.bbox)[0],
                     )
-
-                    # 整行文本拼接（中文不需要额外空格分隔）
-                    line_text = ''.join(c.text for c in line_chars)
-                    if not line_text:
+                    # 跳过空文本字符
+                    line_chars = [c for c in line_chars if c.text]
+                    if not line_chars:
                         continue
 
-                    # 行起始坐标与字号
                     bboxes = [flatten_bbox(c.bbox) for c in line_chars]
-                    pdf_x = bboxes[0][0] * scale
-                    # y: 取行内 y1 的中位数作为基线起点（PyMuPDF 左上角原点，y 向下增长）
-                    y1s = [b[1] for b in bboxes]
-                    pdf_y = sorted(y1s)[len(y1s) // 2] * scale
+                    # y: 取行内 y2（底部）的中位数作为基线起点
+                    # PyMuPDF TextWriter.append 的 pos 是首字符左下角，
+                    # 因此用 y2（底部）而非 y1（顶部）
+                    y2s = [b[3] for b in bboxes]
+                    pdf_y = sorted(y2s)[len(y2s) // 2] * scale
 
-                    # 字号: 行内高度中位数
+                    # 字号: 行内高度中位数 → 磅值 → 档位匹配
                     heights = [b[3] - b[1] for b in bboxes]
-                    font_size = sorted(heights)[len(heights) // 2] * scale
-                    if font_size < 1:
-                        font_size = 1
+                    line_height_pt = sorted(heights)[len(heights) // 2] * scale
+                    grade = match_font_grade(line_height_pt)
+                    font_size_pt = FONT_SIZE_GRADES[grade]
+                    if font_size_pt < 1:
+                        font_size_pt = 1
 
-                    try:
-                        tw.append(
-                            (pdf_x, pdf_y), line_text,
-                            font=font, fontsize=font_size,
-                        )
-                    except Exception:
-                        # 跳过无法写入的文本（如越界或字形缺失）
-                        pass
+                    # 按档位获取字体（缓存实例避免重复加载）
+                    font = self._get_font(grade)
+
+                    # 逐字符写入：每个字符使用自身 bbox x1 定位
+                    for c, b in zip(line_chars, bboxes):
+                        char_x = b[0] * scale
+                        try:
+                            tw.append(
+                                (char_x, pdf_y), c.text,
+                                font=font, fontsize=font_size_pt,
+                            )
+                        except Exception:
+                            # 跳过无法写入的文本（如越界或字形缺失）
+                            pass
 
                 # 写入页面
                 if text_color == "transparent":
@@ -130,7 +134,7 @@ class PDFOutputGenerator:
             if progress_callback:
                 progress_callback(page_idx + 1, total_pages)
 
-        # 6. 保存
+        # 5. 保存
         doc.save(output_path)
         doc.close()
 
@@ -173,25 +177,61 @@ class PDFOutputGenerator:
         groups.append(current)
         return groups
 
-    def _get_font(self):
-        """加载中文字体，优先微软雅黑，回退到内置 CJK。
+    def _get_font(self, grade=3):
+        """根据字号档位加载中文字体，缓存实例避免重复加载。
 
-        尝试从系统字体目录加载 msyh.ttc（微软雅黑），失败时回退到
-        PyMuPDF 内置的简体中文字体 'china-s'，以确保中文可正常渲染。
+        五号档位优先加载书宋体（simsun.ttc / STSONG.TTF），
+        其他档位加载黑体（simhei.ttf）。字体文件不存在时回退到
+        PyMuPDF 内置的简体中文字体（china-ss / china-s）。
+
+        Args:
+            grade: 字号档位号（1-5），默认 3。
 
         Returns:
             fitz.Font: 字体对象。
         """
-        font_path = os.path.join(
-            os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', 'msyh.ttc'
-        )
-        if os.path.exists(font_path):
-            try:
-                return fitz.Font(fontfile=font_path)
-            except Exception:
-                pass
-        # 回退到内置简体中文
-        return fitz.Font('china-s')
+        # 实例级缓存：按档位缓存 Font 实例
+        if not hasattr(self, '_font_cache'):
+            self._font_cache = {}
+        if grade in self._font_cache:
+            return self._font_cache[grade]
+
+        windir = os.environ.get('WINDIR', 'C:\\Windows')
+        font = None
+
+        if grade == 5:
+            # 五号：书宋体
+            candidates = ['simsun.ttc', 'STSONG.TTF']
+            builtin_fallbacks = ['china-ss', 'china-s']
+        else:
+            # 其他：黑体
+            candidates = ['simhei.ttf']
+            builtin_fallbacks = ['china-s']
+
+        # 尝试从系统字体目录加载
+        for name in candidates:
+            font_path = os.path.join(windir, 'Fonts', name)
+            if os.path.exists(font_path):
+                try:
+                    font = fitz.Font(fontfile=font_path)
+                    break
+                except Exception:
+                    continue
+
+        # 回退到内置 CJK 字体
+        if font is None:
+            for fb in builtin_fallbacks:
+                try:
+                    font = fitz.Font(fb)
+                    break
+                except Exception:
+                    continue
+            # 最终回退
+            if font is None:
+                font = fitz.Font('china-s')
+
+        self._font_cache[grade] = font
+        return font
 
 
 class PDFOutputWorker(QThread):

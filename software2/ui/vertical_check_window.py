@@ -719,6 +719,10 @@ class VerticalCheckWindow(QWidget):
         self._selected_indices = set()
         self._last_clicked_index = None
         self._current_preview_index = None
+        # 首次显示标志位:用于 showEvent 中触发预览缩放重算
+        # 构造期间 widget 未加入 QStackedWidget、未显示,viewport 尺寸为 0,
+        # center_on_rect 早退,transform 保持默认 1.0。首次 showEvent 时延迟重算。
+        self._first_shown = False
         # 当前预览的裁剪偏移(pixmap 本地→页面绝对坐标的偏移量)
         self._current_crop_offset = (0, 0)
         self._current_slice_widgets = {}
@@ -939,6 +943,21 @@ class VerticalCheckWindow(QWidget):
             self.error_occurred.emit(f"操作失败：{exc}")
         except Exception:
             pass
+
+    def showEvent(self, event):
+        """首次显示时延迟重算预览缩放。
+
+        构造期间 widget 尚未加入 QStackedWidget、尚未显示,viewport 尺寸为 0,
+        center_on_rect 早退 return,transform 保持默认 1.0。
+        此处在首次 showEvent 时(此时布局已完成,viewport 有有效尺寸),
+        通过 QTimer.singleShot(0, ...) 在事件循环下一轮重算预览缩放,
+        确保首次进入纵校窗口时预览即以正确的放大倍数居中显示。
+        """
+        super().showEvent(event)
+        if not self._first_shown:
+            self._first_shown = True
+            if self._current_preview_index is not None:
+                QTimer.singleShot(0, lambda: self._preview_slice(self._current_preview_index))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

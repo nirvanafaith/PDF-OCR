@@ -2,6 +2,35 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 
+# 中文字号标准档位：档位号 → 磅值（pt）
+# 一号=26pt, 二号=22pt, 三号=16pt, 四号=14pt, 五号=10.5pt
+FONT_SIZE_GRADES = {1: 26, 2: 22, 3: 16, 4: 14, 5: 10.5}
+
+
+def match_font_grade(line_height_pt):
+    """根据行框高度（磅值）匹配最接近的中文字号档位号。
+
+    遍历 FONT_SIZE_GRADES，返回磅值差最小的档位号（1-5）。
+    当输入为 None 或非正数时，回退到五号（最小档位）。
+
+    Args:
+        line_height_pt: 行框高度，单位磅（pt）。
+
+    Returns:
+        int: 档位号（1-5）。
+    """
+    if not line_height_pt or line_height_pt <= 0:
+        return 5
+    best_grade = 5
+    best_diff = None
+    for grade, pt in FONT_SIZE_GRADES.items():
+        diff = abs(line_height_pt - pt)
+        if best_diff is None or diff < best_diff:
+            best_diff = diff
+            best_grade = grade
+    return best_grade
+
+
 @dataclass
 class TextLine:
     """OCR 识别的单行文本结果。
@@ -266,6 +295,8 @@ class RefineTextItem:
         page_num: 文本所在页码。
         font_size: 字体大小，默认为 12.0。
         ignored: 是否在校对中被标记为忽略，默认为 False。
+        line_bbox: 所属行框的边界框，格式为 [x1, y1, x2, y2]，
+            用于字号档位匹配与字体选择，默认为 [0, 0, 0, 0]。
     """
 
     text: str
@@ -273,6 +304,7 @@ class RefineTextItem:
     page_num: int
     font_size: float = 12.0
     ignored: bool = False
+    line_bbox: List[float] = field(default_factory=lambda: [0, 0, 0, 0])
 
     def to_dict(self):
         """序列化为可 JSON 化的字典。"""
@@ -282,6 +314,7 @@ class RefineTextItem:
             'page_num': self.page_num,
             'font_size': self.font_size,
             'ignored': self.ignored,
+            'line_bbox': list(self.line_bbox) if self.line_bbox else [0, 0, 0, 0],
         }
 
     @classmethod
@@ -293,6 +326,7 @@ class RefineTextItem:
             page_num=d.get('page_num', 0),
             font_size=d.get('font_size', 12.0),
             ignored=d.get('ignored', False),
+            line_bbox=d.get('line_bbox', [0, 0, 0, 0]),
         )
 
 

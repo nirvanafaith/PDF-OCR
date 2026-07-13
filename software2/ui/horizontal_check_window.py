@@ -37,7 +37,12 @@ from PyQt5.QtGui import (
     QKeySequence,
 )
 
-from models.data_models import LineSlice, CorrectedLine
+from models.data_models import (
+    LineSlice,
+    CorrectedLine,
+    FONT_SIZE_GRADES,
+    match_font_grade,
+)
 from ui.styles import get_stylesheet
 from ui.zoom_utils import calculate_wheel_zoom, ZOOM_MIN, ZOOM_MAX
 from undo_commands import (
@@ -314,7 +319,11 @@ class HorizontalCheckWindow(QWidget):
         QShortcut(QKeySequence("Ctrl+0"), self, self._zoom_reset)
 
     def _calculate_line_font_size(self, line_bbox, text, zoom_level):
-        """根据行 bbox 的宽高比判断横排/竖排，计算整行最大可容纳字号。
+        """根据行 bbox 的宽高比判断横排/竖排，按行框高度匹配字号档位。
+
+        字号档位系统：将行框高度（像素）换算为磅值后匹配 1-5 号中文字号，
+        再换算回像素作为字号，保证不同行使用统一的标准字号。
+        五号档位使用书宋体（SimSun/STSong），其他档位使用黑体（SimHei）。
 
         参数:
             line_bbox: 行边界框 [x1, y1, x2, y2]
@@ -322,18 +331,28 @@ class HorizontalCheckWindow(QWidget):
             zoom_level: 当前缩放率
 
         返回:
-            tuple: (QFont, is_vertical)
+            tuple: (QFont, is_vertical, grade)
                 - QFont: 计算出的字体对象
                 - is_vertical: True 为竖排，False 为横排
+                - grade: 字号档位号（1-5）
         """
         width = line_bbox[2] - line_bbox[0]
         height = line_bbox[3] - line_bbox[1]
         is_vertical = height > width
-        # 候选字号 = 最短边 × 缩放率
-        shortest = min(width, height) if (width > 0 and height > 0) else 4
-        candidate_size = max(int(shortest * zoom_level), 4)
+        # 行框高度像素 → 磅值（DPI=300）
+        line_height_pt = height * (72.0 / 300.0)
+        # 匹配最接近的中文字号档位
+        grade = match_font_grade(line_height_pt)
+        # 档位磅值 → 像素字号
+        font_size_pt = FONT_SIZE_GRADES[grade]
+        font_size_px = font_size_pt * (300.0 / 72.0)
+        candidate_size = max(int(font_size_px * zoom_level), 4)
 
-        font = QFont("Microsoft YaHei")
+        # 五号用书宋体，其他用黑体
+        if grade == 5:
+            font = QFont("SimSun")
+        else:
+            font = QFont("SimHei")
         font.setPixelSize(candidate_size)
         font.setStyleStrategy(QFont.PreferAntialias)
         fm = QFontMetrics(font)
@@ -356,7 +375,7 @@ class HorizontalCheckWindow(QWidget):
                 candidate_size = max(int(candidate_size * target_extent / total_extent), 4)
                 font.setPixelSize(candidate_size)
 
-        return font, is_vertical
+        return font, is_vertical, grade
 
     def _distribute_chars_by_orientation(self, line_bbox, chars, font, is_vertical, zoom_level):
         """按方向在行框内分布字符，返回带位置信息的列表。
@@ -402,26 +421,93 @@ class HorizontalCheckWindow(QWidget):
                 char_data["bbox"] = new_bbox
                 result.append((char_text, pos_x, pos_y, new_bbox))
         else:
-            # 横排：字符从左到右等宽排列，垂直居中
-            char_width = line_width / num_chars
+            # 横排：优先使用字符自身 bbox 的 x1 定位，bbox 无效时回退到等分
+            char_width = line_width / num_chars  # 仅用于回退
             font_ascent = fm.ascent()
             font_descent = fm.descent()
             font_height = font_ascent + font_descent
+            # 垂直居中（原算法不变）
+            y_offset = max(0, (line_height * zoom_level - font_height) / 2)
+            pos_y = y1 * zoom_level + y_offset
             for i, char_data in enumerate(chars):
                 char_text = char_data.get("text", "")
-                char_actual_width = fm.horizontalAdvance(char_text)
-                # 水平居中在格子内
-                x_offset = max(0, (char_width * zoom_level - char_actual_width) / 2)
-                pos_x = (x1 + i * char_width) * zoom_level + x_offset
-                # 垂直居中
-                y_offset = max(0, (line_height * zoom_level - font_height) / 2)
-                pos_y = y1 * zoom_level + y_offset
-                # 更新 char 的 bbox
-                new_bbox = [x1 + i * char_width, y1, x1 + (i + 1) * char_width, y2]
-                char_data["bbox"] = new_bbox
-                result.append((char_text, pos_x, pos_y, new_bbox))
+                char_bbox = char_data.get("bbox", [])
+                # 检查 bbox 是否有效（长度 >= 4 且 x 坐标非全零）
+                if len(char_bbox) >= 4 and not (char_bbox[0] == 0 and char_bbox[2] == 0):
+                    cx1 = char_bbox[0]
+                    cx2 = char_bbox[2] if len(char_bbox) >= 4 else cx1
+                    # 钳制到行 bbox 范围，防止渲染溢出
+                    cx1 = max(x1, min(cx1, x2))
+                    cx2 = max(cx1, min(cx2, x2))
+                    pos_x = cx1 * zoom_level
+                    # 用钳制后的坐标构造 result_bbox，并写回 char_data（与竖排分支一致）
+                    result_bbox = [cx1, char_bbox[1], cx2, char_bbox[3]]
+                    char_data["bbox"] = result_bbox
+                else:
+                    # 回退到等分位置
+                    pos_x = (x1 + i * char_width) * zoom_level
+                    result_bbox = [x1 + i * char_width, y1, x1 + (i + 1) * char_width, y2]
+                    char_data["bbox"] = result_bbox
+                result.append((char_text, pos_x, pos_y, result_bbox))
 
         return result
+
+    def _adjust_font_for_overlap(self, font, char_positions, line_bbox, zoom_level):
+        """检测相邻字符渲染宽度重叠，返回调整后的 QFont。
+
+        对横排字符，检查每个字符的渲染右边缘是否超过下一个字符的左边缘。
+        若存在重叠，计算字号缩小因子并返回缩小字号的新 QFont。
+        字符位置来自 bbox x1（不随字号变化），渲染宽度与字号成正比，
+        因此可一步计算出精确因子，无需迭代。
+
+        参数:
+            font: 当前使用的 QFont
+            char_positions: _distribute_chars_by_orientation 返回的列表
+                           [(char_text, pos_x, pos_y, bbox), ...]
+            line_bbox: 行边界框（未使用，保留用于未来扩展）
+            zoom_level: 当前缩放率（未使用，位置已是场景坐标）
+
+        返回:
+            QFont: 若需调整则返回新 QFont，否则返回原 font
+
+        调用关系:
+            被 _render_page 在 _distribute_chars_by_orientation 之后调用。
+        """
+        if len(char_positions) < 2:
+            return font
+        fm = QFontMetrics(font)
+        # 提取位置和渲染宽度
+        positions = []
+        widths = []
+        for char_text, pos_x, _, _ in char_positions:
+            positions.append(pos_x)
+            widths.append(fm.horizontalAdvance(char_text))
+        # 调用 native H5 或 Python fallback
+        try:
+            from native import compute_font_adjustment_batch
+            factors = compute_font_adjustment_batch(
+                positions, widths, [0, len(positions)]
+            )
+            factor = factors[0] if factors else 1.0
+        except Exception:
+            # Python fallback
+            factor = 1.0
+            for i in range(len(positions) - 1):
+                gap = positions[i + 1] - positions[i]
+                if gap <= 0.0 or widths[i] <= 0.0:
+                    continue
+                pair_factor = gap / widths[i]
+                if pair_factor < factor:
+                    factor = pair_factor
+        if factor >= 1.0:
+            return font
+        old_size = font.pixelSize()
+        new_size = max(int(old_size * factor), 4)
+        if new_size >= old_size:
+            return font
+        new_font = QFont(font)
+        new_font.setPixelSize(new_size)
+        return new_font
 
     def _put_pixmap_cache(self, key, pixmap):
         """写入像素缓存，超出上限时淘汰最旧项（FIFO）。"""
@@ -453,14 +539,23 @@ class HorizontalCheckWindow(QWidget):
         for line_slice in lines:
             ignored = hasattr(line_slice, "_ignored") and line_slice._ignored
             if not line_slice.chars:
-                # 无字符数据时回退到按行渲染
+                # 无字符数据时回退到按行渲染（字号档位匹配）
                 item = QGraphicsTextItem(line_slice.text)
                 item.setDefaultTextColor(
                     Qt.gray if ignored else Qt.black
                 )
                 bbox = line_slice.bbox
-                font_size = max((bbox[3] - bbox[1]) * self.zoom_level, 6)
-                font = QFont("Microsoft YaHei", int(font_size))
+                # 行框高度 → 磅值 → 档位 → 像素字号
+                line_height_pt = (bbox[3] - bbox[1]) * (72.0 / 300.0)
+                grade = match_font_grade(line_height_pt)
+                font_size_pt = FONT_SIZE_GRADES[grade]
+                font_size_px = font_size_pt * (300.0 / 72.0)
+                font_size = max(int(font_size_px * self.zoom_level), 6)
+                # 五号用书宋体，其他用黑体
+                if grade == 5:
+                    font = QFont("SimSun", font_size)
+                else:
+                    font = QFont("SimHei", font_size)
                 font.setStyleStrategy(QFont.PreferAntialias)
                 item.setFont(font)
                 item.setPos(bbox[0] * self.zoom_level, bbox[1] * self.zoom_level)
@@ -473,12 +568,21 @@ class HorizontalCheckWindow(QWidget):
             # 有字符数据时：基于行框统一计算字号并排版
             valid_chars = [c for c in line_slice.chars if c.get("bbox_valid", True)]
             if not valid_chars:
-                # 所有字符均无效，回退到按行文本渲染
+                # 所有字符均无效，回退到按行文本渲染（字号档位匹配）
                 item = QGraphicsTextItem(line_slice.text)
                 item.setDefaultTextColor(Qt.gray if ignored else Qt.black)
                 bbox = line_slice.bbox
-                font_size = max((bbox[3] - bbox[1]) * self.zoom_level, 6)
-                font = QFont("Microsoft YaHei", int(font_size))
+                # 行框高度 → 磅值 → 档位 → 像素字号
+                line_height_pt = (bbox[3] - bbox[1]) * (72.0 / 300.0)
+                grade = match_font_grade(line_height_pt)
+                font_size_pt = FONT_SIZE_GRADES[grade]
+                font_size_px = font_size_pt * (300.0 / 72.0)
+                font_size = max(int(font_size_px * self.zoom_level), 6)
+                # 五号用书宋体，其他用黑体
+                if grade == 5:
+                    font = QFont("SimSun", font_size)
+                else:
+                    font = QFont("SimHei", font_size)
                 font.setStyleStrategy(QFont.PreferAntialias)
                 item.setFont(font)
                 item.setPos(bbox[0] * self.zoom_level, bbox[1] * self.zoom_level)
@@ -489,12 +593,23 @@ class HorizontalCheckWindow(QWidget):
                 self.scene.addItem(item)
                 continue
             line_text = "".join(c.get("text", "") for c in valid_chars)
-            font, is_vertical = self._calculate_line_font_size(
+            font, is_vertical, grade = self._calculate_line_font_size(
                 line_slice.bbox, line_text, self.zoom_level
             )
             char_positions = self._distribute_chars_by_orientation(
                 line_slice.bbox, valid_chars, font, is_vertical, self.zoom_level
             )
+            # 横排时检测字符重叠并调整字号
+            if not is_vertical:
+                adjusted_font = self._adjust_font_for_overlap(
+                    font, char_positions, line_slice.bbox, self.zoom_level
+                )
+                if adjusted_font.pixelSize() != font.pixelSize():
+                    font = adjusted_font
+                    char_positions = self._distribute_chars_by_orientation(
+                        line_slice.bbox, valid_chars, font, is_vertical,
+                        self.zoom_level
+                    )
             for char_text, pos_x, pos_y, _ in char_positions:
                 item = QGraphicsTextItem(char_text)
                 item.setDefaultTextColor(Qt.gray if ignored else Qt.black)
@@ -927,22 +1042,89 @@ class HorizontalCheckWindow(QWidget):
             for i, ch in enumerate(new_text):
                 old_chars[i]["text"] = ch
         else:
+            # 检测行方向：竖排（高>宽）用 y 方向步长，横排用 x 方向步长
             line_bbox = ls.bbox
-            line_width = line_bbox[2] - line_bbox[0]
-            char_width = line_width / len(new_text) if new_text else line_width
-            new_chars = []
-            for i, ch in enumerate(new_text):
-                new_chars.append({
-                    "text": ch,
-                    "bbox": [
-                        line_bbox[0] + i * char_width,
-                        line_bbox[1],
-                        line_bbox[0] + (i + 1) * char_width,
-                        line_bbox[3],
-                    ],
-                    "bbox_valid": True,
-                })
-            ls.chars = new_chars
+            lb_w = line_bbox[2] - line_bbox[0]
+            lb_h = line_bbox[3] - line_bbox[1]
+            is_vertical = lb_h > lb_w
+            if not old_chars:
+                # 回退：无前驱字符时使用行 bbox 等分
+                if is_vertical:
+                    char_h = lb_h / len(new_text) if new_text else lb_h
+                    new_chars = []
+                    for i, ch in enumerate(new_text):
+                        new_chars.append({
+                            "text": ch,
+                            "bbox": [
+                                line_bbox[0],
+                                line_bbox[1] + i * char_h,
+                                line_bbox[2],
+                                line_bbox[1] + (i + 1) * char_h,
+                            ],
+                            "bbox_valid": True,
+                        })
+                else:
+                    char_w = lb_w / len(new_text) if new_text else lb_w
+                    new_chars = []
+                    for i, ch in enumerate(new_text):
+                        new_chars.append({
+                            "text": ch,
+                            "bbox": [
+                                line_bbox[0] + i * char_w,
+                                line_bbox[1],
+                                line_bbox[0] + (i + 1) * char_w,
+                                line_bbox[3],
+                            ],
+                            "bbox_valid": True,
+                        })
+                ls.chars = new_chars
+            else:
+                # 保留旧字符 bbox，新增字符以最后一个旧字符 bbox 步长顺延
+                last_bbox = old_chars[-1].get("bbox", [0, 0, 0, 0])
+                if len(last_bbox) >= 4:
+                    if is_vertical:
+                        # 竖排：用高度方向步长
+                        step = last_bbox[3] - last_bbox[1]
+                    else:
+                        # 横排：用宽度方向步长
+                        step = last_bbox[2] - last_bbox[0]
+                else:
+                    step = 0
+                if step <= 0:
+                    # 回退：无法计算步长时使用行宽/行高等分
+                    if is_vertical:
+                        step = lb_h / len(new_text) if new_text else 1
+                    else:
+                        step = lb_w / len(new_text) if new_text else 1
+                new_chars = []
+                for i, ch in enumerate(new_text):
+                    if i < len(old_chars):
+                        # 保留旧字符 bbox
+                        old = old_chars[i]
+                        new_chars.append({
+                            "text": ch,
+                            "bbox": list(old.get("bbox", [0, 0, 0, 0])),
+                            "bbox_valid": old.get("bbox_valid", True),
+                        })
+                    else:
+                        # 新增字符顺延（按方向使用对应坐标）
+                        if is_vertical:
+                            # 竖排：y 方向顺延
+                            base_y = last_bbox[3] + (i - len(old_chars)) * step
+                            new_chars.append({
+                                "text": ch,
+                                "bbox": [last_bbox[0], base_y, last_bbox[2], base_y + step],
+                                "bbox_valid": True,
+                            })
+                        else:
+                            # 横排：x 方向顺延（原逻辑）
+                            base_x = last_bbox[2] + (i - len(old_chars)) * step
+                            new_chars.append({
+                                "text": ch,
+                                "bbox": [base_x, last_bbox[1], base_x + step, last_bbox[3]],
+                                "bbox_valid": True,
+                            })
+                ls.chars = new_chars
 
     # ============== 撤销/重做命令的 _apply_xxx 辅助方法 ==============
     # 约定：这些方法仅直接修改数据并刷新界面，不要再 push 命令（避免递归）。

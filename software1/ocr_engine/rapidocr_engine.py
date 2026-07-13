@@ -93,6 +93,8 @@ class OCREngine:
         # GPU 可用时使用 MEDIUM 模型，否则回退到 SMALL 模型（CPU 上 MEDIUM 过慢）
         _has_cuda = _is_cuda_really_available()
         _model_type = ModelType.MEDIUM if _has_cuda else ModelType.SMALL
+        self._has_cuda = _has_cuda
+        self._model_type_name = "MEDIUM" if _has_cuda else "SMALL"
 
         params = {
             "EngineConfig.onnxruntime.use_cuda": _has_cuda,
@@ -106,7 +108,8 @@ class OCREngine:
             "Det.model_type": _model_type,
             "Det.ocr_version": OCRVersion.PPOCRV6,
             # DBNet 检测参数调优：limit_side_len=2880 匹配 A4@300DPI 高度(约2905-2970px)避免过度缩放导致下半页漏检；降低 box_thresh 和提高 unclip_ratio 以减少漏行
-            "Det.box_thresh": 0.4,
+            # box_thresh 0.4→0.3：提高 DBNet 检测召回率，修复"组合 1.pdf"第12页整行漏检问题
+            "Det.box_thresh": 0.3,
             "Det.unclip_ratio": 1.8,
             "Det.max_candidates": 3000,
             "Det.use_dilation": True,
@@ -291,6 +294,210 @@ class OCREngine:
         y2 = min(box1_flat[3], box2_flat[3])
         return x1 < x2 and y1 < y2
 
+    def _convert_gap_box_to_page(self, gap_box, offset_x, offset_y):
+        """将 gap 区域内的 box 坐标转换回页面坐标。
+
+        gap_box 可能是多边形 [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
+        或扁平格式 [x1, y1, x2, y2]。原样保持格式，仅做坐标偏移。
+
+        参数:
+            gap_box: gap 区域内识别出的边界框
+            offset_x: x 方向偏移量（gap 区域左上角 x）
+            offset_y: y 方向偏移量（gap 区域左上角 y）
+
+        返回:
+            偏移后的边界框，格式与输入一致
+        """
+        if gap_box is None:
+            return None
+        # 四点多边形格式
+        if (isinstance(gap_box, list) and len(gap_box) == 4
+                and all(isinstance(p, (list, tuple)) for p in gap_box)):
+            return [[p[0] + offset_x, p[1] + offset_y] for p in gap_box]
+        # 扁平格式 [x1, y1, x2, y2]
+        if isinstance(gap_box, list) and len(gap_box) == 4:
+            return [
+                gap_box[0] + offset_x, gap_box[1] + offset_y,
+                gap_box[2] + offset_x, gap_box[3] + offset_y,
+            ]
+        return gap_box
+
+    def _detect_and_fill_gaps(self, page_image, lines_data, chars_data, page_num, engine):
+        """检测行间隙异常并补检漏行。
+
+        当同页相邻行的 y 间隙大于 1.5 倍中位行高时，
+        裁切间隙区域图像重新调用 RapidOCR 识别。
+
+        用于修复 DBNet 在某些行上检测失败导致的整行漏识别问题。
+        补检失败不影响主流程（try-except 包裹）。
+
+        参数:
+            page_image: 页面图像 (PIL.Image)
+            lines_data: 全部行列表（会被原地扩展）
+            chars_data: 全部字符列表（会被原地扩展）
+            page_num: 当前页码
+            engine: RapidOCR 引擎实例
+
+        返回:
+            tuple[list, list]: (lines_data, chars_data) 更新后的列表
+        """
+        from PIL import Image
+        import numpy as np
+        from models.data_models import flatten_bbox
+
+        if not lines_data or len(lines_data) < 2:
+            return lines_data, chars_data
+
+        # 提取当前页的行
+        page_lines = [l for l in lines_data if l.get("page_num") == page_num]
+        if len(page_lines) < 2:
+            return lines_data, chars_data
+
+        # 计算每行的扁平 bbox，便于几何运算（行 box 可能是 4 角点格式）
+        line_flats = [flatten_bbox(l.get("box", [0, 0, 0, 0])) for l in page_lines]
+
+        # 按 y 中心排序
+        sorted_indices = sorted(
+            range(len(page_lines)),
+            key=lambda i: (line_flats[i][1] + line_flats[i][3]) / 2.0,
+        )
+        sorted_flats = [line_flats[i] for i in sorted_indices]
+
+        # 计算中位行高
+        heights = [b[3] - b[1] for b in sorted_flats]
+        median_height = sorted(heights)[len(heights) // 2]
+        if median_height <= 0:
+            return lines_data, chars_data
+
+        gap_threshold = median_height * 1.5
+
+        # 当前最大 line_id / char_id，用于新增分配
+        max_line_id = max((l.get("line_id", 0) for l in lines_data), default=0)
+        max_char_id = max((c.get("char_id", 0) for c in chars_data), default=0)
+
+        new_lines = []
+        new_chars = []
+
+        # 页面图像转 numpy 一次复用
+        try:
+            img_array = np.array(page_image)
+        except Exception as e:
+            print(f"[GapDetect] 页面 {page_num} 图像转换失败: {e}")
+            return lines_data, chars_data
+
+        img_h, img_w = img_array.shape[0], img_array.shape[1]
+
+        # 全页 x 范围（用于裁切 gap 区域的横向范围）
+        page_x1 = max(0, int(min(b[0] for b in sorted_flats)))
+        page_x2 = min(img_w, int(max(b[2] for b in sorted_flats)))
+
+        for i in range(len(sorted_flats) - 1):
+            curr_bottom = sorted_flats[i][3]
+            next_top = sorted_flats[i + 1][1]
+            gap = next_top - curr_bottom
+
+            if gap <= gap_threshold:
+                continue
+
+            # 异常间隙，裁切区域重新识别
+            gap_y1 = max(0, int(curr_bottom) - 5)  # 上延 5 像素覆盖边界
+            gap_y2 = min(img_h, int(next_top) + 5)  # 下延 5 像素覆盖边界
+            gap_x1 = page_x1
+            gap_x2 = page_x2
+
+            if gap_y2 <= gap_y1 or gap_x2 <= gap_x1:
+                continue
+
+            gap_img = img_array[gap_y1:gap_y2, gap_x1:gap_x2]
+            if gap_img.size == 0 or gap_img.shape[0] < 5 or gap_img.shape[1] < 5:
+                continue
+
+            try:
+                gap_pil = Image.fromarray(gap_img)
+            except Exception as e:
+                print(f"[GapDetect] 页面 {page_num} gap 图像创建失败: {e}")
+                continue
+
+            # 调用 RapidOCR 识别（与主流程参数一致）
+            try:
+                result = engine(
+                    gap_pil,
+                    return_word_box=True,
+                    return_single_char_box=True,
+                )
+            except Exception as e:
+                print(f"[GapDetect] 页面 {page_num} 补检识别失败: {e}")
+                continue
+
+            if not result or not result.txts:
+                continue
+
+            num_new = len(result.txts)
+            for j in range(num_new):
+                text = result.txts[j] if result.txts else ""
+                score = (
+                    float(result.scores[j])
+                    if result.scores is not None and j < len(result.scores)
+                    else 0.5
+                )
+                box = (
+                    result.boxes[j].tolist()
+                    if result.boxes is not None and j < len(result.boxes)
+                    else None
+                )
+
+                # 将 gap 区域坐标转换回页面坐标
+                page_box = self._convert_gap_box_to_page(box, gap_x1, gap_y1)
+
+                max_line_id += 1
+                new_line = {
+                    "line_id": max_line_id,
+                    "page_num": page_num,
+                    "text": text,
+                    "score": score,
+                    "box": page_box,
+                }
+                new_lines.append(new_line)
+
+                # 同步生成字符级数据
+                if result.word_results is not None and j < len(result.word_results):
+                    word_line = result.word_results[j]
+                    for word_txt, word_score, word_box in word_line:
+                        wb = (
+                            word_box.tolist()
+                            if hasattr(word_box, "tolist")
+                            else word_box
+                        )
+                        page_word_box = self._convert_gap_box_to_page(
+                            wb, gap_x1, gap_y1
+                        )
+                        max_char_id += 1
+                        new_chars.append({
+                            "char_id": max_char_id,
+                            "line_id": max_line_id,
+                            "page_num": page_num,
+                            "char": word_txt,
+                            "score": float(word_score),
+                            "box": page_word_box,
+                        })
+
+        if new_lines:
+            lines_data.extend(new_lines)
+            chars_data.extend(new_chars)
+            # 重新按 (page_num, y 中心) 排序行
+            def _y_center(l):
+                b = flatten_bbox(l.get("box", [0, 0, 0, 0]))
+                return (b[1] + b[3]) / 2.0
+            lines_data.sort(
+                key=lambda l: (l.get("page_num", 0), _y_center(l))
+            )
+            print(
+                f"[GapDetect] 页 {page_num} 补检 {len(new_lines)} 行 "
+                f"{len(new_chars)} 字符"
+            )
+
+        return lines_data, chars_data
+
     def run_ocr(self, pdf_path: str, output_dir: str = None, output_callback=None, regions: dict = None) -> tuple:
         """对 PDF 所有页进行 OCR 识别，并将结果保存为 JSON 文件。
 
@@ -431,6 +638,33 @@ class OCREngine:
         except Exception as e:
             if output_callback:
                 output_callback(f"行合并失败，跳过: {e}")
+
+        # 行间隙补检：检测相邻行 y 间隙异常并重新识别漏行
+        # 用于修复 DBNet 在某些行上检测失败导致的整行漏识别问题
+        try:
+            page_nums_in_results = sorted(
+                set(l.get("page_num", 0) for l in all_lines)
+            )
+            if page_nums_in_results:
+                if output_callback:
+                    output_callback("正在执行行间隙补检...")
+                filled_count = 0
+                for p_num in page_nums_in_results:
+                    if p_num >= len(page_images):
+                        continue
+                    p_img = page_images[p_num]
+                    before = len(all_lines)
+                    all_lines, all_chars = self._detect_and_fill_gaps(
+                        p_img, all_lines, all_chars, p_num, self.engine
+                    )
+                    filled_count += len(all_lines) - before
+                if output_callback and filled_count > 0:
+                    output_callback(
+                        f"行间隙补检完成，新增 {filled_count} 行"
+                    )
+        except Exception as e:
+            if output_callback:
+                output_callback(f"行间隙补检失败，跳过: {e}")
 
         pdf_basename = os.path.splitext(os.path.basename(pdf_path))[0]
         json_dir = os.path.join(output_dir, pdf_basename)
