@@ -20,6 +20,7 @@ from PyQt5.QtWidgets import (
     QRubberBand,
     QMessageBox,
     QInputDialog,
+    QProgressDialog,
     QUndoStack,
     QShortcut,
 )
@@ -50,6 +51,7 @@ from undo_commands import (
     ToggleIgnoreCommand,
     RelocateLineFrameCommand,
 )
+from alignment import align_text_to_background
 
 # 模块级 native 探测结果缓存：None 表示尚未探测，非 None 表示已缓存（含失败结果）。
 # 进程生命周期内只执行一次文件系统探测，后续调用直接返回缓存值。
@@ -1552,6 +1554,7 @@ class HorizontalCheckWindow(QWidget):
         confirm_btn.clicked.connect(dialog.accept)
         return_btn.clicked.connect(dialog.reject)
         if dialog.exec() == QDialog.Accepted:
+            self._align_all_chars_to_background()
             corrected = self._build_corrected_lines()
             self.finished_signal.emit(corrected)
 
@@ -1627,6 +1630,67 @@ class HorizontalCheckWindow(QWidget):
             QImage.Format_RGBA8888,
         )
         return QPixmap.fromImage(qimage)
+
+    def _align_all_chars_to_background(self):
+        """遍历所有页所有行所有字符，自动对齐到背景墨迹。
+
+        对每个字符调用 align_text_to_background 计算最佳平移偏移，
+        把 (dx, dy) 加到 char_data["bbox"] 上，使字符位置与背景
+        原扫描墨迹最大程度重合。带进度对话框显示处理进度。
+
+        调用关系:
+            被 _on_finish 在用户确认后、_build_corrected_lines 之前调用。
+        """
+        # 统计总字符数
+        total = sum(len(ls.chars) for lines in self.page_lines.values() for ls in lines)
+        if total == 0:
+            return
+
+        # 进度对话框
+        progress = QProgressDialog("正在对齐字符...", "取消", 0, total, self)
+        progress.setWindowTitle("自动对齐")
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setMinimumDuration(500)
+
+        count = 0
+        for page_num in sorted(self.page_lines.keys()):
+            if page_num >= len(self.page_images):
+                continue
+            bg_img = self.page_images[page_num]
+            for ls in self.page_lines[page_num]:
+                # 构造字体（与精修一致：档位匹配 + SimSun/SimHei，原始分辨率）
+                line_bbox = ls.bbox or [0, 0, 0, 0]
+                line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
+                grade = match_font_grade(line_height_pt)
+                font_size_px = int(FONT_SIZE_GRADES[grade] * (300.0 / 72.0))
+                if grade == 5:
+                    font = QFont("SimSun")
+                else:
+                    font = QFont("SimHei")
+                font.setPixelSize(max(font_size_px, 1))
+
+                for char_data in ls.chars:
+                    if progress.wasCanceled():
+                        progress.setValue(total)
+                        return
+                    text = char_data.get("text", "")
+                    bbox = char_data.get("bbox", [])
+                    if not text or len(bbox) < 4:
+                        count += 1
+                        progress.setValue(count)
+                        continue
+                    # 调用对齐算法
+                    dx, dy = align_text_to_background(text, font, bbox, bg_img)
+                    # 把偏移量加到 bbox 上
+                    if dx != 0 or dy != 0:
+                        char_data["bbox"] = [
+                            bbox[0] + dx, bbox[1] + dy,
+                            bbox[2] + dx, bbox[3] + dy,
+                        ]
+                    count += 1
+                    progress.setValue(count)
+
+        progress.setValue(total)
 
     def _build_corrected_lines(self) -> list:
         """遍历所有页面的行切片，构建校对结果列表。
