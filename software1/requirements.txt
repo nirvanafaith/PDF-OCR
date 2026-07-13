@@ -2,9 +2,7 @@ numpy<2
 onnxruntime>=1.19.0
 PyQt6
 PyMuPDF
-reportlab
 Pillow
-paddlepaddle-gpu
 rapidocr>=3.9.1
 opencv-python>=4.8
 scikit-learn>=1.3
