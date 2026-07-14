@@ -24,6 +24,8 @@ __all__ = [
     "optimize_char_boxes",
     "batch_crop_qimage",
     "pil_to_qimage_buffer",
+    "batch_match_font_grade",
+    "find_best_offset",
 ]
 
 # ---------------------------------------------------------------------------
@@ -147,6 +149,73 @@ def pil_to_qimage_buffer(samples, width: int, height: int,
         return None
     try:
         return mod.pil_to_qimage_buffer(samples, width, height, mode, stride)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def batch_match_font_grade(line_heights_pt: List[float]) -> List[int] | None:
+    """H6: 批量字号档位匹配。
+
+    对一组行框高度（磅值）批量匹配中文字号档位（1-5）。
+    含五号放宽逻辑（< 15.0pt 归五号）。
+
+    参数:
+        line_heights_pt: 行框高度列表（磅值）。
+
+    返回:
+        档位号列表；缺失 native 时使用 Python fallback，功能一致。
+    """
+    mod = _try_load()
+    if mod is not None:
+        try:
+            return mod.batch_match_font_grade(line_heights_pt)
+        except Exception:  # noqa: BLE001
+            pass
+    # Python fallback
+    return [_match_font_grade_py(h) for h in line_heights_pt]
+
+
+def _match_font_grade_py(line_height_pt):
+    """H6 Python fallback: 单个字号档位匹配。"""
+    if not line_height_pt or line_height_pt <= 0:
+        return 5
+    if line_height_pt < 15.0:
+        return 5
+    # 与 data_models.match_font_grade 一致的最近邻匹配
+    FONT_SIZE_GRADES = {1: 26, 2: 22, 3: 16, 4: 14, 5: 10.5}
+    best_grade = 5
+    best_diff = None
+    for grade, pt in FONT_SIZE_GRADES.items():
+        diff = abs(line_height_pt - pt)
+        if best_diff is None or diff < best_diff:
+            best_diff = diff
+            best_grade = grade
+    return best_grade
+
+
+def find_best_offset(text_mask, ink_mask, radius: int):
+    """H7: 文字掩码与墨迹掩码最佳偏移搜索。
+
+    在 (dx,dy) ∈ [-radius, radius] 范围搜索使 text_mask 与 ink_mask 交集最大的偏移。
+    缺失 native 时返回 None，调用方应回落到 numpy 实现。
+
+    参数:
+        text_mask: np.ndarray, 2D, bool/uint8, 文字掩码。
+        ink_mask: np.ndarray, 2D, bool/uint8, 墨迹掩码（四周已扩展 radius）。
+        radius: 搜索半径。
+
+    返回:
+        (dx, dy) 元组；缺失 native 时返回 None。
+    """
+    mod = _try_load()
+    if mod is None:
+        return None
+    try:
+        import numpy as _np
+        # 强制 uint8 连续数组（bool 数组会自动转换）
+        tm = _np.ascontiguousarray(text_mask, dtype=_np.uint8)
+        im = _np.ascontiguousarray(ink_mask, dtype=_np.uint8)
+        return mod.find_best_offset(tm, im, int(radius))
     except Exception:  # noqa: BLE001
         return None
 
