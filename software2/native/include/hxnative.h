@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace hxnative {
@@ -56,5 +57,21 @@ std::string pil_to_qimage_buffer_impl(const std::uint8_t *samples,
                                       int width, int height,
                                       const std::string &mode,
                                       std::ptrdiff_t stride);
+
+// ---- H6: 批量字号档位匹配 --------------------------------------------------
+// 输入一组行框高度（磅值），输出对应的字号档位号（1-5）。
+// 逻辑与 Python match_font_grade 一致，含五号放宽（< 15.0pt 归五号）。
+std::vector<int>
+batch_match_font_grade(const std::vector<double>& line_heights_pt);
+
+// ---- H7: 文字掩码与墨迹掩码最佳偏移搜索 -----------------------------------
+// 输入文字掩码 text_mask (th x tw, uint8 非零为文字) 与墨迹掩码 ink_mask
+// (ih x iw, uint8 非零为墨迹, 四周已扩展 radius 像素)，
+// 在 (dx,dy) ∈ [-radius, radius] 范围搜索使两者交集最大的偏移，返回 (dx, dy)。
+// 逻辑与 alignment/text_aligner.py::find_best_offset 等价（含全零处理与平局处理）。
+std::pair<int, int>
+find_best_offset(const std::uint8_t *text_mask, int th, int tw,
+                 const std::uint8_t *ink_mask, int ih, int iw,
+                 int radius);
 
 }  // namespace hxnative
