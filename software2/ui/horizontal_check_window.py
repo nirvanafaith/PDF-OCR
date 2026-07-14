@@ -1,4 +1,5 @@
 import traceback
+import unicodedata
 
 from PyQt5.QtWidgets import (
     QWidget,
@@ -454,63 +455,6 @@ class HorizontalCheckWindow(QWidget):
 
         return result
 
-    def _adjust_font_for_overlap(self, font, char_positions, line_bbox, zoom_level):
-        """检测相邻字符渲染宽度重叠，返回调整后的 QFont。
-
-        对横排字符，检查每个字符的渲染右边缘是否超过下一个字符的左边缘。
-        若存在重叠，计算字号缩小因子并返回缩小字号的新 QFont。
-        字符位置来自 bbox x1（不随字号变化），渲染宽度与字号成正比，
-        因此可一步计算出精确因子，无需迭代。
-
-        参数:
-            font: 当前使用的 QFont
-            char_positions: _distribute_chars_by_orientation 返回的列表
-                           [(char_text, pos_x, pos_y, bbox), ...]
-            line_bbox: 行边界框（未使用，保留用于未来扩展）
-            zoom_level: 当前缩放率（未使用，位置已是场景坐标）
-
-        返回:
-            QFont: 若需调整则返回新 QFont，否则返回原 font
-
-        调用关系:
-            被 _render_page 在 _distribute_chars_by_orientation 之后调用。
-        """
-        if len(char_positions) < 2:
-            return font
-        fm = QFontMetrics(font)
-        # 提取位置和渲染宽度
-        positions = []
-        widths = []
-        for char_text, pos_x, _, _ in char_positions:
-            positions.append(pos_x)
-            widths.append(fm.horizontalAdvance(char_text))
-        # 调用 native H5 或 Python fallback
-        try:
-            from native import compute_font_adjustment_batch
-            factors = compute_font_adjustment_batch(
-                positions, widths, [0, len(positions)]
-            )
-            factor = factors[0] if factors else 1.0
-        except Exception:
-            # Python fallback
-            factor = 1.0
-            for i in range(len(positions) - 1):
-                gap = positions[i + 1] - positions[i]
-                if gap <= 0.0 or widths[i] <= 0.0:
-                    continue
-                pair_factor = gap / widths[i]
-                if pair_factor < factor:
-                    factor = pair_factor
-        if factor >= 1.0:
-            return font
-        old_size = font.pixelSize()
-        new_size = max(int(old_size * factor), 4)
-        if new_size >= old_size:
-            return font
-        new_font = QFont(font)
-        new_font.setPixelSize(new_size)
-        return new_font
-
     def _put_pixmap_cache(self, key, pixmap):
         """写入像素缓存，超出上限时淘汰最旧项（FIFO）。"""
         self._pixmap_cache[key] = pixmap
@@ -601,17 +545,6 @@ class HorizontalCheckWindow(QWidget):
             char_positions = self._distribute_chars_by_orientation(
                 line_slice.bbox, valid_chars, font, is_vertical, self.zoom_level
             )
-            # 横排时检测字符重叠并调整字号
-            if not is_vertical:
-                adjusted_font = self._adjust_font_for_overlap(
-                    font, char_positions, line_slice.bbox, self.zoom_level
-                )
-                if adjusted_font.pixelSize() != font.pixelSize():
-                    font = adjusted_font
-                    char_positions = self._distribute_chars_by_orientation(
-                        line_slice.bbox, valid_chars, font, is_vertical,
-                        self.zoom_level
-                    )
             for char_text, pos_x, pos_y, _ in char_positions:
                 item = QGraphicsTextItem(char_text)
                 item.setDefaultTextColor(Qt.gray if ignored else Qt.black)
@@ -1676,6 +1609,11 @@ class HorizontalCheckWindow(QWidget):
                     text = char_data.get("text", "")
                     bbox = char_data.get("bbox", [])
                     if not text or len(bbox) < 4:
+                        count += 1
+                        progress.setValue(count)
+                        continue
+                    # 标点豁免：标点类字符(Unicode P*)对齐意义不大且易错位，跳过保持原位
+                    if unicodedata.category(text[0])[0] == 'P':
                         count += 1
                         progress.setValue(count)
                         continue
