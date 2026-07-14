@@ -14,9 +14,11 @@
 #include "hxnative.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
+#include <utility>
 
 namespace py = pybind11;
 using namespace hxnative;
@@ -335,6 +337,105 @@ hxnative::pil_to_qimage_buffer_impl(const std::uint8_t *samples,
 }
 
 // ============================================================================
+// H6: 批量字号档位匹配
+// ============================================================================
+// 字号档位：1=26pt, 2=22pt, 3=16pt, 4=14pt, 5=10.5pt
+// 五号放宽：line_height_pt < 15.0 时归五号
+
+std::vector<int>
+hxnative::batch_match_font_grade(const std::vector<double>& line_heights_pt)
+{
+    // 字号档位表（与 Python FONT_SIZE_GRADES 一致）
+    static const double grades[] = {26.0, 22.0, 16.0, 14.0, 10.5};
+    static const int grade_ids[] = {1, 2, 3, 4, 5};
+
+    std::vector<int> result;
+    result.reserve(line_heights_pt.size());
+
+    for (double h : line_heights_pt) {
+        if (h <= 0) {
+            result.push_back(5);
+            continue;
+        }
+        // 五号放宽：上界 15.0pt
+        if (h < 15.0) {
+            result.push_back(5);
+            continue;
+        }
+        // 最近邻匹配
+        int best_grade = 5;
+        double best_diff = -1;
+        for (int i = 0; i < 5; ++i) {
+            double diff = std::abs(h - grades[i]);
+            if (best_diff < 0 || diff < best_diff) {
+                best_diff = diff;
+                best_grade = grade_ids[i];
+            }
+        }
+        result.push_back(best_grade);
+    }
+    return result;
+}
+
+// ============================================================================
+// H7: 文字掩码与墨迹掩码最佳偏移搜索
+// ============================================================================
+// 与 alignment/text_aligner.py::find_best_offset 字节级等价：
+//   遍历 (dx,dy) ∈ [-r,r]，对每个偏移取 ink_mask 的对应窗口与 text_mask 求交集，
+//   返回使交集最大的 (dx,dy)；全零 ink_mask 返回 (0,0)；平局取首个（最小 dy、最小 dx）。
+
+std::pair<int, int>
+hxnative::find_best_offset(const std::uint8_t *text_mask, int th, int tw,
+                            const std::uint8_t *ink_mask, int ih, int iw,
+                            int radius)
+{
+    if (text_mask == nullptr || ink_mask == nullptr ||
+        th <= 0 || tw <= 0 || ih <= 0 || iw <= 0 || radius < 0)
+        return {0, 0};
+
+    // 全零 ink_mask 检查（等价 numpy ink_mask.sum()==0）
+    bool ink_has_any = false;
+    for (std::size_t i = 0, n = static_cast<std::size_t>(ih) * iw; i < n; ++i) {
+        if (ink_mask[i]) { ink_has_any = true; break; }
+    }
+    if (!ink_has_any)
+        return {0, 0};
+
+    long best_overlap = -1;
+    int best_dx = 0, best_dy = 0;
+
+    // 迭代序：外层 dy=-r..r，内层 dx=-r..r（与 numpy 一致）
+    for (int dy = -radius; dy <= radius; ++dy) {
+        int oy = radius + dy;
+        if (oy < 0) continue;
+        if (oy + th > ih) continue;
+        for (int dx = -radius; dx <= radius; ++dx) {
+            int ox = radius + dx;
+            if (ox < 0) continue;
+            if (ox + tw > iw) continue;
+            // 计算交集：text_mask[y*tw+x] 与 ink_mask[(oy+y)*iw + (ox+x)] 都非零
+            long overlap = 0;
+            const std::uint8_t *trow = text_mask;
+            const std::uint8_t *irow = ink_mask + static_cast<std::ptrdiff_t>(oy) * iw + ox;
+            for (int y = 0; y < th; ++y) {
+                for (int x = 0; x < tw; ++x) {
+                    if (trow[x] && irow[x]) ++overlap;
+                }
+                trow += tw;
+                irow += iw;
+            }
+            // 严格 >，首个最大值胜出（与 numpy if overlap > best_overlap 一致）
+            if (overlap > best_overlap) {
+                best_overlap = overlap;
+                best_dx = dx;
+                best_dy = dy;
+            }
+        }
+    }
+    return {best_dx, best_dy};
+}
+
+// ============================================================================
 // pybind11 绑定
 // ============================================================================
 
@@ -523,6 +624,37 @@ PYBIND11_MODULE(_hxnative, m) {
           py::arg("mode"),
           py::arg("stride") = 0,
           "H4: PIL pixel buffer -> 紧凑 RGBA bytes (RGB→RGBA 扩展, RGBA 行间紧凑化)");
+
+    // ---- H6 ----
+    // line_heights_pt: list[float] 行框高度（磅值）
+    // 返回 list[int] 档位号（1-5），含五号放宽（< 15.0pt 归五号）
+    m.def("batch_match_font_grade", &hxnative::batch_match_font_grade,
+          py::call_guard<py::gil_scoped_release>(),
+          "H6: 批量字号档位匹配");
+
+    // ---- H7 ----
+    // text_mask / ink_mask: np.ndarray[uint8, 2D, C-contig] (bool 数组会自动转换)
+    // 返回 (dx, dy) 使 text_mask 与 ink_mask 对应窗口交集最大。
+    // 注意: 不用 call_guard，因为 request() 需要 GIL；在 lambda 内手动释放 GIL。
+    m.def("find_best_offset",
+        [](py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> text_mask,
+           py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> ink_mask,
+           int radius) -> std::pair<int, int> {
+            auto tb = text_mask.request();
+            auto ib = ink_mask.request();
+            if (tb.ndim != 2 || ib.ndim != 2)
+                throw std::runtime_error("hxnative: masks must be 2-D arrays");
+            // request() 在 GIL 持有时完成；以下释放 GIL 执行纯 C++ 搜索
+            py::gil_scoped_release release;
+            return hxnative::find_best_offset(
+                static_cast<const std::uint8_t *>(tb.ptr),
+                static_cast<int>(tb.shape[0]), static_cast<int>(tb.shape[1]),
+                static_cast<const std::uint8_t *>(ib.ptr),
+                static_cast<int>(ib.shape[0]), static_cast<int>(ib.shape[1]),
+                radius);
+        },
+        py::arg("text_mask"), py::arg("ink_mask"), py::arg("radius"),
+        "H7: 文字掩码与墨迹掩码最佳偏移搜索 (释放 GIL)");
 
     m.def("has_native", []() { return true; },
           "检测 _hxnative 是否可用 (Python 端 __init__.py 也提供同名函数)");
