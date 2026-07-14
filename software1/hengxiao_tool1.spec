@@ -2,13 +2,13 @@
 """PyInstaller spec for 横校工具1 (hengxiao_tool1) - 软件1 完整 OCR 管线。
 
 打包命令（Python 3.12 环境中执行）：
-    cd e:\\hx\\software1
-    pyinstaller hengxiao_tool1.spec --noconfirm --distpath e:\\hx\\dist --workpath e:\\hx\\build_pyinstaller1
+    cd d:\\hx\\software1
+    pyinstaller hengxiao_tool1.spec --noconfirm --distpath d:\\hx\\dist --workpath d:\\hx\\build_pyinstaller1
 
 产物（onedir 模式，两个 exe 共享 _internal/）：
-    e:\\hx\\dist\\hengxiao_tool1\\hengxiao_tool1.exe   (GUI 入口)
-    e:\\hx\\dist\\hengxiao_tool1\\mineru_cli.exe       (MinerU CLI 入口)
-    e:\\hx\\dist\\hengxiao_tool1\\_internal\\           (依赖与数据)
+    d:\\hx\\dist\\hengxiao_tool1\\hengxiao_tool1.exe   (GUI 入口)
+    d:\\hx\\dist\\hengxiao_tool1\\mineru_cli.exe       (MinerU CLI 入口)
+    d:\\hx\\dist\\hengxiao_tool1\\_internal\\           (依赖与数据)
         ├─ native\\_hxnative.cp312-win_amd64.pyd  (C++ H1-H3 加速)
         ├─ rapidocr\\models\\                      (PP-OCRv6 模型)
         ├─ onnxruntime\\cudnn\\                    (CUDA provider)
@@ -97,11 +97,11 @@ hiddenimports += h
 # magika: MinerU 文件类型检测依赖，包含模型数据文件 standard_v3_3
 # 注意：不使用 collect_data_files('magika')，因为 model.onnx (3MB) 会触发
 # reclassification 卡死。改为打包后手动复制 magika/models 和 magika/config 到 dist
-# 手动复制位置：e:\hx\dist\hengxiao_tool1\_internal\magika\
+# 手动复制位置：d:\hx\dist\hengxiao_tool1\_internal\magika\
 #
 # === 打包后需手动复制的依赖 ===
 # 以下依赖因 reclassification 卡死或 excludes 排除原因，需打包后手动复制到
-# e:\hx\dist\hengxiao_tool1\_internal\ 目录下：
+# d:\hx\dist\hengxiao_tool1\_internal\ 目录下：
 #
 # 1. magika/models/standard_v3_3/ 和 magika/config/
 #    来源：site-packages/magika/models/ 和 site-packages/magika/config/

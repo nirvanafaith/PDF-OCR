@@ -34,9 +34,14 @@ software2/native/build_py312/
 
 # PyInstaller 构建目录
 build_pyinstaller/
+build_pyinstaller1/
+build_pyinstaller2/
 
 # PyInstaller 分发产物（作为 release asset，不入 git）
 dist/
+
+# 构建与发布日志
+*.log
 
 # Python 备份目录
 backup_python_20260706/

@@ -151,7 +151,7 @@ class PDFOutputGenerator:
                         # 水平居中：pos_x = bbox左边界 + (bbox宽 - 文字宽)/2
                         pos_x = b[0] * scale + (bbox_w_pt - char_w_pt) / 2
                         # 垂直居中：基线 = bbox中心 - 字符视觉中心相对基线偏移
-                        pos_y = b[1] * scale + bbox_h_pt / 2 - char_baseline_offset
+                        pos_y = b[1] * scale + bbox_h_pt / 2 + char_baseline_offset
                         try:
                             tw.append(
                                 (pos_x, pos_y), c.text,

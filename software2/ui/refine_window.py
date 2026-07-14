@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import (
+    QApplication,
     QWidget,
     QGraphicsView,
     QGraphicsScene,
@@ -815,6 +816,11 @@ class RefineWindow(QWidget):
         self.page_items = {}
         self._drag_mode = False
         self._add_text_mode = False
+        self._text_select_mode = False
+        self._sel_start_scene = None
+        self._sel_overlay_items = []
+        self._selected_text_items = []
+        self._selected_text = ""
         self._selected_item = None
         self._first_render = True
         self._pixmap_cache = {}
@@ -981,6 +987,11 @@ class RefineWindow(QWidget):
         self.drag_btn.clicked.connect(self._on_drag_toggle)
         toolbar.addWidget(self.drag_btn)
 
+        self.text_select_btn = QPushButton("文本框选")
+        self.text_select_btn.setCheckable(True)
+        self.text_select_btn.clicked.connect(self._on_text_select_toggle)
+        toolbar.addWidget(self.text_select_btn)
+
         toolbar.addSeparator()
 
         self.output_btn = QPushButton("输出")
@@ -1031,7 +1042,11 @@ class RefineWindow(QWidget):
         QShortcut(QKeySequence("Ctrl+Plus"), self, self._zoom_in)
         QShortcut(QKeySequence("Ctrl+Minus"), self, self._zoom_out)
         QShortcut(QKeySequence("Ctrl+0"), self, self._zoom_reset)
+        # 注册快捷键：复制选中文本（文本框选模式）
+        QShortcut(QKeySequence.Copy, self, self._copy_selected_text)
 
+        # 抑制首帧绘制，避免首次定位前的偏移帧可见（Task 2 防闪烁）
+        self.view.setUpdatesEnabled(False)
         self._render_page()
 
     def _render_page(self):
@@ -1052,6 +1067,11 @@ class RefineWindow(QWidget):
         self.scene.clear()
         self._item_id_map.clear()
         self._selected_item = None
+        # 翻页/缩放后文本框选 overlay 已被 scene.clear() 移除，重置引用
+        self._sel_overlay_items = []
+        self._selected_text_items = []
+        self._selected_text = ""
+        self._sel_start_scene = None
         if self.page_images and self.current_page < len(self.page_images):
             img = self.page_images[self.current_page]
             cache_key = (self.current_page, self.zoom_level)
@@ -1105,8 +1125,7 @@ class RefineWindow(QWidget):
         self.zoom_input.setText(f"{int(self.zoom_level * 100)}%")
         if self._first_render:
             self._first_render = False
-            QTimer.singleShot(100, self._on_fit_height)
-            QTimer.singleShot(150, self._center_view)
+            QTimer.singleShot(0, self._initial_fit_and_center)
 
     def _sync_current_page(self):
         """将场景中文字项的位置和内容同步回数据模型。
@@ -1516,6 +1535,9 @@ class RefineWindow(QWidget):
         if self.hand_btn.isChecked():
             self._drag_mode = False
             self._add_text_mode = False
+            self.text_select_btn.setChecked(False)
+            self._text_select_mode = False
+            self._clear_text_selection()
             self.drag_btn.setChecked(False)
             for item in self.scene.items():
                 if isinstance(item, MovableTextItem):
@@ -1538,6 +1560,9 @@ class RefineWindow(QWidget):
         if self.drag_btn.isChecked():
             self._drag_mode = True
             self._add_text_mode = False
+            self.text_select_btn.setChecked(False)
+            self._text_select_mode = False
+            self._clear_text_selection()
             self.hand_btn.setChecked(False)
             self.view.setDragMode(QGraphicsView.NoDrag)
             self.view.setCursor(Qt.ArrowCursor)
@@ -1551,6 +1576,161 @@ class RefineWindow(QWidget):
             for item in self.scene.items():
                 if isinstance(item, MovableTextItem):
                     item.deactivate()
+
+    def _on_text_select_toggle(self):
+        """处理"文本框选"按钮的切换事件。
+
+        激活时关闭手型/修改模式，停用所有文字项交互，光标切换为 I 形，
+        进入文本框选模式。取消时清除选区并恢复箭头光标。
+
+        调用关系:
+            由 text_select_btn.clicked 信号触发。
+        """
+        if self.text_select_btn.isChecked():
+            self._drag_mode = False
+            self._add_text_mode = False
+            self.drag_btn.setChecked(False)
+            self.hand_btn.setChecked(False)
+            for item in self.scene.items():
+                if isinstance(item, MovableTextItem):
+                    item.deactivate()
+            self._clear_text_selection()
+            self.view.setDragMode(QGraphicsView.NoDrag)
+            self.view.setCursor(Qt.IBeamCursor)
+            self._text_select_mode = True
+        else:
+            self._text_select_mode = False
+            self._clear_text_selection()
+            self.view.setCursor(Qt.ArrowCursor)
+
+    def _clear_text_selection(self):
+        """清除文本框选的所有覆盖图元与状态。"""
+        for ov in self._sel_overlay_items:
+            try:
+                self.scene.removeItem(ov)
+            except Exception:
+                pass
+        self._sel_overlay_items = []
+        self._selected_text_items = []
+        self._selected_text = ""
+        self._sel_start_scene = None
+
+    def _handle_text_select_event(self, event):
+        """文本框选模式下处理鼠标事件，实现拖拽拉蓝选区。
+
+        左键按下记录起点并清旧选区；左键拖动实时更新与拖拽矩形相交的
+        字符框蓝色覆盖；左键释放完成选区并按阅读序拼接文本。
+
+        参数:
+            event: 视口事件对象。
+
+        返回:
+            True 表示事件已处理，False 表示放行。
+
+        调用关系:
+            被 eventFilter 在文本框选模式下调用。
+        """
+        et = event.type()
+        if et == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+            scene_pos = self.view.mapToScene(event.pos())
+            self._sel_start_scene = scene_pos
+            self._clear_text_selection()
+            event.accept()
+            return True
+        if et == QEvent.MouseMove:
+            if self._sel_start_scene is not None and (event.buttons() & Qt.LeftButton):
+                scene_pos = self.view.mapToScene(event.pos())
+                rect = QRectF(self._sel_start_scene, scene_pos).normalized()
+                self._update_selection_overlays(rect)
+                event.accept()
+                return True
+            return False
+        if et == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+            if self._sel_start_scene is not None:
+                scene_pos = self.view.mapToScene(event.pos())
+                rect = QRectF(self._sel_start_scene, scene_pos).normalized()
+                self._update_selection_overlays(rect)
+                self._selected_text = self._build_selected_text()
+                self._sel_start_scene = None
+                event.accept()
+                return True
+        return False
+
+    def _update_selection_overlays(self, rect):
+        """更新与给定矩形相交的字符框蓝色覆盖。
+
+        移除旧覆盖，为每个相交且未忽略的 MovableTextItem 创建蓝色半透明
+        覆盖矩形（覆盖整字框，zValue 高于文字），并记录选中项列表。
+
+        参数:
+            rect: 场景坐标系下的拖拽选区矩形。
+        """
+        for ov in self._sel_overlay_items:
+            try:
+                self.scene.removeItem(ov)
+            except Exception:
+                pass
+        self._sel_overlay_items = []
+        candidates = self.scene.items(rect, Qt.IntersectsItemBoundingRect)
+        selected = []
+        for it in candidates:
+            if isinstance(it, MovableTextItem) and not it._data.ignored:
+                selected.append(it)
+        self._selected_text_items = selected
+        for it in selected:
+            ov = QGraphicsRectItem(it.sceneBoundingRect())
+            ov.setPen(QPen(Qt.NoPen))
+            ov.setBrush(QBrush(QColor(0, 100, 255, 100)))
+            ov.setZValue(2)
+            self.scene.addItem(ov)
+            self._sel_overlay_items.append(ov)
+
+    def _build_selected_text(self):
+        """按阅读序拼接选中文本。
+
+        先按 y 中心、再按 x 左边界排序，按 y 阈值（中位字高 * 0.5）分行，
+        行内按 x 排序拼接字符文本，跨行用换行符连接。
+
+        返回:
+            拼接后的选中文本字符串。
+        """
+        if not self._selected_text_items:
+            return ""
+        items = list(self._selected_text_items)
+        heights = [it.sceneBoundingRect().height() for it in items]
+        median_h = sorted(heights)[len(heights) // 2] if heights else 20.0
+        threshold = max(median_h * 0.5, 5.0)
+        items.sort(key=lambda it: (it.sceneBoundingRect().center().y(),
+                                   it.sceneBoundingRect().left()))
+        lines = []
+        current = []
+        last_y = None
+        for it in items:
+            y = it.sceneBoundingRect().center().y()
+            if last_y is None or abs(y - last_y) <= threshold:
+                current.append(it)
+            else:
+                lines.append(current)
+                current = [it]
+            last_y = y
+        if current:
+            lines.append(current)
+        parts = []
+        for line in lines:
+            line.sort(key=lambda it: it.sceneBoundingRect().left())
+            parts.append("".join(it._text_item.toPlainText() for it in line))
+        return "\n".join(parts)
+
+    def _copy_selected_text(self):
+        """复制当前文本框选区文本到系统剪贴板。
+
+        仅在文本框选模式且有选中文本时执行复制。
+
+        调用关系:
+            由 Ctrl+C 快捷键和右键"复制"菜单触发。
+        """
+        if self._text_select_mode and self._selected_text:
+            QApplication.clipboard().setText(self._selected_text)
 
     def eventFilter(self, obj, event):
         """事件过滤器，处理视图视口上的鼠标按下事件。
@@ -1583,8 +1763,6 @@ class RefineWindow(QWidget):
                         self._sync_current_page()
                         self.current_page -= 1
                         self._render_page()
-                        # 定位到新页面顶部水平居中（避免极大场景矩形下定位到空白区）
-                        QTimer.singleShot(0, self._center_to_page_top)
                     return True
                 elif delta < 0:
                     # 滚轮下翻：切换到下一页
@@ -1592,8 +1770,10 @@ class RefineWindow(QWidget):
                         self._sync_current_page()
                         self.current_page += 1
                         self._render_page()
-                        QTimer.singleShot(0, self._center_to_page_top)
                     return True
+            # 文本框选模式：非滚轮事件由专用处理器接管
+            if self._text_select_mode:
+                return self._handle_text_select_event(event)
             if event.type() == QEvent.MouseButtonPress:
                 if event.button() == Qt.LeftButton and self._drag_mode:
                     scene_pos = self.view.mapToScene(event.pos())
@@ -1624,6 +1804,15 @@ class RefineWindow(QWidget):
         item = self.scene.itemAt(scene_pos, self.view.transform())
         if isinstance(item, QGraphicsTextItem) and isinstance(item.parentItem(), MovableTextItem):
             item = item.parentItem()
+        # 文本框选模式：右键弹出"复制"菜单（有选区时）
+        if self._text_select_mode:
+            if self._selected_text:
+                menu = QMenu(self)
+                copy_action = menu.addAction("复制")
+                chosen = menu.exec(self.view.mapToGlobal(pos))
+                if chosen == copy_action:
+                    self._copy_selected_text()
+            return
         if isinstance(item, MovableTextItem):
             # 文字项的右键菜单由 MovableTextItem.contextMenuEvent 处理
             return
@@ -1762,8 +1951,11 @@ class RefineWindow(QWidget):
             # 退出拖拽、新增文字、手型工具模式
             self._drag_mode = False
             self._add_text_mode = False
+            self._text_select_mode = False
             self.hand_btn.setChecked(False)
             self.drag_btn.setChecked(False)
+            self.text_select_btn.setChecked(False)
+            self._clear_text_selection()
             self.view.setDragMode(QGraphicsView.NoDrag)
             self.view.setCursor(Qt.ArrowCursor)
             for item in self.scene.items():
@@ -1890,6 +2082,24 @@ class RefineWindow(QWidget):
         scene_rect = self.scene.sceneRect()
         if scene_rect.width() > 0 and scene_rect.height() > 0:
             self.view.centerOn(scene_rect.center())
+
+    def _initial_fit_and_center(self):
+        """首次进入精修时同步适配高度并居中，消除闪烁。
+
+        在视图更新被抑制的状态下同步执行适合高度 + 水平居中，
+        再恢复更新触发一次性绘制，使首帧直接为居中状态。
+
+        调用关系:
+            被 _render_page 首次渲染后通过 QTimer.singleShot 调用。
+        """
+        try:
+            if self.view.viewport().height() > 20:
+                self._on_fit_height()
+            self._center_view()
+        finally:
+            # 确保即使 fit/center 抛异常也能恢复绘制，避免视图永久白屏
+            self.view.setUpdatesEnabled(True)
+            self.view.viewport().update()
 
     def _center_to_page_top(self):
         """将视图定位到当前页面顶部水平居中。

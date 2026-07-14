@@ -42,7 +42,10 @@ binaries += b
 hiddenimports += h
 
 # 注：reportlab 未被 software2 使用（PDF 输出由 PyMuPDF 完成），不收集
-# 注：numpy 仅在 native/tests/ 中使用，运行时不需要，不收集
+
+# numpy: alignment/text_aligner.py 的 find_best_offset 在 C++ 版本不可用时回落至 numpy 实现
+# 使用 collect_submodules 收集所有 Python 子模块（不使用 collect_all 避免 paddle DLL 扫描瓶颈）
+hiddenimports += collect_submodules('numpy')
 
 # ----------------------------------------------------------------------------
 # 2. 添加 _hxnative C++ 加速扩展（.pyd）
@@ -86,7 +89,6 @@ a = Analysis(
         'pydoc',
         # 排除未使用的库
         'reportlab',
-        'numpy',
         'rapidocr',
         'onnxruntime',
         # 排除全局环境中安装但 software2 不使用的重型库
