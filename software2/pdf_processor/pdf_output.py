@@ -101,9 +101,22 @@ class PDFOutputGenerator:
 
                     bboxes = [flatten_bbox(c.bbox) for c in line_chars]
 
-                    # 字号: 行内高度中位数 → 磅值
-                    heights = [b[3] - b[1] for b in bboxes]
-                    line_height_pt = sorted(heights)[len(heights) // 2] * scale
+                    # 判断行方向：行框并集 高>宽 则为竖排
+                    if bboxes:
+                        line_x1 = min(b[0] for b in bboxes)
+                        line_y1 = min(b[1] for b in bboxes)
+                        line_x2 = max(b[2] for b in bboxes)
+                        line_y2 = max(b[3] for b in bboxes)
+                        is_vertical = (line_y2 - line_y1) > (line_x2 - line_x1)
+                    else:
+                        is_vertical = False
+
+                    # 字号: 竖排用字符框宽度（短边），横排用高度 → 磅值
+                    if is_vertical:
+                        sizes = [b[2] - b[0] for b in bboxes]
+                    else:
+                        sizes = [b[3] - b[1] for b in bboxes]
+                    line_height_pt = sorted(sizes)[len(sizes) // 2] * scale
                     batch_lines.append((line_chars, bboxes))
                     all_heights.append(line_height_pt)
 

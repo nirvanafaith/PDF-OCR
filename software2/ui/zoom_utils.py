@@ -4,7 +4,7 @@ from PyQt5.QtGui import QWheelEvent
 ZOOM_MIN = 0.25
 ZOOM_MAX = 5.0
 ZOOM_STEP_BUTTON = 0.25
-ZOOM_STEP_WHEEL = 0.1
+ZOOM_STEP_WHEEL = 0.05
 
 
 def calculate_wheel_zoom(event, current_zoom):

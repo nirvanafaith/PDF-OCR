@@ -335,9 +335,9 @@ class HorizontalCheckWindow(QWidget):
         QShortcut(QKeySequence("Ctrl+0"), self, self._zoom_reset)
 
     def _calculate_line_font_size(self, line_bbox, text, zoom_level):
-        """根据行 bbox 的宽高比判断横排/竖排，按行框高度匹配字号档位。
+        """根据行 bbox 的宽高比判断横排/竖排，按行框短边匹配字号档位（竖排用宽度，横排用高度）。
 
-        字号档位系统：将行框高度（像素）换算为磅值后匹配 1-5 号中文字号，
+        字号档位系统：将行框短边（像素）换算为磅值后匹配 1-5 号中文字号，
         再换算回像素作为字号，保证不同行使用统一的标准字号。
         一/二号档位使用黑体（SimHei），三/四/五号档位使用书宋体（SimSun/STSong）。
 
@@ -355,8 +355,9 @@ class HorizontalCheckWindow(QWidget):
         width = line_bbox[2] - line_bbox[0]
         height = line_bbox[3] - line_bbox[1]
         is_vertical = height > width
-        # 行框高度像素 → 磅值（DPI=300）
-        line_height_pt = height * (72.0 / 300.0)
+        # 字号档位用短边计算：竖排用宽度，横排用高度（DPI=300）
+        short_side = width if is_vertical else height
+        line_height_pt = short_side * (72.0 / 300.0)
         # 匹配最接近的中文字号档位
         grade = match_font_grade(line_height_pt)
         # 档位磅值 → 像素字号
@@ -517,18 +518,17 @@ class HorizontalCheckWindow(QWidget):
         self.scene.clear()
         self._hover_pixmap_item = None
         self._hover_rect_item = None
-        # 左侧场景添加页面图像作为白色纸张背景
+        # 左侧场景添加纯白纸张背景（尺寸与 PDF 页面一致）
         if self.page_images and self.current_page < len(self.page_images):
             left_cache_key = (self.current_page, self.zoom_level, 'left_bg')
             if left_cache_key not in self._pixmap_cache:
-                _left_img = self.page_images[self.current_page]
-                _left_pixmap = self._pil_to_pixmap(_left_img)
-                _left_scaled = _left_pixmap.scaled(
-                    int(_left_img.width * self.zoom_level),
-                    int(_left_img.height * self.zoom_level),
-                    Qt.KeepAspectRatio,
-                    Qt.SmoothTransformation,
+                _ref_img = self.page_images[self.current_page]
+                # 左侧为纯白纸背景（尺寸与 PDF 页面一致），不使用 PDF 原图
+                _left_scaled = QPixmap(
+                    int(_ref_img.width * self.zoom_level),
+                    int(_ref_img.height * self.zoom_level)
                 )
+                _left_scaled.fill(Qt.white)
                 self._put_pixmap_cache(left_cache_key, _left_scaled)
             _left_bg_item = QGraphicsPixmapItem(self._pixmap_cache[left_cache_key])
             _left_bg_item.setZValue(-1000)  # 确保背景在最底层
@@ -650,6 +650,15 @@ class HorizontalCheckWindow(QWidget):
         self.page_spin.setValue(self.current_page + 1)
         self.page_spin.blockSignals(False)
         self.zoom_input.setText(f"{int(self.zoom_level * 100)}%")
+        # 渲染后显式同步左右视图滚动条（以左视图为准），确保翻页/缩放后两边位置一致
+        left_v = self.view.verticalScrollBar().value()
+        self.pdf_view.verticalScrollBar().blockSignals(True)
+        self.pdf_view.verticalScrollBar().setValue(left_v)
+        self.pdf_view.verticalScrollBar().blockSignals(False)
+        left_h = self.view.horizontalScrollBar().value()
+        self.pdf_view.horizontalScrollBar().blockSignals(True)
+        self.pdf_view.horizontalScrollBar().setValue(left_h)
+        self.pdf_view.horizontalScrollBar().blockSignals(False)
         if self._first_render:
             self._first_render = False
             QTimer.singleShot(100, self._on_fit_height)

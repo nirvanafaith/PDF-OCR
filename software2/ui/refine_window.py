@@ -154,7 +154,10 @@ class MovableTextItem(QGraphicsRectItem):
         self._text_item = QGraphicsTextItem(text_item_data.text, self)
         # 根据行框档位选择字体：一/二号用黑体，三/四/五号用书宋体
         line_bbox = text_item_data.line_bbox or [0, 0, 0, 0]
-        line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
+        _w = line_bbox[2] - line_bbox[0]
+        _h = line_bbox[3] - line_bbox[1]
+        _short_side = _w if _h > _w else _h  # 竖排（高>宽）用宽度作为字号档位依据
+        line_height_pt = _short_side * (72.0 / 300.0)
         grade = match_font_grade(line_height_pt)
         font = QFont(font_name_for_char(text_item_data.text, grade))
         font_size_pt = FONT_SIZE_GRADES[grade]
@@ -219,7 +222,10 @@ class MovableTextItem(QGraphicsRectItem):
         一/二号档位使用黑体（SimHei），三/四/五号档位使用书宋体（SimSun）。
         """
         line_bbox = self._data.line_bbox or [0, 0, 0, 0]
-        line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
+        _w = line_bbox[2] - line_bbox[0]
+        _h = line_bbox[3] - line_bbox[1]
+        _short_side = _w if _h > _w else _h  # 竖排（高>宽）用宽度作为字号档位依据
+        line_height_pt = _short_side * (72.0 / 300.0)
         grade = match_font_grade(line_height_pt)
         font_size_pt = FONT_SIZE_GRADES[grade]
         font_size_px = font_size_pt * (300.0 / 72.0)
@@ -855,7 +861,10 @@ class RefineWindow(QWidget):
                     continue
                 # 行框高度 → 磅值
                 line_bbox = list(ls.bbox) if ls.bbox else [0, 0, 0, 0]
-                line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
+                _w = line_bbox[2] - line_bbox[0]
+                _h = line_bbox[3] - line_bbox[1]
+                _short_side = _w if _h > _w else _h  # 竖排（高>宽）用宽度作为字号档位依据
+                line_height_pt = _short_side * (72.0 / 300.0)
                 batch_entries.append((page_num, ls, line_bbox))
                 all_heights.append(line_height_pt)
 
@@ -1097,6 +1106,7 @@ class RefineWindow(QWidget):
         if self._first_render:
             self._first_render = False
             QTimer.singleShot(100, self._on_fit_height)
+            QTimer.singleShot(150, self._center_view)
 
     def _sync_current_page(self):
         """将场景中文字项的位置和内容同步回数据模型。
@@ -1197,7 +1207,10 @@ class RefineWindow(QWidget):
         bg_img = self.page_images[self.current_page]
         # 构造与 MovableTextItem 一致的字体（原始分辨率，不缩放）
         line_bbox = data.line_bbox or [0, 0, 0, 0]
-        line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
+        _w = line_bbox[2] - line_bbox[0]
+        _h = line_bbox[3] - line_bbox[1]
+        _short_side = _w if _h > _w else _h  # 竖排（高>宽）用宽度作为字号档位依据
+        line_height_pt = _short_side * (72.0 / 300.0)
         grade = match_font_grade(line_height_pt)
         font_size_px = int(FONT_SIZE_GRADES[grade] * (300.0 / 72.0))
         if grade == 5:
@@ -1233,9 +1246,12 @@ class RefineWindow(QWidget):
         if item is None:
             return
         data = item._data
-        # 当前磅值（基于 line_bbox 高度）
+        # 当前磅值（竖排用宽度短边，横排用高度）
         line_bbox = data.line_bbox or [0, 0, 0, 0]
-        current_h_px = line_bbox[3] - line_bbox[1]
+        _w = line_bbox[2] - line_bbox[0]
+        _h = line_bbox[3] - line_bbox[1]
+        _is_vert = _h > _w
+        current_h_px = _w if _is_vert else _h
         current_pt = current_h_px * (72.0 / 300.0)
         new_pt, ok = QInputDialog.getDouble(
             self, "修改字号", "请输入字号（磅）：",
@@ -1243,11 +1259,15 @@ class RefineWindow(QWidget):
         )
         if not ok:
             return
-        # 新磅值 → 像素高度（DPI=300）
+        # 新磅值 → 像素尺寸（DPI=300）
         new_h_px = new_pt * (300.0 / 72.0)
-        # 更新 line_bbox 高度（保持 y1 不变，y2 = y1 + new_h_px）
-        data.line_bbox = [line_bbox[0], line_bbox[1],
-                          line_bbox[2], line_bbox[1] + new_h_px]
+        # 更新 line_bbox：竖排改宽度（x2 = x0 + new_h_px），横排改高度（y2 = y1 + new_h_px）
+        if _is_vert:
+            data.line_bbox = [line_bbox[0], line_bbox[1],
+                              line_bbox[0] + new_h_px, line_bbox[3]]
+        else:
+            data.line_bbox = [line_bbox[0], line_bbox[1],
+                              line_bbox[2], line_bbox[1] + new_h_px]
         # 重渲染该字
         self._sync_current_page()
         self._render_page()
@@ -1556,23 +1576,23 @@ class RefineWindow(QWidget):
                 self._render_page()
                 return True
             if isinstance(event, QWheelEvent):
-                v_bar = self.view.verticalScrollBar()
                 delta = event.angleDelta().y()
-                if delta > 0 and v_bar.value() == v_bar.minimum():
+                if delta > 0:
+                    # 滚轮上翻：切换到上一页
                     if self.current_page > 0:
                         self._sync_current_page()
                         self.current_page -= 1
                         self._render_page()
-                        QTimer.singleShot(0, lambda: self.view.verticalScrollBar().setValue(
-                            self.view.verticalScrollBar().maximum()))
+                        # 定位到新页面顶部水平居中（避免极大场景矩形下定位到空白区）
+                        QTimer.singleShot(0, self._center_to_page_top)
                     return True
-                elif delta < 0 and v_bar.value() == v_bar.maximum():
+                elif delta < 0:
+                    # 滚轮下翻：切换到下一页
                     if self.current_page < self.total_pages - 1:
                         self._sync_current_page()
                         self.current_page += 1
                         self._render_page()
-                        QTimer.singleShot(0, lambda: self.view.verticalScrollBar().setValue(
-                            self.view.verticalScrollBar().minimum()))
+                        QTimer.singleShot(0, self._center_to_page_top)
                     return True
             if event.type() == QEvent.MouseButtonPress:
                 if event.button() == Qt.LeftButton and self._drag_mode:
@@ -1657,10 +1677,14 @@ class RefineWindow(QWidget):
         new_text = line_edit.text().strip()
         if not new_text:
             return
-        # 获取当前页所有未忽略行的行框高度中位数，匹配字号档位
+        # 获取当前页所有未忽略行的行框短边中位数，匹配字号档位
         items = self.page_items.get(self.current_page, [])
+        def _short_side_of(it):
+            _w = it.line_bbox[2] - it.line_bbox[0]
+            _h = it.line_bbox[3] - it.line_bbox[1]
+            return _w if _h > _w else _h  # 竖排（高>宽）用宽度
         heights = [
-            (it.line_bbox[3] - it.line_bbox[1])
+            _short_side_of(it)
             for it in items
             if not it.ignored and it.line_bbox and len(it.line_bbox) >= 4
         ]
@@ -1853,6 +1877,32 @@ class RefineWindow(QWidget):
             self._sync_current_page()
             self.zoom_level = view_height / img_height
             self._render_page()
+
+    def _center_view(self):
+        """将页面在视图中水平居中显示。
+
+        通过 view.centerOn 将场景矩形的中心点对齐到视图中心，
+        实现页面的水平居中（垂直方向由 fit_height 适配）。
+
+        调用关系:
+            被 _render_page 首次渲染后通过 QTimer.singleShot 调用。
+        """
+        scene_rect = self.scene.sceneRect()
+        if scene_rect.width() > 0 and scene_rect.height() > 0:
+            self.view.centerOn(scene_rect.center())
+
+    def _center_to_page_top(self):
+        """将视图定位到当前页面顶部水平居中。
+
+        翻页后调用，使页面顶部在视图中水平居中显示，避免在自定义
+        GraphicsView 的极大场景矩形下定位到空白区导致页面消失。
+
+        调用关系:
+            被 eventFilter 滚轮翻页后通过 QTimer.singleShot 调用。
+        """
+        scene_rect = self.scene.sceneRect()
+        if scene_rect.width() > 0 and scene_rect.height() > 0:
+            self.view.centerOn(QPointF(scene_rect.width() / 2, 0))
 
     def resizeEvent(self, event):
         """窗口大小变化时，若最大化则自动适配高度。"""
