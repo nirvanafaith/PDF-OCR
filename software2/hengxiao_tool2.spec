@@ -49,7 +49,7 @@ hiddenimports += h
 # ----------------------------------------------------------------------------
 # Python 3.12 ABI 的 .pyd 必须放到 bundle 内的 native/ 下，
 # 与 native/__init__.py 的 `importlib.import_module("._hxnative", __package__)` 路径一致。
-_hxnative_pyd = 'e:/hx/software2/native/_hxnative.cp312-win_amd64.pyd'
+_hxnative_pyd = 'd:/hx/software2/native/_hxnative.cp312-win_amd64.pyd'
 binaries += [(_hxnative_pyd, 'native')]
 
 # ----------------------------------------------------------------------------
@@ -69,13 +69,13 @@ hiddenimports += collect_submodules('native')
 # 4. Analysis
 # ----------------------------------------------------------------------------
 a = Analysis(
-    ['e:/hx/software2/main.py'],
-    pathex=['e:/hx/software2'],  # 让 native 包可被发现
+    ['d:/hx/software2/main.py'],
+    pathex=['d:/hx/software2'],  # 让 native 包可被发现
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
-    runtime_hooks=['e:/hx/software2/runtime_hook_stderr.py'],
+    runtime_hooks=['d:/hx/software2/runtime_hook_stderr.py'],
     excludes=[
         # 排除测试/构建期依赖，减小体积
         'pytest',

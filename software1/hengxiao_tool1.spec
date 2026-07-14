@@ -108,7 +108,7 @@ hiddenimports += h
 #    原因：collect_data_files('magika') 的 model.onnx 触发 reclassification 卡死
 #
 # 2. boto3/ 和 botocore/（桩模块）
-#    来源：e:/hx/software1/stubs/boto3/ 和 e:/hx/software1/stubs/botocore/
+#    来源：d:/hx/software1/stubs/boto3/ 和 d:/hx/software1/stubs/botocore/
 #    原因：完整 botocore 有数千个 AWS 服务定义 JSON，导致 reclassification 卡死
 #    已通过 datas 添加，无需额外手动复制
 #
@@ -163,7 +163,7 @@ hiddenimports += collect_submodules('numpy')
 # ----------------------------------------------------------------------------
 # 2. 添加 _hxnative C++ 加速扩展（.pyd）
 # ----------------------------------------------------------------------------
-_hxnative_pyd = 'e:/hx/software1/native/_hxnative.cp312-win_amd64.pyd'
+_hxnative_pyd = 'd:/hx/software1/native/_hxnative.cp312-win_amd64.pyd'
 binaries += [(_hxnative_pyd, 'native')]
 
 # ----------------------------------------------------------------------------
@@ -209,17 +209,17 @@ hiddenimports += collect_submodules('torch')
 # 桩模块作为 datas 添加到 _internal/boto3/ 和 _internal/botocore/
 # 运行时 frozen importer 返回 None（在 excludes 中），标准导入从 _internal/ 查找
 datas += [
-    ('e:/hx/software1/stubs/boto3/__init__.py', 'boto3'),
-    ('e:/hx/software1/stubs/botocore/__init__.py', 'botocore'),
-    ('e:/hx/software1/stubs/botocore/config.py', 'botocore'),
+    ('d:/hx/software1/stubs/boto3/__init__.py', 'boto3'),
+    ('d:/hx/software1/stubs/botocore/__init__.py', 'botocore'),
+    ('d:/hx/software1/stubs/botocore/config.py', 'botocore'),
 ]
 
 # ----------------------------------------------------------------------------
 # 5. Analysis
 # ----------------------------------------------------------------------------
 a = Analysis(
-    ['e:/hx/software1/main.py'],
-    pathex=['e:/hx/software1/stubs', 'e:/hx/software1'],
+    ['d:/hx/software1/main.py'],
+    pathex=['d:/hx/software1/stubs', 'd:/hx/software1'],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
@@ -350,7 +350,7 @@ exe = EXE(
 # mineru_cli.exe 被 draw_box_window.py 的 _on_mineru_recognize 通过 subprocess 调用
 # 入口脚本 mineru_cli_main.py 调用 mineru.cli.client.main（Click 命令）
 # 两个 EXE 共享同一 PYZ（包含所有 Python 模块）和 _internal/（包含所有二进制依赖）
-_mineru_script_path = os.path.normpath('e:/hx/software1/mineru_cli_main.py')
+_mineru_script_path = os.path.normpath('d:/hx/software1/mineru_cli_main.py')
 _mineru_scripts = [('mineru_cli_main.py', _mineru_script_path, 'PYSOURCE')]
 exe_mineru = EXE(
     pyz,

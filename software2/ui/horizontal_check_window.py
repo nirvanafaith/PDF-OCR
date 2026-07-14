@@ -1660,16 +1660,25 @@ class HorizontalCheckWindow(QWidget):
                         count += 1
                         progress.setValue(count)
                         continue
-                    # 标点豁免：标点类字符(Unicode P*)对齐意义不大且易错位，跳过保持原位
-                    if unicodedata.category(text[0])[0] == 'P':
-                        count += 1
-                        progress.setValue(count)
-                        continue
                     # 英文/数字用 Times New Roman，其他按行级 font
                     char_font = QFont(line_font)
                     char_font.setFamily(font_name_for_char(text, grade))
-                    # 调用对齐算法
-                    dx, dy = align_text_to_background(text, char_font, bbox, bg_img)
+                    # 判断是否标点符号
+                    is_punct = unicodedata.category(text[0])[0] == 'P'
+                    if is_punct and grade > 1:
+                        # 标点双字号对齐：原始字号 vs 上一档位字号
+                        dx1, dy1, overlap1 = align_text_to_background(text, char_font, bbox, bg_img)
+                        larger_font_size_px = int(FONT_SIZE_GRADES[grade - 1] * (300.0 / 72.0))
+                        larger_font = QFont(font_name_for_char(text, grade))
+                        larger_font.setPixelSize(max(larger_font_size_px, 1))
+                        dx2, dy2, overlap2 = align_text_to_background(text, larger_font, bbox, bg_img)
+                        if overlap2 > overlap1:
+                            dx, dy = dx2, dy2
+                        else:
+                            dx, dy = dx1, dy1
+                    else:
+                        # 非标点或一号字标点：仅用原始字号
+                        dx, dy, _ = align_text_to_background(text, char_font, bbox, bg_img)
                     # 把偏移量加到 bbox 上
                     if dx != 0 or dy != 0:
                         char_data["bbox"] = [

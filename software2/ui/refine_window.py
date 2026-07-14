@@ -1206,7 +1206,7 @@ class RefineWindow(QWidget):
             font = QFont("SimHei")
         font.setPixelSize(max(font_size_px, 1))
         # 调用对齐算法（原始坐标系）
-        dx, dy = align_text_to_background(data.text, font, data.bbox, bg_img)
+        dx, dy, _ = align_text_to_background(data.text, font, data.bbox, bg_img)
         if dx == 0 and dy == 0:
             return
         # 转换为场景坐标偏移并推入撤销栈

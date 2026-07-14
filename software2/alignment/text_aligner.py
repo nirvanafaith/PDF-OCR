@@ -122,21 +122,30 @@ def find_best_offset(text_mask, ink_mask, radius):
         radius (int): 搜索半径
 
     返回:
-        tuple: (best_dx, best_dy) 最佳偏移量；若墨迹掩码全零则返回 (0, 0)
+        tuple: (best_dx, best_dy, best_overlap) 最佳偏移量和交集像素数；
+               若墨迹掩码全零则返回 (0, 0, 0)
     """
+    th, tw = text_mask.shape
     # 优先使用 H7 native 加速；失败回落 numpy
     try:
         result = _native_find_best_offset(text_mask, ink_mask, radius)
         if result is not None:
-            return tuple(result)
+            dx, dy = tuple(result)
+            oy = radius + dy
+            ox = radius + dx
+            if oy >= 0 and ox >= 0 and oy + th <= ink_mask.shape[0] and ox + tw <= ink_mask.shape[1]:
+                region = ink_mask[oy:oy + th, ox:ox + tw]
+                overlap = int(np.count_nonzero(text_mask & region))
+            else:
+                overlap = 0
+            return (dx, dy, overlap)
     except Exception:
         pass
     # ---- numpy fallback（原实现）----
     # 全零墨迹掩码无法对齐，直接返回零偏移
     if ink_mask.sum() == 0:
-        return (0, 0)
+        return (0, 0, 0)
 
-    th, tw = text_mask.shape
     best_overlap = -1
     best_dx, best_dy = 0, 0
 
@@ -157,7 +166,7 @@ def find_best_offset(text_mask, ink_mask, radius):
                 best_overlap = overlap
                 best_dx, best_dy = dx, dy
 
-    return (best_dx, best_dy)
+    return (best_dx, best_dy, best_overlap)
 
 
 def align_text_to_background(text, font, bbox, bg_img, radius=8):
@@ -174,25 +183,26 @@ def align_text_to_background(text, font, bbox, bg_img, radius=8):
         radius (int): 搜索半径，默认 8
 
     返回:
-        tuple: (dx, dy) 最佳偏移量；空文本、无效尺寸或异常时返回 (0, 0)
+        tuple: (dx, dy, overlap) 最佳偏移量和交集像素数；
+               空文本、无效尺寸或异常时返回 (0, 0, 0)
     """
     try:
         # 空文本无需对齐
         if not text:
-            return (0, 0)
+            return (0, 0, 0)
 
         # 计算文字掩码尺寸
         w = int(bbox[2] - bbox[0])
         h = int(bbox[3] - bbox[1])
         if w <= 0 or h <= 0:
-            return (0, 0)
+            return (0, 0, 0)
 
         # 三步对齐流程
         text_mask = render_text_mask(text, font, w, h)
         ink_mask = extract_ink_mask(bg_img, bbox, radius)
-        dx, dy = find_best_offset(text_mask, ink_mask, radius)
-        return (dx, dy)
+        dx, dy, overlap = find_best_offset(text_mask, ink_mask, radius)
+        return (dx, dy, overlap)
     except Exception as e:
         # 异常时打印错误并返回零偏移，保证调用方安全
         print(f"align_text_to_background 对齐失败: {e}")
-        return (0, 0)
+        return (0, 0, 0)
