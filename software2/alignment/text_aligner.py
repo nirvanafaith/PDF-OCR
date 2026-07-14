@@ -13,6 +13,11 @@ from PIL import Image
 from PyQt5.QtCore import Qt, QRectF
 from PyQt5.QtGui import QImage, QPainter, QPen, QFont
 
+try:
+    from native import find_best_offset as _native_find_best_offset
+except Exception:
+    _native_find_best_offset = None
+
 
 def render_text_mask(text, font, w, h):
     """使用 QPainter 渲染文字掩码。
@@ -119,6 +124,14 @@ def find_best_offset(text_mask, ink_mask, radius):
     返回:
         tuple: (best_dx, best_dy) 最佳偏移量；若墨迹掩码全零则返回 (0, 0)
     """
+    # 优先使用 H7 native 加速；失败回落 numpy
+    try:
+        result = _native_find_best_offset(text_mask, ink_mask, radius)
+        if result is not None:
+            return tuple(result)
+    except Exception:
+        pass
+    # ---- numpy fallback（原实现）----
     # 全零墨迹掩码无法对齐，直接返回零偏移
     if ink_mask.sum() == 0:
         return (0, 0)
