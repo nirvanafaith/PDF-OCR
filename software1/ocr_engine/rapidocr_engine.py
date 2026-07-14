@@ -471,7 +471,7 @@ class OCREngine:
 
         return new_lines, new_chars, max_line_id, max_char_id
 
-    def _detect_and_fill_gaps(self, page_image, lines_data, chars_data, page_num, engine):
+    def _detect_and_fill_gaps(self, page_image, lines_data, chars_data, page_num, engine, regions=None):
         """检测行间隙异常并补检漏行。
 
         当同页相邻行的 y 间隙大于 1.5 倍中位行高时，
@@ -586,19 +586,37 @@ class OCREngine:
             new_chars.extend(b_chars)
 
         if new_lines:
-            lines_data.extend(new_lines)
-            chars_data.extend(new_chars)
-            # 重新按 (page_num, y 中心) 排序行
-            def _y_center(l):
-                b = flatten_bbox(l.get("box", [0, 0, 0, 0]))
-                return (b[1] + b[3]) / 2.0
-            lines_data.sort(
-                key=lambda l: (l.get("page_num", 0), _y_center(l))
-            )
-            print(
-                f"[GapDetect] 页 {page_num} 补检 {len(new_lines)} 行 "
-                f"{len(new_chars)} 字符"
-            )
+            # 按 regions 过滤补检新行（仅保留与用户画框有重叠的行）
+            if regions:
+                page_regions = regions.get(page_num, [])
+                if page_regions:
+                    from models.data_models import flatten_bbox as _flatten_bbox
+                    filtered_new_lines = []
+                    filtered_new_line_ids = set()
+                    for nl in new_lines:
+                        nl_bbox = _flatten_bbox(nl.get("box", [0, 0, 0, 0]))
+                        for region_bbox in page_regions:
+                            if self._boxes_overlap(nl_bbox, region_bbox):
+                                filtered_new_lines.append(nl)
+                                filtered_new_line_ids.add(nl.get("line_id", -1))
+                                break
+                    new_lines = filtered_new_lines
+                    new_chars = [nc for nc in new_chars if nc.get("line_id", -1) in filtered_new_line_ids]
+
+            if new_lines:
+                lines_data.extend(new_lines)
+                chars_data.extend(new_chars)
+                # 重新按 (page_num, y 中心) 排序行
+                def _y_center(l):
+                    b = flatten_bbox(l.get("box", [0, 0, 0, 0]))
+                    return (b[1] + b[3]) / 2.0
+                lines_data.sort(
+                    key=lambda l: (l.get("page_num", 0), _y_center(l))
+                )
+                print(
+                    f"[GapDetect] 页 {page_num} 补检 {len(new_lines)} 行 "
+                    f"{len(new_chars)} 字符"
+                )
 
         return lines_data, chars_data
 
@@ -759,7 +777,7 @@ class OCREngine:
                     p_img = page_images[p_num]
                     before = len(all_lines)
                     all_lines, all_chars = self._detect_and_fill_gaps(
-                        p_img, all_lines, all_chars, p_num, self.engine
+                        p_img, all_lines, all_chars, p_num, self.engine, regions
                     )
                     filled_count += len(all_lines) - before
                 if output_callback and filled_count > 0:
@@ -1173,7 +1191,14 @@ class OCREngine:
 
     @staticmethod
     def _trim_line_bbox(line_image, orig_bbox):
-        """对行切片图像四边裁切白色边缘，返回紧贴文字的页面坐标 bbox。
+        """对行切片图像执行三步裁边算法，返回紧贴文字的页面坐标 bbox。
+
+        算法步骤：
+          Step A：第一次白边裁切——对行切片图像四边裁切白色边缘
+                  （灰度 >= 200 视为白色），得到紧贴非白像素的外接矩形。
+          Step B：上下边框向内收缩——扫描上下边框，遇到全白行则收缩，
+                  若无全白行则收缩到黑色像素最少的行。左右边框不收缩。
+          Step C：第二次白边裁切——对 Step B 的结果再次执行四边白边裁切。
 
         Args:
             line_image: PIL.Image 行切片图像（已用 orig_bbox 从页面裁出）。
@@ -1199,10 +1224,55 @@ class OCREngine:
             if not mask.any():
                 # 纯白行，保持原 bbox
                 return list(orig_bbox)
-            rows = _np.where(mask.any(axis=1))[0]
-            cols = _np.where(mask.any(axis=0))[0]
-            r_min, r_max = int(rows[0]), int(rows[-1]) + 1
-            c_min, c_max = int(cols[0]), int(cols[-1]) + 1
+            img_h_full, img_w_full = gray.shape
+
+            # 内部辅助：对 [r0, r1) x [c0, c1) 子区域执行四边白边裁切，
+            # 返回裁切后的 (r_min, r_max, c_min, c_max)（全图坐标）。
+            def _trim_white_edges(mask_full, r0, r1, c0, c1):
+                sub = mask_full[r0:r1, c0:c1]
+                rows = _np.where(sub.any(axis=1))[0]
+                cols = _np.where(sub.any(axis=0))[0]
+                if len(rows) == 0 or len(cols) == 0:
+                    return r0, r1, c0, c1
+                nr_min = r0 + int(rows[0])
+                nr_max = r0 + int(rows[-1]) + 1
+                nc_min = c0 + int(cols[0])
+                nc_max = c0 + int(cols[-1]) + 1
+                return nr_min, nr_max, nc_min, nc_max
+
+            # Step A：第一次白边裁切（在全图范围内）
+            r_min, r_max, c_min, c_max = _trim_white_edges(
+                mask, 0, img_h_full, 0, img_w_full
+            )
+
+            # Step B：上下边框向内收缩（左右边框不收缩）
+            if r_max - r_min > 1:
+                # 计算每行黑色像素数（仅在 [r_min, r_max) 范围内）
+                row_black_counts = mask[r_min:r_max].sum(axis=1)
+                all_white_rows = _np.where(row_black_counts == 0)[0]
+                if len(all_white_rows) > 0:
+                    # 上边框：第一个全白行作为新上界
+                    first_all_white = int(all_white_rows[0])
+                    new_r_min = r_min + first_all_white
+                    # 下边框：最后一个全白行 + 1 作为新下界
+                    last_all_white = int(all_white_rows[-1])
+                    new_r_max = r_min + last_all_white + 1
+                else:
+                    # 无全白行：取黑色像素数最少的行作为新上界，
+                    # 最后一个最小行 + 1 作为新下界
+                    min_val = int(_np.min(row_black_counts))
+                    min_indices = _np.where(row_black_counts == min_val)[0]
+                    new_r_min = r_min + int(min_indices[0])
+                    new_r_max = r_min + int(min_indices[-1]) + 1
+                # 仅在收缩结果有效时应用
+                if new_r_min < new_r_max:
+                    r_min, r_max = new_r_min, new_r_max
+
+            # Step C：第二次白边裁切（对 Step B 结果再次四边裁切）
+            r_min, r_max, c_min, c_max = _trim_white_edges(
+                mask, r_min, r_max, c_min, c_max
+            )
+
             new_x1 = orig_x1 + c_min
             new_y1 = orig_y1 + r_min
             new_x2 = orig_x1 + c_max

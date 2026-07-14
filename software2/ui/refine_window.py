@@ -45,6 +45,7 @@ from models.data_models import (
     FONT_SIZE_GRADES,
     match_font_grade,
     font_name_for_grade,
+    font_name_for_char,
 )
 from native import batch_match_font_grade
 from pdf_processor.pdf_output import PDFOutputGenerator, PDFOutputWorker
@@ -155,7 +156,7 @@ class MovableTextItem(QGraphicsRectItem):
         line_bbox = text_item_data.line_bbox or [0, 0, 0, 0]
         line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
         grade = match_font_grade(line_height_pt)
-        font = QFont(font_name_for_grade(grade))
+        font = QFont(font_name_for_char(text_item_data.text, grade))
         font_size_pt = FONT_SIZE_GRADES[grade]
         font_size_px = font_size_pt * (300.0 / 72.0)
         zoom = zoom_level if zoom_level > 0 else 1.0
@@ -224,7 +225,7 @@ class MovableTextItem(QGraphicsRectItem):
         font_size_px = font_size_pt * (300.0 / 72.0)
         zoom = self._zoom_level if self._zoom_level > 0 else 1.0
         candidate = max(int(font_size_px * zoom), 1)
-        font = QFont(font_name_for_grade(grade))
+        font = QFont(font_name_for_char(self._data.text, grade))
         font.setPixelSize(candidate)
         font.setStyleStrategy(QFont.PreferAntialias)
         return font

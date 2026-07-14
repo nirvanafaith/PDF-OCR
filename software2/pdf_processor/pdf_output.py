@@ -16,7 +16,7 @@ import os
 import fitz  # PyMuPDF
 from PyQt5.QtCore import QThread, pyqtSignal
 
-from models.data_models import flatten_bbox, FONT_SIZE_GRADES, match_font_grade
+from models.data_models import flatten_bbox, FONT_SIZE_GRADES, match_font_grade, font_name_for_char
 from native import batch_match_font_grade
 
 
@@ -117,24 +117,20 @@ class PDFOutputGenerator:
                     if font_size_pt < 1:
                         font_size_pt = 1
 
-                    # 按档位获取字体（缓存实例避免重复加载）
-                    font = self._get_font(grade)
-
-                    # 行级预计算字体度量（ascender/descender 为属性，非方法）
-                    # ascender: 基线上方高度比例（正值，如 0.92）
-                    # descender: 基线下方深度比例（负值，如 -0.08）
-                    # 字符视觉中心相对基线偏移 = (ascender + descender) / 2 * font_size_pt
-                    # 欲使字符视觉中心 = bbox 中心，基线 pos_y 应为：
-                    #   pos_y = y1_pt + bbox_h_pt / 2 - (ascender + descender) / 2 * font_size_pt
-                    ascender = font.ascender
-                    descender = font.descender
-                    baseline_offset = (ascender + descender) / 2.0 * font_size_pt
-
                     # 逐字符居中定位：水平居中 + 垂直居中
+                    # per-char 字体选择：ASCII 字母/数字 → Times New Roman
                     for c, b in zip(line_chars, bboxes):
+                        char_font = self._get_font_for_char(c.text, grade)
+                        # per-char baseline 计算（不同字体的 ascender/descender 不同）
+                        # ascender/descender 为属性，非方法
+                        char_ascender = char_font.ascender
+                        char_descender = char_font.descender
+                        char_baseline_offset = (
+                            (char_ascender + char_descender) / 2.0 * font_size_pt
+                        )
                         # 计算文字宽度（磅值）
                         try:
-                            char_w_pt = font.text_length(c.text, font_size_pt)
+                            char_w_pt = char_font.text_length(c.text, font_size_pt)
                         except Exception:
                             char_w_pt = 0.0
                         bbox_w_pt = (b[2] - b[0]) * scale
@@ -142,11 +138,11 @@ class PDFOutputGenerator:
                         # 水平居中：pos_x = bbox左边界 + (bbox宽 - 文字宽)/2
                         pos_x = b[0] * scale + (bbox_w_pt - char_w_pt) / 2
                         # 垂直居中：基线 = bbox中心 - 字符视觉中心相对基线偏移
-                        pos_y = b[1] * scale + bbox_h_pt / 2 - baseline_offset
+                        pos_y = b[1] * scale + bbox_h_pt / 2 - char_baseline_offset
                         try:
                             tw.append(
                                 (pos_x, pos_y), c.text,
-                                font=font, fontsize=font_size_pt,
+                                font=char_font, fontsize=font_size_pt,
                             )
                         except Exception:
                             # 跳过无法写入的文本（如越界或字形缺失）
@@ -259,6 +255,52 @@ class PDFOutputGenerator:
 
         self._font_cache[grade] = font
         return font
+
+    def _get_latin_font(self):
+        """加载 Times New Roman 字体（ASCII 字母/数字专用），缓存实例。
+
+        优先从系统字体目录加载 times.ttf；失败时回退到
+        PyMuPDF 内置的 'Times-Roman'（PDF Base-14 字体）。
+
+        Returns:
+            fitz.Font: Times New Roman 字体对象。
+        """
+        if not hasattr(self, '_latin_font_cache'):
+            self._latin_font_cache = None
+        if self._latin_font_cache is not None:
+            return self._latin_font_cache
+
+        windir = os.environ.get('WINDIR', 'C:\\Windows')
+        font_path = os.path.join(windir, 'Fonts', 'times.ttf')
+        font = None
+        if os.path.exists(font_path):
+            try:
+                font = fitz.Font(fontfile=font_path)
+            except Exception:
+                font = None
+        if font is None:
+            try:
+                font = fitz.Font('Times-Roman')
+            except Exception:
+                font = fitz.Font('helv')  # 最终回退 Helvetica
+        self._latin_font_cache = font
+        return font
+
+    def _get_font_for_char(self, text, grade):
+        """根据字符内容选择字体：ASCII 字母/数字用 Times New Roman，其他用中文字体。
+
+        Args:
+            text: 字符文本（预期为单字符）。
+            grade: 字号档位号（1-5）。
+
+        Returns:
+            fitz.Font: 字体对象。
+        """
+        if text and len(text) == 1:
+            c = text[0]
+            if ('0' <= c <= '9') or ('a' <= c <= 'z') or ('A' <= c <= 'Z'):
+                return self._get_latin_font()
+        return self._get_font(grade)
 
 
 class PDFOutputWorker(QThread):

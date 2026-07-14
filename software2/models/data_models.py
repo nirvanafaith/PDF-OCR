@@ -53,6 +53,46 @@ def font_name_for_grade(grade: int) -> str:
     return "SimSun"
 
 
+# ASCII 字母/数字专用字体名
+LATIN_FONT_NAME = "Times New Roman"
+
+
+def is_latin_alnum(ch: str) -> bool:
+    """判断字符是否为 ASCII 拉丁字母或数字（a-z, A-Z, 0-9）。
+
+    仅匹配单字符；ASCII 标点符号（如 . , : ; -）返回 False，
+    保持原中文字体。
+
+    Args:
+        ch: 待检测的字符串（预期为单字符）。
+
+    Returns:
+        bool: True 表示是 ASCII 字母或数字，False 表示其他。
+    """
+    if len(ch) != 1:
+        return False
+    c = ch[0]
+    return ('0' <= c <= '9') or ('a' <= c <= 'z') or ('A' <= c <= 'Z')
+
+
+def font_name_for_char(ch: str, grade: int) -> str:
+    """根据字符类型和字号档位返回字体名。
+
+    ASCII 字母/数字使用 Times New Roman；其他字符（含中文、标点）
+    按档位规则使用 SimHei(1,2号) 或 SimSun(3,4,5号)。
+
+    Args:
+        ch: 单个字符。
+        grade: 字号档位号（1-5）。
+
+    Returns:
+        str: 字体名（"Times New Roman"、"SimHei" 或 "SimSun"）。
+    """
+    if is_latin_alnum(ch):
+        return LATIN_FONT_NAME
+    return font_name_for_grade(grade)
+
+
 @dataclass
 class TextLine:
     """OCR 识别的单行文本结果。

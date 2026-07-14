@@ -46,6 +46,9 @@ from models.data_models import (
     FONT_SIZE_GRADES,
     match_font_grade,
     font_name_for_grade,
+    font_name_for_char,
+    is_latin_alnum,
+    LATIN_FONT_NAME,
 )
 from ui.styles import get_stylesheet
 from ui.zoom_utils import calculate_wheel_zoom, ZOOM_MIN, ZOOM_MAX
@@ -462,6 +465,32 @@ class HorizontalCheckWindow(QWidget):
 
         return result
 
+    def _build_mixed_font_html(self, text, grade):
+        """构建混合字体 HTML，ASCII 字母/数字用 Times New Roman。
+
+        用于 fallback 路径将整行文本作为单个 QGraphicsTextItem 渲染时，
+        通过 HTML <span> 标签为每个字符指定字体族。字号继承自 item 的默认字体。
+
+        Args:
+            text: 整行文本。
+            grade: 字号档位号（1-5）。
+
+        Returns:
+            str: HTML 字符串。
+        """
+        cn_font = font_name_for_grade(grade)
+        parts = []
+        for ch in text:
+            if is_latin_alnum(ch):
+                parts.append(
+                    f'<span style="font-family:{LATIN_FONT_NAME}">{ch}</span>'
+                )
+            else:
+                parts.append(
+                    f'<span style="font-family:{cn_font}">{ch}</span>'
+                )
+        return "".join(parts)
+
     def _put_pixmap_cache(self, key, pixmap):
         """写入像素缓存，超出上限时淘汰最旧项（FIFO）。"""
         self._pixmap_cache[key] = pixmap
@@ -488,6 +517,22 @@ class HorizontalCheckWindow(QWidget):
         self.scene.clear()
         self._hover_pixmap_item = None
         self._hover_rect_item = None
+        # 左侧场景添加页面图像作为白色纸张背景
+        if self.page_images and self.current_page < len(self.page_images):
+            left_cache_key = (self.current_page, self.zoom_level, 'left_bg')
+            if left_cache_key not in self._pixmap_cache:
+                _left_img = self.page_images[self.current_page]
+                _left_pixmap = self._pil_to_pixmap(_left_img)
+                _left_scaled = _left_pixmap.scaled(
+                    int(_left_img.width * self.zoom_level),
+                    int(_left_img.height * self.zoom_level),
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation,
+                )
+                self._put_pixmap_cache(left_cache_key, _left_scaled)
+            _left_bg_item = QGraphicsPixmapItem(self._pixmap_cache[left_cache_key])
+            _left_bg_item.setZValue(-1000)  # 确保背景在最底层
+            self.scene.addItem(_left_bg_item)
         lines = self.page_lines.get(self.current_page, [])
         for line_slice in lines:
             ignored = hasattr(line_slice, "_ignored") and line_slice._ignored
@@ -507,6 +552,8 @@ class HorizontalCheckWindow(QWidget):
                 font = QFont(font_name_for_grade(grade), font_size)
                 font.setStyleStrategy(QFont.PreferAntialias)
                 item.setFont(font)
+                # 英文/数字用 Times New Roman，用 HTML rich text 实现混合字体
+                item.setHtml(self._build_mixed_font_html(line_slice.text, grade))
                 item.setPos(bbox[0] * self.zoom_level, bbox[1] * self.zoom_level)
                 item.setFlag(QGraphicsTextItem.ItemIsSelectable)
                 item.setAcceptHoverEvents(True)
@@ -530,6 +577,8 @@ class HorizontalCheckWindow(QWidget):
                 font = QFont(font_name_for_grade(grade), font_size)
                 font.setStyleStrategy(QFont.PreferAntialias)
                 item.setFont(font)
+                # 英文/数字用 Times New Roman，用 HTML rich text 实现混合字体
+                item.setHtml(self._build_mixed_font_html(line_slice.text, grade))
                 item.setPos(bbox[0] * self.zoom_level, bbox[1] * self.zoom_level)
                 item.setFlag(QGraphicsTextItem.ItemIsSelectable)
                 item.setAcceptHoverEvents(True)
@@ -547,7 +596,10 @@ class HorizontalCheckWindow(QWidget):
             for char_text, pos_x, pos_y, _ in char_positions:
                 item = QGraphicsTextItem(char_text)
                 item.setDefaultTextColor(Qt.gray if ignored else Qt.black)
-                item.setFont(font)
+                # 英文/数字用 Times New Roman，其他按行级 font
+                char_font = QFont(font)
+                char_font.setFamily(font_name_for_char(char_text, grade))
+                item.setFont(char_font)
                 item.setPos(pos_x, pos_y)
                 item.setFlag(QGraphicsTextItem.ItemIsSelectable)
                 item.setAcceptHoverEvents(True)
@@ -1595,8 +1647,8 @@ class HorizontalCheckWindow(QWidget):
                 line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
                 grade = match_font_grade(line_height_pt)
                 font_size_px = int(FONT_SIZE_GRADES[grade] * (300.0 / 72.0))
-                font = QFont(font_name_for_grade(grade))
-                font.setPixelSize(max(font_size_px, 1))
+                line_font = QFont(font_name_for_grade(grade))
+                line_font.setPixelSize(max(font_size_px, 1))
 
                 for char_data in ls.chars:
                     if progress.wasCanceled():
@@ -1613,8 +1665,11 @@ class HorizontalCheckWindow(QWidget):
                         count += 1
                         progress.setValue(count)
                         continue
+                    # 英文/数字用 Times New Roman，其他按行级 font
+                    char_font = QFont(line_font)
+                    char_font.setFamily(font_name_for_char(text, grade))
                     # 调用对齐算法
-                    dx, dy = align_text_to_background(text, font, bbox, bg_img)
+                    dx, dy = align_text_to_background(text, char_font, bbox, bg_img)
                     # 把偏移量加到 bbox 上
                     if dx != 0 or dy != 0:
                         char_data["bbox"] = [
