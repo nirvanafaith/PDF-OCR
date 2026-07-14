@@ -1,6 +1,0 @@
-- [x] DrawBoxWindow工具栏有"模型识别"按钮
-- [x] 点击"模型识别"弹出CMD窗口运行MinerU命令
-- [x] MinerU完成后自动导入最大JSON文件并显示框
-- [x] 未加载PDF时点击"模型识别"显示提示
-- [x] OCR识别结果保存到软件1/json/文件夹
-- [x] 软件1运行无error和warning

@@ -31,6 +31,7 @@ from PyQt5.QtGui import (
     QImage,
     QFont,
     QFontMetrics,
+    QColor,
     QMouseEvent,
     QWheelEvent,
     QPainter,
@@ -44,6 +45,7 @@ from models.data_models import (
     CorrectedLine,
     FONT_SIZE_GRADES,
     match_font_grade,
+    font_name_for_grade,
 )
 from ui.styles import get_stylesheet
 from ui.zoom_utils import calculate_wheel_zoom, ZOOM_MIN, ZOOM_MAX
@@ -181,6 +183,10 @@ class HorizontalCheckWindow(QWidget):
         toolbar.setMovable(False)
         toolbar.setStyleSheet("QToolBar { spacing: 6px; padding: 4px; }")
 
+        spacer_left = QWidget()
+        spacer_left.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        toolbar.addWidget(spacer_left)
+
         self.back_btn = QPushButton("← 返回")
         self.back_btn.clicked.connect(self._on_back)
         toolbar.addWidget(self.back_btn)
@@ -233,6 +239,10 @@ class HorizontalCheckWindow(QWidget):
         self.fit_height_btn.clicked.connect(self._on_fit_height)
         toolbar.addWidget(self.fit_height_btn)
 
+        spacer_right = QWidget()
+        spacer_right.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        toolbar.addWidget(spacer_right)
+
         main_layout.addWidget(toolbar)
 
         self.draw_mode_hint = QLabel("画框模式：请在右侧PDF上绘制区域（按ESC取消）")
@@ -245,7 +255,7 @@ class HorizontalCheckWindow(QWidget):
         main_layout.addWidget(self.draw_mode_hint)
 
         self.scene = QGraphicsScene()
-        self.scene.setBackgroundBrush(Qt.white)
+        self.scene.setBackgroundBrush(QColor(0xd9, 0xd9, 0xd9))
 
         self.view = QGraphicsView(self.scene)
         self.view.setRenderHint(QPainter.Antialiasing)
@@ -260,7 +270,7 @@ class HorizontalCheckWindow(QWidget):
 
         # 右侧原PDF展示视图
         self.pdf_scene = QGraphicsScene()
-        self.pdf_scene.setBackgroundBrush(Qt.white)
+        self.pdf_scene.setBackgroundBrush(QColor(0xd9, 0xd9, 0xd9))
 
         self.pdf_view = QGraphicsView(self.pdf_scene)
         self.pdf_view.setRenderHint(QPainter.Antialiasing)
@@ -326,7 +336,7 @@ class HorizontalCheckWindow(QWidget):
 
         字号档位系统：将行框高度（像素）换算为磅值后匹配 1-5 号中文字号，
         再换算回像素作为字号，保证不同行使用统一的标准字号。
-        五号档位使用书宋体（SimSun/STSong），其他档位使用黑体（SimHei）。
+        一/二号档位使用黑体（SimHei），三/四/五号档位使用书宋体（SimSun/STSong）。
 
         参数:
             line_bbox: 行边界框 [x1, y1, x2, y2]
@@ -351,11 +361,8 @@ class HorizontalCheckWindow(QWidget):
         font_size_px = font_size_pt * (300.0 / 72.0)
         candidate_size = max(int(font_size_px * zoom_level), 4)
 
-        # 五号用书宋体，其他用黑体
-        if grade == 5:
-            font = QFont("SimSun")
-        else:
-            font = QFont("SimHei")
+        # 一/二号用黑体，三/四/五号用书宋体
+        font = QFont(font_name_for_grade(grade))
         font.setPixelSize(candidate_size)
         font.setStyleStrategy(QFont.PreferAntialias)
         fm = QFontMetrics(font)
@@ -497,11 +504,7 @@ class HorizontalCheckWindow(QWidget):
                 font_size_pt = FONT_SIZE_GRADES[grade]
                 font_size_px = font_size_pt * (300.0 / 72.0)
                 font_size = max(int(font_size_px * self.zoom_level), 6)
-                # 五号用书宋体，其他用黑体
-                if grade == 5:
-                    font = QFont("SimSun", font_size)
-                else:
-                    font = QFont("SimHei", font_size)
+                font = QFont(font_name_for_grade(grade), font_size)
                 font.setStyleStrategy(QFont.PreferAntialias)
                 item.setFont(font)
                 item.setPos(bbox[0] * self.zoom_level, bbox[1] * self.zoom_level)
@@ -524,11 +527,7 @@ class HorizontalCheckWindow(QWidget):
                 font_size_pt = FONT_SIZE_GRADES[grade]
                 font_size_px = font_size_pt * (300.0 / 72.0)
                 font_size = max(int(font_size_px * self.zoom_level), 6)
-                # 五号用书宋体，其他用黑体
-                if grade == 5:
-                    font = QFont("SimSun", font_size)
-                else:
-                    font = QFont("SimHei", font_size)
+                font = QFont(font_name_for_grade(grade), font_size)
                 font.setStyleStrategy(QFont.PreferAntialias)
                 item.setFont(font)
                 item.setPos(bbox[0] * self.zoom_level, bbox[1] * self.zoom_level)
@@ -1596,10 +1595,7 @@ class HorizontalCheckWindow(QWidget):
                 line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
                 grade = match_font_grade(line_height_pt)
                 font_size_px = int(FONT_SIZE_GRADES[grade] * (300.0 / 72.0))
-                if grade == 5:
-                    font = QFont("SimSun")
-                else:
-                    font = QFont("SimHei")
+                font = QFont(font_name_for_grade(grade))
                 font.setPixelSize(max(font_size_px, 1))
 
                 for char_data in ls.chars:

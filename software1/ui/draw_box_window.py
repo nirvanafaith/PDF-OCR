@@ -254,30 +254,63 @@ class DrawBoxWindow(QWidget):
 
         def run_mineru():
             try:
-                cmd = [
-                    "mineru",
-                    "-p", pdf_path,
-                    "-o", output_dir,
-                    "-b", "hybrid-auto-engine",
-                    "--method", "ocr",
-                    "--lang", "ch",
-                ]
+                # 打包环境调用独立的 mineru_cli.exe（与 hengxiao_tool1.exe 同级），
+                # 开发环境使用系统 mineru 命令。
+                # 注意：不能用 sys.executable -m mineru.cli，因为 PyInstaller exe
+                # 不是 Python 解释器，-m 参数不会被解释。
+                if getattr(sys, "frozen", False):
+                    # 打包环境：_internal/models_cache/ 下存放模型缓存
+                    _base = sys._MEIPASS
+                    models_cache_dir = os.path.join(_base, "models_cache")
+                    # mineru_cli.exe 位于 onedir 根目录（与 hengxiao_tool1.exe 同级）
+                    _exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+                    mineru_exe = os.path.join(_exe_dir, "mineru_cli.exe")
+                    cmd = [
+                        mineru_exe,
+                        "-p", pdf_path,
+                        "-o", output_dir,
+                        "-b", "hybrid-auto-engine",
+                        "--method", "ocr",
+                        "--lang", "ch",
+                    ]
+                else:
+                    # 开发环境：使用系统 mineru 命令
+                    models_cache_dir = None
+                    cmd = [
+                        "mineru",
+                        "-p", pdf_path,
+                        "-o", output_dir,
+                        "-b", "hybrid-auto-engine",
+                        "--method", "ocr",
+                        "--lang", "ch",
+                    ]
+
                 # 构建 MinerU 子进程环境变量
                 mineru_env = os.environ.copy()
                 # 优先使用 ModelScope（国内镜像，避免 HuggingFace SSL/网络问题）
                 mineru_env["MINERU_MODEL_SOURCE"] = "modelscope"
-                # 设置 CUDA_PATH：通过 junction 指向 torch 捆绑的 CUDA DLL
-                # lmdeploy turbomind 后端在 Windows 上需要 CUDA_PATH 环境变量
-                cuda_link_path = os.environ.get("CUDA_PATH", "")
-                if not cuda_link_path:
-                    # 如果系统未设置 CUDA_PATH，尝试使用预设的 junction 路径
-                    cuda_link_path = r"E:\cuda_link"
-                    if os.path.isdir(os.path.join(cuda_link_path, "bin")):
+                # 打包环境：设置 MODELSCOPE_CACHE 指向打包内模型缓存
+                if models_cache_dir and os.path.isdir(models_cache_dir):
+                    mineru_env["MODELSCOPE_CACHE"] = models_cache_dir
+                # 设置 CUDA DLL 路径：MinerU 子进程需要找到 CUDA DLLs（cublas、cudnn 等）
+                if getattr(sys, "frozen", False):
+                    # 打包环境：torch/lib 位于 _internal/torch/lib/，直接添加到 PATH
+                    _torch_lib = os.path.join(sys._MEIPASS, "torch", "lib")
+                    if os.path.isdir(_torch_lib):
+                        mineru_env["PATH"] = _torch_lib + os.pathsep + mineru_env.get("PATH", "")
+                    # CUDA_PATH：lmdeploy turbomind 后端需要 CUDA_PATH/bin/ 包含 DLLs
+                    # 打包环境中不创建 junction，不设置 CUDA_PATH，MinerU 会回退到 PyTorch 后端
+                else:
+                    # 开发环境：通过 junction 指向 torch 捆绑的 CUDA DLL
+                    cuda_link_path = os.environ.get("CUDA_PATH", "")
+                    if not cuda_link_path:
+                        cuda_link_path = r"E:\cuda_link"
+                        if os.path.isdir(os.path.join(cuda_link_path, "bin")):
+                            mineru_env["CUDA_PATH"] = cuda_link_path
+                        else:
+                            cuda_link_path = ""
+                    if cuda_link_path:
                         mineru_env["CUDA_PATH"] = cuda_link_path
-                    else:
-                        cuda_link_path = ""
-                if cuda_link_path:
-                    mineru_env["CUDA_PATH"] = cuda_link_path
                 # 防御性：设置 CA 证书路径，确保 SSL 验证可用
                 try:
                     import certifi
@@ -288,12 +321,17 @@ class DrawBoxWindow(QWidget):
                 except ImportError:
                     pass
 
-                proc = subprocess.Popen(
-                    cmd,
-                    env=mineru_env,
-                    creationflags=subprocess.CREATE_NEW_CONSOLE
-                )
-                proc.wait()
+                try:
+                    proc = subprocess.Popen(
+                        cmd,
+                        env=mineru_env,
+                        creationflags=subprocess.CREATE_NEW_CONSOLE
+                    )
+                    proc.wait()
+                except FileNotFoundError:
+                    # MinerU 可执行文件未找到（打包环境或未安装）
+                    self.mineru_finished_signal.emit("__MINERU_NOT_FOUND__")
+                    return
 
                 # 根据当前PDF文件名定位对应的输出子目录
                 pdf_basename = os.path.splitext(os.path.basename(pdf_path))[0]
@@ -328,7 +366,18 @@ class DrawBoxWindow(QWidget):
     def _on_mineru_finished(self, json_path):
         """MinerU解析完成后的处理。"""
         self.mineru_btn.setEnabled(True)
-        if json_path:
+        if json_path == "__MINERU_NOT_FOUND__":
+            # MinerU 可执行文件未找到（打包环境缺少依赖或未正确安装）
+            QMessageBox.warning(
+                self, "MinerU 不可用",
+                "MinerU 模型识别功能不可用：\n"
+                "未找到 MinerU 可执行文件。\n\n"
+                "可能原因：\n"
+                "1. 打包环境缺少 MinerU 依赖\n"
+                "2. MinerU 模型缓存未正确打包\n\n"
+                "您仍可使用手动画框功能标注识别区域。"
+            )
+        elif json_path:
             self._import_json_from_path(json_path)
             QMessageBox.information(self, "模型识别完成", f"已自动导入识别结果")
         else:

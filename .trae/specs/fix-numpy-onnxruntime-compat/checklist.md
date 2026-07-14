@@ -1,7 +1,0 @@
-- [x] requirements.txt 中已添加 `numpy<2` 版本约束
-- [x] 当前环境 NumPy 版本已降级为 1.26.4（<2）
-- [x] onnxruntime 可正常导入，无 ABI 不兼容错误
-- [x] requirements.txt 中已添加 `onnxruntime>=1.19.0` 版本约束
-- [x] onnxruntime 已升级到 1.26.0，支持 ONNX IR version 10
-- [x] RapidOCR 引擎可正常初始化（含 PPOCRv5 模型加载）
-- [x] 应用程序 `python main.py` 可正常启动，窗口正常显示

@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 
 from pdf_processor import PDFProcessor
@@ -114,12 +114,28 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1200, 800)
         self.pdf_processor = PDFProcessor()
         self.ocr_engine = OCREngine()
+        # GPU 不可用时提示用户（仅打包环境，避免打扰开发）
+        if getattr(sys, "frozen", False) and not getattr(self.ocr_engine, "_has_cuda", True):
+            QTimer.singleShot(500, self._show_gpu_unavailable_prompt)
         self.pdf_path = ""
         self.regions = {}
         self.current_stage = 0
         self.setStyleSheet(get_stylesheet())
         self._init_ui()
         self._setup_draw_box_stage()
+
+    def _show_gpu_unavailable_prompt(self):
+        """GPU 不可用时显示降级提示对话框。"""
+        model_name = getattr(self.ocr_engine, "_model_type_name", "SMALL")
+        QMessageBox.information(
+            self,
+            "GPU 不可用 - 已降级到 CPU 模式",
+            f"未检测到可用的 CUDA GPU，OCR 引擎已降级到 CPU {model_name} 模型。\n\n"
+            "影响：\n"
+            "• 识别速度较慢（约为 GPU 模式的 1/5）\n"
+            "• 识别精度不受影响\n\n"
+            "您仍可正常使用所有 OCR 功能。"
+        )
 
     def _init_ui(self):
         central = QWidget()

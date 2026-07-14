@@ -1171,6 +1171,46 @@ class OCREngine:
 
         return grouped
 
+    @staticmethod
+    def _trim_line_bbox(line_image, orig_bbox):
+        """对行切片图像四边裁切白色边缘，返回紧贴文字的页面坐标 bbox。
+
+        Args:
+            line_image: PIL.Image 行切片图像（已用 orig_bbox 从页面裁出）。
+            orig_bbox: 原始行边界框 [x1, y1, x2, y2]（页面坐标）。
+
+        Returns:
+            list: 裁边后的新 bbox [nx1, ny1, nx2, ny2]（页面坐标）。
+                  若图像为空、纯白或尺寸与 bbox 不符，返回原 bbox 的副本。
+        """
+        if line_image is None:
+            return list(orig_bbox)
+        orig_x1, orig_y1, orig_x2, orig_y2 = orig_bbox
+        expected_w = int(round(orig_x2 - orig_x1))
+        expected_h = int(round(orig_y2 - orig_y1))
+        img_w, img_h = line_image.size
+        # 尺寸不符（native 裁切可能有 1px 误差）则跳过裁边
+        if abs(img_w - expected_w) > 1 or abs(img_h - expected_h) > 1:
+            return list(orig_bbox)
+        try:
+            import numpy as _np
+            gray = _np.array(line_image.convert("L"))
+            mask = gray < 200
+            if not mask.any():
+                # 纯白行，保持原 bbox
+                return list(orig_bbox)
+            rows = _np.where(mask.any(axis=1))[0]
+            cols = _np.where(mask.any(axis=0))[0]
+            r_min, r_max = int(rows[0]), int(rows[-1]) + 1
+            c_min, c_max = int(cols[0]), int(cols[-1]) + 1
+            new_x1 = orig_x1 + c_min
+            new_y1 = orig_y1 + r_min
+            new_x2 = orig_x1 + c_max
+            new_y2 = orig_y1 + r_max
+            return [new_x1, new_y1, new_x2, new_y2]
+        except Exception:
+            return list(orig_bbox)
+
     def build_line_data(self, results: tuple, page_images: list, char_slices: dict = None) -> dict:
         """构建纵校所需的行级数据结构。
 
@@ -1334,9 +1374,12 @@ class OCREngine:
                     else:
                         line_image = page_image.crop((x1, y1, x2, y2))
 
+                # 对行切片四边裁切白色边缘，得到紧贴文字的新 bbox
+                trimmed_bbox = self._trim_line_bbox(line_image, line_bbox)
+
                 line_slice = LineSlice(
                     page_num=page_num,
-                    bbox=list(line_bbox),
+                    bbox=trimmed_bbox,
                     polygon=[],
                     text=line_text,
                     confidence=line_score,

@@ -1,9 +1,0 @@
-- [x] 软件1目录结构完整，所有必需模块已复制
-- [x] 软件1的main.py可独立运行，无import error
-- [x] 软件1包含画框和OCR准备两个阶段
-- [x] 软件2目录结构完整，所有必需模块已复制
-- [x] 软件2的ImportWindow可正确加载PDF和JSON文件
-- [x] 软件2的main.py可独立运行，无import error
-- [x] 软件2包含导入、纵校、横校、精修四个阶段
-- [x] 软件1运行无error和warning
-- [x] 软件2运行无error和warning

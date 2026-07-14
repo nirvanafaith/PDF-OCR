@@ -2,7 +2,7 @@
 
 本模块定义了纵校应用程序统一的 PyQt5 QSS 样式常量与获取接口，
 确保所有窗口（主窗口、纵校窗口、横校窗口、精修窗口、OCR 准备窗口）
-共享一致的视觉风格。样式基于 Bootstrap 5 配色方案，提供简洁、
+共享一致的视觉风格。样式基于 Microsoft Word 经典银灰黑灰配色方案，提供简洁、
 现代的界面外观。
 
 样式覆盖的控件包括：
@@ -17,7 +17,7 @@
 
 """应用程序全局 QSS 样式表常量。
 
-基于 Bootstrap 5 配色方案，为纵校应用程序所有窗口提供统一的视觉风格。
+基于 Microsoft Word 经典银灰黑灰配色方案，为纵校应用程序所有窗口提供统一的视觉风格。
 涵盖主窗口、列表控件、按钮、工具栏、滚动区域、图形视图、输入控件、
 对话框、标签及右键菜单等控件的样式定义，包括各交互状态
 （悬停、按下、选中、禁用、聚焦）的视觉反馈。
@@ -31,12 +31,12 @@
 """
 MAIN_STYLESHEET = """
 QMainWindow {
-    background-color: #d4d0c8;
+    background-color: #f0f0f0;
 }
 
 QListWidget {
     background-color: #ffffff;
-    border: 1px solid #808080;
+    border: 1px solid #a0a0a0;
     border-radius: 0px;
     font-size: 14px;
     padding: 4px;
@@ -48,21 +48,21 @@ QListWidget::item {
 }
 
 QListWidget::item:selected {
-    background-color: #316ac5;
+    background-color: #2b579a;
     color: white;
 }
 
 QListWidget::item:hover {
-    background-color: #e8e4dc;
+    background-color: #f0f0f0;
 }
 
 QListWidget::item:selected:hover {
-    background-color: #2a5ab8;
+    background-color: #1e3f6f;
     color: white;
 }
 
 QPushButton {
-    background-color: #d4d0c8;
+    background-color: #f0f0f0;
     color: #000000;
     border: 2px outset #ffffff;
     border-radius: 0px;
@@ -72,31 +72,31 @@ QPushButton {
 }
 
 QPushButton:hover {
-    background-color: #e8e4dc;
+    background-color: #f0f0f0;
     border-style: outset;
 }
 
 QPushButton:pressed {
-    background-color: #c0bcb4;
+    background-color: #c0c0c0;
     border-style: inset;
 }
 
 QPushButton:disabled {
     background-color: #c0c0c0;
-    color: #808080;
+    color: #a0a0a0;
 }
 
 QToolBar {
-    background-color: #d4d0c8;
-    border-bottom: 1px solid #808080;
+    background-color: #f0f0f0;
+    border-bottom: 1px solid #a0a0a0;
     padding: 4px 8px;
     spacing: 6px;
 }
 
 QToolBar QPushButton {
-    background-color: #d4d0c8;
+    background-color: #f0f0f0;
     color: #000000;
-    border: 1px solid #808080;
+    border: 1px solid #a0a0a0;
     border-radius: 0px;
     padding: 4px 12px;
     font-size: 12px;
@@ -104,12 +104,12 @@ QToolBar QPushButton {
 }
 
 QToolBar QPushButton:hover {
-    background-color: #e8e4dc;
+    background-color: #f0f0f0;
     border-color: #404040;
 }
 
 QToolBar QPushButton:pressed {
-    background-color: #c0bcb4;
+    background-color: #c0c0c0;
     border-style: inset;
 }
 
@@ -122,16 +122,16 @@ QToolBar QPushButton:checked {
 
 QScrollArea {
     border: none;
-    background-color: #d4d0c8;
+    background-color: #f0f0f0;
 }
 
 QGraphicsView {
-    border: 1px solid #808080;
-    background-color: #ffffff;
+    border: 1px solid #a0a0a0;
+    background-color: #d9d9d9;
 }
 
 QSpinBox {
-    border: 1px solid #808080;
+    border: 1px solid #a0a0a0;
     border-radius: 0px;
     padding: 2px 8px;
     font-size: 12px;
@@ -140,7 +140,7 @@ QSpinBox {
 }
 
 QLineEdit {
-    border: 1px solid #808080;
+    border: 1px solid #a0a0a0;
     border-radius: 0px;
     padding: 6px 10px;
     font-size: 13px;
@@ -148,11 +148,11 @@ QLineEdit {
 }
 
 QLineEdit:focus {
-    border-color: #316ac5;
+    border-color: #2b579a;
 }
 
 QDialog {
-    background-color: #d4d0c8;
+    background-color: #f0f0f0;
 }
 
 QLabel {
@@ -161,8 +161,8 @@ QLabel {
 }
 
 QMenu {
-    background-color: #d4d0c8;
-    border: 1px solid #808080;
+    background-color: #f0f0f0;
+    border: 1px solid #a0a0a0;
     border-radius: 0px;
     padding: 4px 0px;
 }
@@ -172,12 +172,12 @@ QMenu::item {
 }
 
 QMenu::item:selected {
-    background-color: #316ac5;
+    background-color: #2b579a;
     color: white;
 }
 
 QProgressDialog {
-    background-color: #d4d0c8;
+    background-color: #f0f0f0;
 }
 
 QProgressDialog QLabel {
@@ -186,7 +186,7 @@ QProgressDialog QLabel {
 }
 
 QProgressBar {
-    border: 1px solid #808080;
+    border: 1px solid #a0a0a0;
     border-radius: 0px;
     text-align: center;
     background-color: #c0c0c0;
@@ -194,13 +194,13 @@ QProgressBar {
 }
 
 QProgressBar::chunk {
-    background-color: #316ac5;
+    background-color: #2b579a;
     border-radius: 0px;
 }
 
 QGroupBox {
     font-weight: bold;
-    border: 1px solid #808080;
+    border: 1px solid #a0a0a0;
     border-radius: 0px;
     margin-top: 12px;
     padding-top: 8px;
@@ -217,7 +217,7 @@ QTextEdit {
     color: #d4d4d4;
     font-family: Consolas, 'Courier New', monospace;
     font-size: 12px;
-    border: 1px solid #808080;
+    border: 1px solid #a0a0a0;
     border-radius: 0px;
     padding: 8px;
 }
@@ -229,47 +229,47 @@ SliceItemWidget[state="normal"] {
     background-color: #ffffff;
 }
 SliceItemWidget[state="normal"]:hover {
-    border: 2px solid #0D6EFD;
-    background-color: #e7f1ff;
+    border: 2px solid #2b579a;
+    background-color: #e6e6e6;
 }
 SliceItemWidget[state="selected"] {
-    border: 2px solid #0D6EFD;
+    border: 2px solid #2b579a;
     border-radius: 4px;
-    background-color: #cfe2ff;
+    background-color: #d6d6d6;
 }
 SliceItemWidget[state="selected"]:hover {
-    border: 2px solid #0b5ed7;
-    background-color: #b6d4fe;
+    border: 2px solid #1e3f6f;
+    background-color: #c0c0c0;
 }
 SliceItemWidget[state="warn"] {
-    border: 1px solid #ffc107;
+    border: 1px solid #a0a0a0;
     border-radius: 4px;
-    background-color: #fff3cd;
+    background-color: #f0f0f0;
 }
 SliceItemWidget[state="warn"]:hover {
-    border: 2px solid #0D6EFD;
-    background-color: #e7f1ff;
+    border: 2px solid #2b579a;
+    background-color: #e6e6e6;
 }
 
 /* 焦点样式：为可聚焦控件提供统一的 :focus 边框，方便键盘用户辨识当前焦点 */
 QPushButton:focus {
-    border: 2px solid #0d6efd;
+    border: 2px solid #2b579a;
     outline: none;
 }
 QSpinBox:focus, QDoubleSpinBox:focus {
-    border: 2px solid #0d6efd;
+    border: 2px solid #2b579a;
 }
 QCheckBox:focus {
-    outline: 2px solid #0d6efd;
+    outline: 2px solid #2b579a;
 }
 QListWidget:focus {
-    border: 2px solid #0d6efd;
+    border: 2px solid #2b579a;
 }
 QGraphicsView:focus {
-    border: 2px solid #0d6efd;
+    border: 2px solid #2b579a;
 }
 QLineEdit:focus, QComboBox:focus {
-    border: 2px solid #0d6efd;
+    border: 2px solid #2b579a;
 }
 """
 

@@ -1604,6 +1604,11 @@ class VerticalCheckWindow(QWidget):
             pass
         # Fallback: 原 PIL→QImage 路径
         if pil_image.mode != "RGBA":
+            # 先强制 load，避免 lazy image 在 convert 时递归
+            try:
+                pil_image.load()
+            except Exception:
+                pass
             pil_image = pil_image.convert("RGBA")
         # bytearray 持有可变副本，避免 PIL 释放后 bytes 失效导致花屏
         data = bytearray(pil_image.tobytes("raw", "RGBA"))
@@ -1891,7 +1896,7 @@ class VerticalCheckWindow(QWidget):
                             x2 = max(0, min(x2, img_w))
                             y2 = max(0, min(y2, img_h))
                             if x2 > x1 and y2 > y1:
-                                char_slice.image = page_image.crop((x1, y1, x2, y2))
+                                char_slice.image = page_image.crop((x1, y1, x2, y2)).copy()
                         except Exception as exc:
                             self._report_error(exc)
                     # 失效 pixmap 缓存
@@ -2017,7 +2022,7 @@ class VerticalCheckWindow(QWidget):
         else:
             # 回退:索引缺失时直接修改
             try:
-                char_slice.image = page_image.crop((new_x1, new_y1, new_x2, new_y2))
+                char_slice.image = page_image.crop((new_x1, new_y1, new_x2, new_y2)).copy()
             except Exception as exc:
                 self._report_error(exc)
                 return

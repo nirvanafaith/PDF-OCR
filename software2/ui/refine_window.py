@@ -19,11 +19,13 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QUndoStack,
     QShortcut,
+    QSizePolicy,
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QEvent, QRectF, QPointF, QTimer
 from PyQt5.QtGui import (
     QPixmap,
     QImage,
+    QColor,
     QFont,
     QFontMetrics,
     QPen,
@@ -42,7 +44,9 @@ from models.data_models import (
     LineSlice,
     FONT_SIZE_GRADES,
     match_font_grade,
+    font_name_for_grade,
 )
+from native import batch_match_font_grade
 from pdf_processor.pdf_output import PDFOutputGenerator, PDFOutputWorker
 from ui.styles import get_stylesheet
 from ui.zoom_utils import calculate_wheel_zoom, ZOOM_MIN, ZOOM_MAX
@@ -147,15 +151,16 @@ class MovableTextItem(QGraphicsRectItem):
         self.setAcceptHoverEvents(False)
         self.setPen(QPen(Qt.NoPen))
         self._text_item = QGraphicsTextItem(text_item_data.text, self)
-        # 根据行框档位选择字体：五号用书宋体，其他用黑体
+        # 根据行框档位选择字体：一/二号用黑体，三/四/五号用书宋体
         line_bbox = text_item_data.line_bbox or [0, 0, 0, 0]
         line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
         grade = match_font_grade(line_height_pt)
-        if grade == 5:
-            font = QFont("SimSun")
-        else:
-            font = QFont("SimHei")
-        font.setPixelSize(max(int(h), 1))
+        font = QFont(font_name_for_grade(grade))
+        font_size_pt = FONT_SIZE_GRADES[grade]
+        font_size_px = font_size_pt * (300.0 / 72.0)
+        zoom = zoom_level if zoom_level > 0 else 1.0
+        candidate = max(int(font_size_px * zoom), 1)
+        font.setPixelSize(candidate)
         self._text_item.setFont(font)
         self._text_item.setDefaultTextColor(Qt.red)
         self._text_item.document().setDocumentMargin(0)
@@ -183,8 +188,7 @@ class MovableTextItem(QGraphicsRectItem):
         通常在切换到其他工具模式时调用。
 
         调用关系:
-            被 RefineWindow._on_hand_tool_toggle、RefineWindow._on_drag_toggle、
-            RefineWindow._on_add_text_toggle 调用。
+            被 RefineWindow._on_hand_tool_toggle、RefineWindow._on_drag_toggle 调用。
         """
         self._activated = False
         self.setFlag(QGraphicsRectItem.ItemIsMovable, False)
@@ -208,47 +212,21 @@ class MovableTextItem(QGraphicsRectItem):
         self._text_item.setPos(x, y)
 
     def _calculate_max_font_size(self, text, frame_w, frame_h):
-        """计算框内能容纳的最大字体大小（基于字号档位）。
+        """计算字号（基于字号档位，不缩小）。
 
-        从行框高度匹配中文字号档位，用档位磅值换算为像素字号
-        （按当前缩放级别换算为场景像素），再用 QFontMetrics 测量
-        字符宽高，超出框宽/框高时按比例缩小，最小 1px。
-        五号档位使用书宋体（SimSun），其他档位使用黑体（SimHei）。
-
-        参数:
-            text: 字符文本
-            frame_w: 框宽度（场景像素）
-            frame_h: 框高度（场景像素）
-
-        返回:
-            QFont: 设置好 pixelSize 的字体对象
+        从行框高度匹配中文字号档位，用档位磅值换算为像素字号。
+        一/二号档位使用黑体（SimHei），三/四/五号档位使用书宋体（SimSun）。
         """
-        # 从行框档位获取标准字号
         line_bbox = self._data.line_bbox or [0, 0, 0, 0]
         line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
         grade = match_font_grade(line_height_pt)
         font_size_pt = FONT_SIZE_GRADES[grade]
-        # 磅值 → 原始像素 → 场景像素（按缩放级别）
         font_size_px = font_size_pt * (300.0 / 72.0)
         zoom = self._zoom_level if self._zoom_level > 0 else 1.0
         candidate = max(int(font_size_px * zoom), 1)
-        # 五号用书宋体，其他用黑体
-        if grade == 5:
-            font = QFont("SimSun")
-        else:
-            font = QFont("SimHei")
+        font = QFont(font_name_for_grade(grade))
         font.setPixelSize(candidate)
         font.setStyleStrategy(QFont.PreferAntialias)
-        fm = QFontMetrics(font)
-        char_w = fm.horizontalAdvance(text) if text else 0
-        char_h = fm.ascent() + fm.descent()
-        # 溢出检查：超框时按比例缩小
-        if char_w > frame_w and frame_w > 0:
-            candidate = int(candidate * frame_w / char_w)
-        if char_h > frame_h and frame_h > 0:
-            candidate = int(candidate * frame_h / char_h)
-        candidate = max(candidate, 1)
-        font.setPixelSize(candidate)
         return font
 
     def _create_handles(self):
@@ -569,8 +547,8 @@ class MovableTextItem(QGraphicsRectItem):
     def contextMenuEvent(self, event):
         """处理右键上下文菜单事件。
 
-        未激活时忽略事件。激活状态下弹出右键菜单，提供"修改文字"和"删除"两个选项。
-        选择"修改文字"将打开编辑对话框，选择"删除"将标记数据为忽略并隐藏图元。
+        未激活时忽略事件。激活状态下弹出右键菜单，提供"修改文字"、
+        "对齐嵌回"、"修改字号"、"删除"四个选项。
 
         参数:
             event: 上下文菜单事件对象。
@@ -584,6 +562,7 @@ class MovableTextItem(QGraphicsRectItem):
         menu = QMenu()
         modify_action = menu.addAction("修改文字")
         align_action = menu.addAction("对齐嵌回")
+        font_size_action = menu.addAction("修改字号")
         delete_action = menu.addAction("删除")
         chosen = menu.exec(event.screenPos())
         if chosen == modify_action:
@@ -592,6 +571,10 @@ class MovableTextItem(QGraphicsRectItem):
             window = getattr(self, '_window', None)
             if window is not None and self._item_id is not None:
                 window._align_item_to_background(self._item_id)
+        elif chosen == font_size_action:
+            window = getattr(self, '_window', None)
+            if window is not None and self._item_id is not None:
+                window._modify_font_size(self._item_id)
         elif chosen == delete_action:
             # 通过窗口的撤销栈 push 删除命令，支持 Ctrl+Z 恢复
             window = getattr(self, '_window', None)
@@ -696,6 +679,9 @@ class RefineGraphicsView(QGraphicsView):
         self._mid_start_pos = None
         self._mid_start_pixmap_pos = None
         self._prev_cursor = None
+        # 设置极大视图场景矩形，使中键拖拽不受 sceneRect 边界限制
+        # （scene 自身的 sceneRect 仍由 _render_page 设置为实际页面尺寸）
+        self.setSceneRect(QRectF(-1e7, -1e7, 2e7, 2e7))
 
     def mousePressEvent(self, event):
         """处理鼠标按下事件，检测中键启动平移。
@@ -858,32 +844,45 @@ class RefineWindow(QWidget):
         for page_num, lines in self.page_lines.items():
             if page_num not in self.page_items:
                 self.page_items[page_num] = []
+
+        # 先收集所有非忽略行的行框高度，批量匹配档位（H6 native 加速）
+        batch_entries = []  # [(page_num, ls, line_bbox)]
+        all_heights = []
+        for page_num, lines in self.page_lines.items():
             for ls in lines:
                 if hasattr(ls, "_ignored") and ls._ignored:
                     continue
-                # 行框高度 → 磅值 → 档位 → 字号磅值
+                # 行框高度 → 磅值
                 line_bbox = list(ls.bbox) if ls.bbox else [0, 0, 0, 0]
                 line_height_pt = (line_bbox[3] - line_bbox[1]) * (72.0 / 300.0)
-                grade = match_font_grade(line_height_pt)
-                font_size = FONT_SIZE_GRADES[grade]
-                for char_data in ls.chars:
-                    text = char_data.get("text", "")
-                    # 空文本字符保留占位（空格），避免静默丢失
-                    if not text:
-                        text = " "
-                    # bbox 有效性检查：长度不足或面积为零时跳过
-                    bbox = char_data.get("bbox", [0, 0, 0, 0])
-                    if len(bbox) < 4 or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
-                        continue
-                    item = RefineTextItem(
-                        text=text,
-                        bbox=list(bbox),
-                        page_num=ls.page_num,
-                        font_size=font_size,
-                        ignored=False,
-                        line_bbox=line_bbox,
-                    )
-                    self.page_items[page_num].append(item)
+                batch_entries.append((page_num, ls, line_bbox))
+                all_heights.append(line_height_pt)
+
+        # 批量匹配档位；缺失 native 时回退逐行 match_font_grade
+        grades = batch_match_font_grade(all_heights)
+        if grades is None:
+            grades = [match_font_grade(h) for h in all_heights]
+
+        for (page_num, ls, line_bbox), grade in zip(batch_entries, grades):
+            font_size = FONT_SIZE_GRADES[grade]
+            for char_data in ls.chars:
+                text = char_data.get("text", "")
+                # 空文本字符保留占位（空格），避免静默丢失
+                if not text:
+                    text = " "
+                # bbox 有效性检查：长度不足或面积为零时跳过
+                bbox = char_data.get("bbox", [0, 0, 0, 0])
+                if len(bbox) < 4 or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
+                    continue
+                item = RefineTextItem(
+                    text=text,
+                    bbox=list(bbox),
+                    page_num=ls.page_num,
+                    font_size=font_size,
+                    ignored=False,
+                    line_bbox=line_bbox,
+                )
+                self.page_items[page_num].append(item)
 
     def _init_ui(self):
         """构建精修窗口的用户界面。
@@ -905,6 +904,11 @@ class RefineWindow(QWidget):
         toolbar = QToolBar()
         toolbar.setMovable(False)
         toolbar.setStyleSheet("QToolBar { spacing: 6px; padding: 4px; }")
+
+        # 工具栏按钮居中：左侧弹性间隔
+        spacer_left = QWidget()
+        spacer_left.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        toolbar.addWidget(spacer_left)
 
         self.back_btn = QPushButton("← 返回")
         self.back_btn.clicked.connect(self._on_back)
@@ -962,15 +966,10 @@ class RefineWindow(QWidget):
         self.hand_btn.clicked.connect(self._on_hand_tool_toggle)
         toolbar.addWidget(self.hand_btn)
 
-        self.drag_btn = QPushButton("拖拽")
+        self.drag_btn = QPushButton("修改")
         self.drag_btn.setCheckable(True)
         self.drag_btn.clicked.connect(self._on_drag_toggle)
         toolbar.addWidget(self.drag_btn)
-
-        self.add_text_btn = QPushButton("新增文字")
-        self.add_text_btn.setCheckable(True)
-        self.add_text_btn.clicked.connect(self._on_add_text_toggle)
-        toolbar.addWidget(self.add_text_btn)
 
         toolbar.addSeparator()
 
@@ -988,10 +987,15 @@ class RefineWindow(QWidget):
         self.finish_btn.clicked.connect(self._on_finish_confirm)
         toolbar.addWidget(self.finish_btn)
 
+        # 工具栏按钮居中：右侧弹性间隔
+        spacer_right = QWidget()
+        spacer_right.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        toolbar.addWidget(spacer_right)
+
         main_layout.addWidget(toolbar)
 
         self.scene = QGraphicsScene()
-        self.scene.setBackgroundBrush(Qt.white)
+        self.scene.setBackgroundBrush(QColor(0xd9, 0xd9, 0xd9))
 
         self.view = RefineGraphicsView(self.scene)
         self.view.setRenderHint(QPainter.Antialiasing)
@@ -1209,6 +1213,43 @@ class RefineWindow(QWidget):
         old_pos = item.pos()
         new_pos = QPointF(old_pos.x() + dx * zoom, old_pos.y() + dy * zoom)
         self._undo_stack.push(MoveTextItemCommand(self, item_id, old_pos, new_pos))
+
+    def _modify_font_size(self, item_id):
+        """修改指定文字项的字号（磅）。
+
+        弹出输入对话框让用户输入新的字号（磅），确认后更新该字对应的
+        line_bbox 高度为新磅值换算的像素高度（保持 y1 不变），重新匹配
+        字号档位并重渲染该字。
+
+        参数:
+            item_id: 文字项的唯一 ID。
+
+        调用关系:
+            由 MovableTextItem.contextMenuEvent 中"修改字号"菜单项调用。
+        """
+        from PyQt5.QtWidgets import QInputDialog
+        item = self._item_id_map.get(item_id)
+        if item is None:
+            return
+        data = item._data
+        # 当前磅值（基于 line_bbox 高度）
+        line_bbox = data.line_bbox or [0, 0, 0, 0]
+        current_h_px = line_bbox[3] - line_bbox[1]
+        current_pt = current_h_px * (72.0 / 300.0)
+        new_pt, ok = QInputDialog.getDouble(
+            self, "修改字号", "请输入字号（磅）：",
+            value=round(current_pt, 2), minValue=1.0, maxValue=100.0, decimals=2,
+        )
+        if not ok:
+            return
+        # 新磅值 → 像素高度（DPI=300）
+        new_h_px = new_pt * (300.0 / 72.0)
+        # 更新 line_bbox 高度（保持 y1 不变，y2 = y1 + new_h_px）
+        data.line_bbox = [line_bbox[0], line_bbox[1],
+                          line_bbox[2], line_bbox[1] + new_h_px]
+        # 重渲染该字
+        self._sync_current_page()
+        self._render_page()
 
     def _apply_resize_item(self, item_id, new_font_size, new_rect):
         """修改字号和框（直接修改，不 push 命令）。
@@ -1455,7 +1496,6 @@ class RefineWindow(QWidget):
             self._drag_mode = False
             self._add_text_mode = False
             self.drag_btn.setChecked(False)
-            self.add_text_btn.setChecked(False)
             for item in self.scene.items():
                 if isinstance(item, MovableTextItem):
                     item.deactivate()
@@ -1478,7 +1518,6 @@ class RefineWindow(QWidget):
             self._drag_mode = True
             self._add_text_mode = False
             self.hand_btn.setChecked(False)
-            self.add_text_btn.setChecked(False)
             self.view.setDragMode(QGraphicsView.NoDrag)
             self.view.setCursor(Qt.ArrowCursor)
             for item in self.scene.items():
@@ -1491,29 +1530,6 @@ class RefineWindow(QWidget):
             for item in self.scene.items():
                 if isinstance(item, MovableTextItem):
                     item.deactivate()
-
-    def _on_add_text_toggle(self):
-        """处理新增文字按钮的切换事件。
-
-        激活时关闭手型和拖拽模式，停用所有文字项的交互能力，
-        将视图设为无拖拽模式并显示十字光标。取消时恢复默认光标。
-
-        调用关系:
-            由 add_text_btn.clicked 信号触发。
-        """
-        if self.add_text_btn.isChecked():
-            self._add_text_mode = True
-            self._drag_mode = False
-            self.hand_btn.setChecked(False)
-            self.drag_btn.setChecked(False)
-            self.view.setDragMode(QGraphicsView.NoDrag)
-            self.view.setCursor(Qt.CrossCursor)
-            for item in self.scene.items():
-                if isinstance(item, MovableTextItem):
-                    item.deactivate()
-        else:
-            self._add_text_mode = False
-            self.view.setCursor(Qt.ArrowCursor)
 
     def eventFilter(self, obj, event):
         """事件过滤器，处理视图视口上的鼠标按下事件。
@@ -1573,9 +1589,9 @@ class RefineWindow(QWidget):
     def _on_context_menu(self, pos):
         """处理视图的右键上下文菜单请求。
 
-        在拖拽模式下，若右键点击位置在已有文字项上，则弹出菜单
-        提供"修改文字"和"删除"选项。在新增文字模式下，若右键点击
-        位置不在已有文字项上，则弹出菜单提供"添加文字"选项。
+        在"修改"按钮激活（拖拽模式）下：
+          - 右键空白处：弹出"新增文字"菜单项
+          - 右键文字项：由 MovableTextItem.contextMenuEvent 处理（修改文字/对齐嵌回/修改字号/删除）
 
         参数:
             pos: 视口坐标系下的右键点击位置。
@@ -1588,19 +1604,12 @@ class RefineWindow(QWidget):
         if isinstance(item, QGraphicsTextItem) and isinstance(item.parentItem(), MovableTextItem):
             item = item.parentItem()
         if isinstance(item, MovableTextItem):
-            if self._drag_mode:
-                menu = QMenu(self)
-                modify_action = menu.addAction("修改文字")
-                delete_action = menu.addAction("删除")
-                chosen = menu.exec(self.view.mapToGlobal(pos))
-                if chosen == modify_action:
-                    item._edit_text()
-                elif chosen == delete_action:
-                    self._delete_item(item._item_id)
+            # 文字项的右键菜单由 MovableTextItem.contextMenuEvent 处理
             return
-        if self._add_text_mode:
+        # 空白处右键：仅在"修改"按钮激活时弹出"新增文字"
+        if self._drag_mode:
             menu = QMenu(self)
-            add_action = menu.addAction("添加文字")
+            add_action = menu.addAction("新增文字")
             chosen = menu.exec(self.view.mapToGlobal(pos))
             if chosen == add_action:
                 self._add_text_at(scene_pos)
@@ -1647,22 +1656,38 @@ class RefineWindow(QWidget):
         new_text = line_edit.text().strip()
         if not new_text:
             return
-        avg_font_size = self._get_avg_font_size()
+        # 获取当前页所有未忽略行的行框高度中位数，匹配字号档位
+        items = self.page_items.get(self.current_page, [])
+        heights = [
+            (it.line_bbox[3] - it.line_bbox[1])
+            for it in items
+            if not it.ignored and it.line_bbox and len(it.line_bbox) >= 4
+        ]
+        if heights:
+            median_h_px = sorted(heights)[len(heights) // 2]
+            line_height_pt = median_h_px * (72.0 / 300.0)
+        else:
+            line_height_pt = FONT_SIZE_GRADES[5]
+        grade = match_font_grade(line_height_pt)
+        font_size_pt = FONT_SIZE_GRADES[grade]
+        font_size_px = font_size_pt * (300.0 / 72.0)
         base_x = scene_pos.x() / self.zoom_level
         base_y = scene_pos.y() / self.zoom_level
-        h = avg_font_size
-        w = avg_font_size
+        h = font_size_px
+        w = font_size_px
         for i, ch in enumerate(new_text):
             char_x = base_x + i * w
             # 分配唯一 ID 并构造数据，通过撤销栈 push 新增命令
             item_id = self._next_item_id
             self._next_item_id += 1
+            char_bbox = [char_x, base_y, char_x + w, base_y + h]
             new_item = RefineTextItem(
                 text=ch,
-                bbox=[char_x, base_y, char_x + w, base_y + h],
+                bbox=char_bbox,
                 page_num=self.current_page,
                 font_size=h,
                 ignored=False,
+                line_bbox=char_bbox,
             )
             new_item._item_id = item_id
             item_data = new_item.to_dict()
@@ -1714,7 +1739,6 @@ class RefineWindow(QWidget):
             self._add_text_mode = False
             self.hand_btn.setChecked(False)
             self.drag_btn.setChecked(False)
-            self.add_text_btn.setChecked(False)
             self.view.setDragMode(QGraphicsView.NoDrag)
             self.view.setCursor(Qt.ArrowCursor)
             for item in self.scene.items():

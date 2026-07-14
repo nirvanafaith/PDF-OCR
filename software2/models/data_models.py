@@ -35,6 +35,24 @@ def match_font_grade(line_height_pt):
     return best_grade
 
 
+def font_name_for_grade(grade: int) -> str:
+    """根据字号档位返回对应的中文字体名。
+
+    字体规则：
+        - 档位 1、2（一号、二号）：使用黑体 SimHei
+        - 档位 3、4、5（三号、四号、五号）：使用书宋体 SimSun
+
+    Args:
+        grade: 字号档位号（1-5）。
+
+    Returns:
+        str: 字体名（"SimHei" 或 "SimSun"）。未知档位回退到 "SimSun"。
+    """
+    if grade in (1, 2):
+        return "SimHei"
+    return "SimSun"
+
+
 @dataclass
 class TextLine:
     """OCR 识别的单行文本结果。

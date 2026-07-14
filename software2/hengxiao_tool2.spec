@@ -1,18 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec for 横校工具2 (hengxiao_tool2).
 
-打包命令（在 venv_py38 中执行）：
-    cd d:\\hx\\software2
-    d:\\hx\\software2\\native\\venv_py38\\Scripts\\pyinstaller.exe ^
-        hengxiao_tool2.spec --noconfirm --distpath d:\\hx\\dist
+打包命令（Python 3.12 环境中执行）：
+    cd e:\\hx\\software2
+    pyinstaller hengxiao_tool2.spec --noconfirm --distpath e:\\hx\\dist
 
 产物：
-    d:\\hx\\dist\\hengxiao_tool2\\hengxiao_tool2.exe   (GUI 入口)
-    d:\\hx\\dist\\hengxiao_tool2\\_internal\\           (依赖与数据)
-        ├─ native\\_hxnative.cp38-win_amd64.pyd  (C++ 加速)
+    e:\\hx\\dist\\hengxiao_tool2\\hengxiao_tool2.exe   (GUI 入口)
+    e:\\hx\\dist\\hengxiao_tool2\\_internal\\           (依赖与数据)
+        ├─ native\\_hxnative.cp312-win_amd64.pyd  (C++ H1-H5 加速)
         ├─ PyQt5\\Qt5\\plugins\\platforms\\qwindows.dll           (Qt 平台插件)
         ├─ fitz\\mupdfcpp64.dll                                   (PDF 渲染)
-        └─ reportlab\\fonts\\                                     (PDF 输出字体)
+        └─ PIL\\                                                  (图像插件)
 """
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules
@@ -36,30 +35,21 @@ datas += d
 binaries += b
 hiddenimports += h
 
-# reportlab: 字体数据 + 子模块
-d, b, h = collect_all('reportlab')
-datas += d
-binaries += b
-hiddenimports += h
-
 # Pillow (PIL): 图像插件
 d, b, h = collect_all('PIL')
 datas += d
 binaries += b
 hiddenimports += h
 
-# numpy: 核心数学库
-d, b, h = collect_all('numpy')
-datas += d
-binaries += b
-hiddenimports += h
+# 注：reportlab 未被 software2 使用（PDF 输出由 PyMuPDF 完成），不收集
+# 注：numpy 仅在 native/tests/ 中使用，运行时不需要，不收集
 
 # ----------------------------------------------------------------------------
 # 2. 添加 _hxnative C++ 加速扩展（.pyd）
 # ----------------------------------------------------------------------------
-# Python 3.8 ABI 的 .pyd 必须放到 bundle 内的 native/ 下，
+# Python 3.12 ABI 的 .pyd 必须放到 bundle 内的 native/ 下，
 # 与 native/__init__.py 的 `importlib.import_module("._hxnative", __package__)` 路径一致。
-_hxnative_pyd = 'd:/hx/software2/native/_hxnative.cp38-win_amd64.pyd'
+_hxnative_pyd = 'e:/hx/software2/native/_hxnative.cp312-win_amd64.pyd'
 binaries += [(_hxnative_pyd, 'native')]
 
 # ----------------------------------------------------------------------------
@@ -79,13 +69,13 @@ hiddenimports += collect_submodules('native')
 # 4. Analysis
 # ----------------------------------------------------------------------------
 a = Analysis(
-    ['d:/hx/software2/main.py'],
-    pathex=['d:/hx/software2'],  # 让 native 包可被发现
+    ['e:/hx/software2/main.py'],
+    pathex=['e:/hx/software2'],  # 让 native 包可被发现
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
-    runtime_hooks=['d:/hx/software2/runtime_hook_stderr.py'],
+    runtime_hooks=['e:/hx/software2/runtime_hook_stderr.py'],
     excludes=[
         # 排除测试/构建期依赖，减小体积
         'pytest',
@@ -94,6 +84,38 @@ a = Analysis(
         'tkinter',
         'unittest',
         'pydoc',
+        # 排除未使用的库
+        'reportlab',
+        'numpy',
+        'rapidocr',
+        'onnxruntime',
+        # 排除全局环境中安装但 software2 不使用的重型库
+        'torch',
+        'torchvision',
+        'torchaudio',
+        'matplotlib',
+        'pandas',
+        'scipy',
+        'tensorflow',
+        'tkinter',
+        'botocore',
+        'boto3',
+        'openpyxl',
+        'pygments',
+        'jinja2',
+        'dateutil',
+        'six',
+        'certifi',
+        'win32com',
+        'pythoncom',
+        'pywintypes',
+        'sqlite3',
+        'fsspec',
+        'wcwidth',
+        'shelve',
+        'importlib_resources',
+        'gi',
+        'PIL.ImageQt',  # 避免拉入 PyQt5/PySide2 冲突
     ],
     noarchive=False,
 )

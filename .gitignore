@@ -82,3 +82,24 @@ release_notes_v1.0.0.md
 # === 参赛材料（仅本地保留，不提交 GitHub） ===
 创意提案文档.md
 showcase.html
+
+# === 临时 diff/log 输出文件 ===
+all_diff.txt
+horiz_changes.txt
+horiz_diff.txt
+horiz_diff1.txt
+horiz_log.txt
+main_diff.txt
+main_diff2.txt
+main_diff3.txt
+test_output.txt
+technical_report.md
+参赛Demo文档.txt
+
+# === native 目录下的备份/锁定文件 ===
+*.locked_old
+*.old
+*.bak_*
+
+# === 测试用 PDF（大文件，不入 git） ===
+software1/铁路客货运输.pdf

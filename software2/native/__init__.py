@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+import threading
 from typing import Any, List
 
 __all__ = [
@@ -33,6 +34,29 @@ __all__ = [
 # ---------------------------------------------------------------------------
 _native = None
 _native_err: str | None = None
+_hotspot_printed: set = set()
+_print_lock = threading.Lock()
+
+
+def _print_hotspot_status(name: str, hotspot_id: str, enabled: bool) -> None:
+    """首次调用某热点时向 stdout 打印 C++ 加速启用状态。
+
+    同一热点在进程生命周期内仅打印一次，线程安全。
+
+    Args:
+        name: 热点函数名（如 "batch_match_font_grade"）。
+        hotspot_id: 热点标识（如 "H6"）。
+        enabled: True 表示 C++ 加速已启用；False 表示不可用，使用 Python 回退。
+    """
+    with _print_lock:
+        if name in _hotspot_printed:
+            return
+        _hotspot_printed.add(name)
+    status = "C++ acceleration enabled" if enabled else "C++ unavailable, using Python fallback"
+    try:
+        print(f"[native] {hotspot_id} {name}: {status}", flush=True)
+    except Exception:
+        pass
 
 
 def _try_load():
@@ -77,10 +101,14 @@ def pixmap_bytes_to_qpixmap_buffer(samples, width: int, height: int,
     """
     mod = _try_load()
     if mod is None:
+        _print_hotspot_status("pixmap_bytes_to_qpixmap_buffer", "H1", False)
         return None
     try:
-        return mod.pixmap_bytes_to_qpixmap_buffer(samples, width, height, n, stride)
+        result = mod.pixmap_bytes_to_qpixmap_buffer(samples, width, height, n, stride)
+        _print_hotspot_status("pixmap_bytes_to_qpixmap_buffer", "H1", True)
+        return result
     except Exception:  # noqa: BLE001 - 运行期错误降级为不可用
+        _print_hotspot_status("pixmap_bytes_to_qpixmap_buffer", "H1", False)
         return None
 
 
@@ -97,10 +125,14 @@ def optimize_char_boxes(mask, chars: List[Any]) -> List[Any] | None:
     """
     mod = _try_load()
     if mod is None:
+        _print_hotspot_status("optimize_char_boxes", "H2", False)
         return None
     try:
-        return mod.optimize_char_boxes(mask, chars)
+        result = mod.optimize_char_boxes(mask, chars)
+        _print_hotspot_status("optimize_char_boxes", "H2", True)
+        return result
     except Exception:  # noqa: BLE001
+        _print_hotspot_status("optimize_char_boxes", "H2", False)
         return None
 
 
@@ -118,10 +150,14 @@ def batch_crop_qimage(page_rgba, w: int, h: int,
     """
     mod = _try_load()
     if mod is None:
+        _print_hotspot_status("batch_crop_qimage", "H3", False)
         return None
     try:
-        return mod.batch_crop_qimage(page_rgba, w, h, bboxes, padding)
+        result = mod.batch_crop_qimage(page_rgba, w, h, bboxes, padding)
+        _print_hotspot_status("batch_crop_qimage", "H3", True)
+        return result
     except Exception:  # noqa: BLE001
+        _print_hotspot_status("batch_crop_qimage", "H3", False)
         return None
 
 
@@ -146,10 +182,14 @@ def pil_to_qimage_buffer(samples, width: int, height: int,
     """
     mod = _try_load()
     if mod is None:
+        _print_hotspot_status("pil_to_qimage_buffer", "H4", False)
         return None
     try:
-        return mod.pil_to_qimage_buffer(samples, width, height, mode, stride)
+        result = mod.pil_to_qimage_buffer(samples, width, height, mode, stride)
+        _print_hotspot_status("pil_to_qimage_buffer", "H4", True)
+        return result
     except Exception:  # noqa: BLE001
+        _print_hotspot_status("pil_to_qimage_buffer", "H4", False)
         return None
 
 
@@ -168,9 +208,12 @@ def batch_match_font_grade(line_heights_pt: List[float]) -> List[int] | None:
     mod = _try_load()
     if mod is not None:
         try:
-            return mod.batch_match_font_grade(line_heights_pt)
+            result = mod.batch_match_font_grade(line_heights_pt)
+            _print_hotspot_status("batch_match_font_grade", "H6", True)
+            return result
         except Exception:  # noqa: BLE001
             pass
+    _print_hotspot_status("batch_match_font_grade", "H6", False)
     # Python fallback
     return [_match_font_grade_py(h) for h in line_heights_pt]
 
@@ -209,20 +252,16 @@ def find_best_offset(text_mask, ink_mask, radius: int):
     """
     mod = _try_load()
     if mod is None:
+        _print_hotspot_status("find_best_offset", "H7", False)
         return None
     try:
         import numpy as _np
         # 强制 uint8 连续数组（bool 数组会自动转换）
         tm = _np.ascontiguousarray(text_mask, dtype=_np.uint8)
         im = _np.ascontiguousarray(ink_mask, dtype=_np.uint8)
-        return mod.find_best_offset(tm, im, int(radius))
+        result = mod.find_best_offset(tm, im, int(radius))
+        _print_hotspot_status("find_best_offset", "H7", True)
+        return result
     except Exception:  # noqa: BLE001
+        _print_hotspot_status("find_best_offset", "H7", False)
         return None
-
-
-# 启动期在 stderr 打印一次状态（便于诊断；不影响运行）
-if hasattr(sys, "stderr") and sys.stderr is not None:
-    try:
-        print(native_status(), file=sys.stderr)
-    except Exception:  # noqa: BLE001 - 诊断打印绝不影响主流程
-        pass
