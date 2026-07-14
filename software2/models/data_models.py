@@ -12,6 +12,7 @@ def match_font_grade(line_height_pt):
 
     遍历 FONT_SIZE_GRADES，返回磅值差最小的档位号（1-5）。
     当输入为 None 或非正数时，回退到五号（最小档位）。
+    五号收容上界为 15.0pt（小于该值直接归五号）。
 
     Args:
         line_height_pt: 行框高度，单位磅（pt）。
@@ -20,6 +21,9 @@ def match_font_grade(line_height_pt):
         int: 档位号（1-5）。
     """
     if not line_height_pt or line_height_pt <= 0:
+        return 5
+    # 五号字放宽收容：上界 15.0pt
+    if line_height_pt < 15.0:
         return 5
     best_grade = 5
     best_diff = None
