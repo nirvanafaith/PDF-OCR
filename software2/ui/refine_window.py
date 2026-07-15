@@ -38,6 +38,7 @@ from PyQt5.QtGui import (
 )
 import os
 import traceback
+from typing import Optional
 
 from models.data_models import (
     RefineTextItem,
@@ -101,7 +102,8 @@ class MovableTextItem(QGraphicsRectItem):
     RefineTextItem 数据模型，界面上的位置和尺寸变更会同步反映到数据模型中。
 
     类属性:
-        HANDLE_SIZE: 缩放手柄的像素尺寸，默认为 8。
+        _EDGE_TOLERANCE: 边框边缘敏感区域像素容差，默认为 4。
+        _EDGE_CURSORS: 边框方向到光标形状的映射。
 
     依赖:
         - PyQt5.QtWidgets.QGraphicsRectItem: 矩形图元基类
@@ -109,13 +111,24 @@ class MovableTextItem(QGraphicsRectItem):
         - models.data_models.RefineTextItem: 关联的文字数据模型
     """
 
-    HANDLE_SIZE = 8
+    _EDGE_TOLERANCE = 4  # 边框边缘敏感区域像素
+
+    _EDGE_CURSORS = {
+        "topLeft": Qt.SizeFDiagCursor,
+        "bottomRight": Qt.SizeFDiagCursor,
+        "topRight": Qt.SizeBDiagCursor,
+        "bottomLeft": Qt.SizeBDiagCursor,
+        "top": Qt.SizeVerCursor,
+        "bottom": Qt.SizeVerCursor,
+        "left": Qt.SizeHorCursor,
+        "right": Qt.SizeHorCursor,
+    }
 
     def __init__(self, text_item_data: RefineTextItem, zoom_level: float):
         """初始化可拖拽文字项。
 
         根据文字数据模型的边界框和当前缩放级别创建矩形图元，设置内嵌文字、
-        缩放手柄和选中状态的视觉样式。
+        选中状态的视觉样式。
 
         参数:
             text_item_data: 文字项数据模型，包含文字内容、边界框、页码等信息。
@@ -135,7 +148,6 @@ class MovableTextItem(QGraphicsRectItem):
         self.setPos(x1 * zoom_level, y1 * zoom_level)
         self._data = text_item_data
         self._zoom_level = zoom_level
-        self._handles = {}
         self._selected = False
         self._resize_handle = None
         self._start_rect = None
@@ -153,14 +165,17 @@ class MovableTextItem(QGraphicsRectItem):
         self.setAcceptHoverEvents(False)
         self.setPen(QPen(Qt.NoPen))
         self._text_item = QGraphicsTextItem(text_item_data.text, self)
-        # 根据行框档位选择字体：一/二号用黑体，三/四/五号用书宋体
+        # 优先使用自定义字体，否则按档位选择
         line_bbox = text_item_data.line_bbox or [0, 0, 0, 0]
         _w = line_bbox[2] - line_bbox[0]
         _h = line_bbox[3] - line_bbox[1]
         _short_side = _w if _h > _w else _h  # 竖排（高>宽）用宽度作为字号档位依据
         line_height_pt = _short_side * (72.0 / 300.0)
         grade = match_font_grade(line_height_pt)
-        font = QFont(font_name_for_char(text_item_data.text, grade))
+        if text_item_data.font_family:
+            font = QFont(text_item_data.font_family)
+        else:
+            font = QFont(font_name_for_char(text_item_data.text, grade))
         font_size_pt = FONT_SIZE_GRADES[grade]
         font_size_px = font_size_pt * (300.0 / 72.0)
         zoom = zoom_level if zoom_level > 0 else 1.0
@@ -170,7 +185,6 @@ class MovableTextItem(QGraphicsRectItem):
         self._text_item.setDefaultTextColor(Qt.red)
         self._text_item.document().setDocumentMargin(0)
         self._center_text()
-        self._create_handles()
         self._update_selection_visual()
 
     def activate(self):
@@ -220,7 +234,8 @@ class MovableTextItem(QGraphicsRectItem):
         """计算字号（基于字号档位，不缩小）。
 
         从行框高度匹配中文字号档位，用档位磅值换算为像素字号。
-        一/二号档位使用黑体（SimHei），三/四/五号档位使用书宋体（SimSun）。
+        优先使用自定义字体族，否则一/二号档位使用黑体（SimHei），
+        三/四/五号档位使用书宋体（SimSun）。
         """
         line_bbox = self._data.line_bbox or [0, 0, 0, 0]
         _w = line_bbox[2] - line_bbox[0]
@@ -232,76 +247,66 @@ class MovableTextItem(QGraphicsRectItem):
         font_size_px = font_size_pt * (300.0 / 72.0)
         zoom = self._zoom_level if self._zoom_level > 0 else 1.0
         candidate = max(int(font_size_px * zoom), 1)
-        font = QFont(font_name_for_char(self._data.text, grade))
+        if self._data.font_family:
+            font = QFont(self._data.font_family)
+        else:
+            font = QFont(font_name_for_char(self._data.text, grade))
         font.setPixelSize(candidate)
         font.setStyleStrategy(QFont.PreferAntialias)
         return font
 
-    def _create_handles(self):
-        """创建四个角的缩放手柄图元。
+    def _edge_at(self, pos: QPointF) -> Optional[str]:
+        """检测鼠标位置是否在边框边缘容差区域内，返回方向名或None。
 
-        在矩形的左上、右上、左下、右下四个角各创建一个蓝色小矩形作为缩放手柄，
-        初始状态下手柄不可见，仅在选中时显示。
+        参数:
+            pos: item 坐标系下的检测点。
 
-        调用关系:
-            被 __init__ 调用。
-        """
-        hs = self.HANDLE_SIZE
-        for name in ("topLeft", "top", "topRight", "left", "right",
-                     "bottomLeft", "bottom", "bottomRight"):
-            handle = QGraphicsRectItem(self)
-            handle.setPen(QPen(Qt.blue, 1))
-            handle.setBrush(QBrush(Qt.blue))
-            handle.setFlag(QGraphicsRectItem.ItemIsMovable, False)
-            handle.setFlag(QGraphicsRectItem.ItemIsSelectable, False)
-            handle.setVisible(False)
-            handle.setData(0, name)
-            self._handles[name] = handle
-        self._position_handles()
-
-    def _position_handles(self):
-        """根据当前矩形位置更新四个缩放手柄的坐标。
-
-        将手柄定位到矩形的四个角，每个手柄以角点为中心对称放置。
+        返回:
+            命中的方向名（如 "topLeft"），若无命中则返回 None。
 
         调用关系:
-            被 __init__、mouseMoveEvent、update_zoom 调用。
+            被 mousePressEvent、hoverMoveEvent 调用。
         """
-        hs = self.HANDLE_SIZE
-        half = hs / 2
         rect = self.rect()
-        cx = rect.left() + rect.width() / 2
-        cy = rect.top() + rect.height() / 2
-        positions = {
-            "topLeft": QPointF(rect.left() - half, rect.top() - half),
-            "top": QPointF(cx - half, rect.top() - half),
-            "topRight": QPointF(rect.right() - half, rect.top() - half),
-            "left": QPointF(rect.left() - half, cy - half),
-            "right": QPointF(rect.right() - half, cy - half),
-            "bottomLeft": QPointF(rect.left() - half, rect.bottom() - half),
-            "bottom": QPointF(cx - half, rect.bottom() - half),
-            "bottomRight": QPointF(rect.right() - half, rect.bottom() - half),
-        }
-        for name, pos in positions.items():
-            handle = self._handles[name]
-            handle.setRect(QRectF(pos.x(), pos.y(), hs, hs))
+        tol = self._EDGE_TOLERANCE
+        left = abs(pos.x() - rect.left()) <= tol
+        right = abs(pos.x() - rect.right()) <= tol
+        top = abs(pos.y() - rect.top()) <= tol
+        bottom = abs(pos.y() - rect.bottom()) <= tol
+        # 必须在矩形范围内或接近边缘
+        if not (rect.left() - tol <= pos.x() <= rect.right() + tol and
+                rect.top() - tol <= pos.y() <= rect.bottom() + tol):
+            return None
+        if top and left:
+            return "topLeft"
+        if top and right:
+            return "topRight"
+        if bottom and left:
+            return "bottomLeft"
+        if bottom and right:
+            return "bottomRight"
+        if top:
+            return "top"
+        if bottom:
+            return "bottom"
+        if left:
+            return "left"
+        if right:
+            return "right"
+        return None
 
     def _update_selection_visual(self):
         """根据选中状态更新文字项的视觉样式。
 
-        选中时显示蓝色虚线边框和四个缩放手柄，未选中时隐藏边框和手柄。
+        选中时显示蓝色虚线边框，未选中时隐藏边框。
 
         调用关系:
-            被 setSelected、deactivate 调用。
+            被 __init__、setSelected、deactivate 调用。
         """
         if self._selected:
             self.setPen(QPen(Qt.blue, 1, Qt.DashLine))
-            for handle in self._handles.values():
-                handle.setVisible(True)
         else:
             self.setPen(QPen(Qt.NoPen))
-            for handle in self._handles.values():
-                handle.setVisible(False)
 
     def setSelected(self, selected: bool):
         """设置文字项的选中状态并更新视觉样式。
@@ -326,30 +331,11 @@ class MovableTextItem(QGraphicsRectItem):
         """
         return self._selected
 
-    def _handle_at(self, scene_pos: QPointF):
-        """检测场景坐标下是否存在缩放手柄。
-
-        遍历所有缩放手柄，判断给定的场景坐标是否落在某个可见手柄的范围内。
-
-        参数:
-            scene_pos: 场景坐标系下的检测点。
-
-        返回:
-            命中的手柄名称（如 "topLeft"），若无命中则返回 None。
-
-        调用关系:
-            被 mousePressEvent 调用。
-        """
-        for name, handle in self._handles.items():
-            if handle.isVisible() and handle.contains(self.mapFromScene(scene_pos)):
-                return name
-        return None
-
     def mousePressEvent(self, event):
         """处理鼠标按下事件。
 
-        未激活时忽略事件。激活状态下，若点击到缩放手柄则进入缩放模式；
-        若点击到文字项本身则进入移动模式并选中该项，同时取消其他项的选中状态。
+        未激活时忽略事件。激活状态下，先用 _edge_at 检测是否点击在边框边缘；
+        若在边缘则进入缩放模式，否则进入移动模式并选中该项，同时取消其他项的选中状态。
 
         参数:
             event: 鼠标按下事件对象。
@@ -361,7 +347,7 @@ class MovableTextItem(QGraphicsRectItem):
             event.ignore()
             return
         if event.button() == Qt.LeftButton:
-            handle_name = self._handle_at(event.scenePos())
+            handle_name = self._edge_at(event.pos())
             if handle_name:
                 self._resize_handle = handle_name
                 self._start_rect = QRectF(self.rect())
@@ -386,7 +372,7 @@ class MovableTextItem(QGraphicsRectItem):
         """处理鼠标移动事件，实现缩放和移动功能。
 
         缩放模式：根据鼠标移动增量调整矩形尺寸和图元位置，
-        保持 rect() 始终从 (0,0) 开始，同时更新字体大小、手柄位置和文字居中。
+        保持 rect() 始终从 (0,0) 开始，同时更新字体大小和文字居中。
         移动模式：手动更新图元位置。
 
         参数:
@@ -431,7 +417,6 @@ class MovableTextItem(QGraphicsRectItem):
 
             font = self._calculate_max_font_size(self._data.text, new_w, new_h)
             self._text_item.setFont(font)
-            self._position_handles()
             self._center_text()
             event.accept()
             return
@@ -506,26 +491,15 @@ class MovableTextItem(QGraphicsRectItem):
             return
         super().mouseReleaseEvent(event)
 
-    _HANDLE_CURSORS = {
-        "topLeft": Qt.SizeFDiagCursor,
-        "bottomRight": Qt.SizeFDiagCursor,
-        "topRight": Qt.SizeBDiagCursor,
-        "bottomLeft": Qt.SizeBDiagCursor,
-        "top": Qt.SizeVerCursor,
-        "bottom": Qt.SizeVerCursor,
-        "left": Qt.SizeHorCursor,
-        "right": Qt.SizeHorCursor,
-    }
-
     def hoverMoveEvent(self, event):
         if not self._activated:
             super().hoverMoveEvent(event)
             return
-        handle_name = self._handle_at(event.scenePos())
+        handle_name = self._edge_at(event.pos())
         if handle_name:
-            self.setCursor(self._HANDLE_CURSORS.get(handle_name, Qt.ArrowCursor))
+            self.setCursor(self._EDGE_CURSORS.get(handle_name, Qt.ArrowCursor))
         else:
-            self.setCursor(Qt.SizeAllCursor)
+            self.setCursor(Qt.ArrowCursor)
         super().hoverMoveEvent(event)
 
     def hoverLeaveEvent(self, event):
@@ -556,7 +530,7 @@ class MovableTextItem(QGraphicsRectItem):
         """处理右键上下文菜单事件。
 
         未激活时忽略事件。激活状态下弹出右键菜单，提供"修改文字"、
-        "对齐嵌回"、"修改字号"、"删除"四个选项。
+        "对齐嵌回"、"修改字号"、"修改字体"、"删除"五个选项。
 
         参数:
             event: 上下文菜单事件对象。
@@ -571,6 +545,7 @@ class MovableTextItem(QGraphicsRectItem):
         modify_action = menu.addAction("修改文字")
         align_action = menu.addAction("对齐嵌回")
         font_size_action = menu.addAction("修改字号")
+        font_family_action = menu.addAction("修改字体")
         delete_action = menu.addAction("删除")
         chosen = menu.exec(event.screenPos())
         if chosen == modify_action:
@@ -583,6 +558,8 @@ class MovableTextItem(QGraphicsRectItem):
             window = getattr(self, '_window', None)
             if window is not None and self._item_id is not None:
                 window._modify_font_size(self._item_id)
+        elif chosen == font_family_action:
+            self._modify_font_family()
         elif chosen == delete_action:
             # 通过窗口的撤销栈 push 删除命令，支持 Ctrl+Z 恢复
             window = getattr(self, '_window', None)
@@ -633,11 +610,37 @@ class MovableTextItem(QGraphicsRectItem):
         self._data.text = new_text
         self._text_item.setPlainText(new_text)
 
+    def _modify_font_family(self):
+        """弹出QFontDialog选择字体族，应用到当前字符。
+
+        弹出系统字体选择对话框，用户确认后将所选字体族名存入数据模型，
+        重新设置文字图元字体并居中，同时通知窗口同步。
+
+        调用关系:
+            被 contextMenuEvent 中"修改字体"菜单项调用。
+
+        依赖:
+            - PyQt5.QtWidgets.QFontDialog: 字体选择对话框
+        """
+        from PyQt5.QtWidgets import QFontDialog
+        current_font = self._text_item.font()
+        font, ok = QFontDialog.getFont(current_font, None, "选择字体")
+        if ok and font:
+            family = font.family()
+            self._data.font_family = family
+            # 重新计算字体并应用
+            self._text_item.setFont(font)
+            self._center_text()
+            # 通知window同步
+            window = getattr(self, '_window', None)
+            if window is not None:
+                window._on_item_modified(getattr(self, '_item_id', None))
+
     def update_zoom(self, new_zoom: float):
         """根据新的缩放级别更新文字项的位置和尺寸。
 
         计算新旧缩放比例，按比例调整图元位置、矩形尺寸和字体大小，
-        并重新定位手柄和居中文字。
+        并居中文字。
 
         参数:
             new_zoom: 新的缩放级别。
@@ -661,7 +664,6 @@ class MovableTextItem(QGraphicsRectItem):
         font = self._calculate_max_font_size(self._data.text, new_w, new_h)
         self._text_item.setFont(font)
         self._zoom_level = new_zoom
-        self._position_handles()
         self._center_text()
 
 
@@ -1368,10 +1370,11 @@ class RefineWindow(QWidget):
         line_height_pt = _short_side * (72.0 / 300.0)
         grade = match_font_grade(line_height_pt)
         font_size_px = int(FONT_SIZE_GRADES[grade] * (300.0 / 72.0))
-        if grade == 5:
-            font = QFont("SimSun")
+        # 优先使用自定义字体，否则按档位选择（与 font_name_for_grade 一致）
+        if data.font_family:
+            font = QFont(data.font_family)
         else:
-            font = QFont("SimHei")
+            font = QFont(font_name_for_grade(grade))
         font.setPixelSize(max(font_size_px, 1))
         # 调用对齐算法（原始坐标系）
         dx, dy, _ = align_text_to_background(data.text, font, data.bbox, bg_img)
@@ -1427,12 +1430,24 @@ class RefineWindow(QWidget):
         self._sync_current_page()
         self._render_page()
 
+    def _on_item_modified(self, item_id):
+        """文字项被修改后的同步回调，重新渲染当前页以保持数据与视图一致。
+
+        参数:
+            item_id: 被修改文字项的唯一 ID。
+
+        调用关系:
+            被 MovableTextItem._modify_font_family 调用。
+        """
+        self._sync_current_page()
+        self._render_page()
+
     def _apply_resize_item(self, item_id, new_font_size, new_rect):
         """修改字号和框（直接修改，不 push 命令）。
 
         由 ResizeTextItemCommand.redo/undo 调用。new_rect.topLeft() 编码
         图元位置，width/height 为尺寸。设置图元位置和矩形后重新计算字体、
-        手柄和文字居中，并同步 RefineTextItem 的 bbox 和 font_size。
+        文字居中，并同步 RefineTextItem 的 bbox 和 font_size。
         若图元不在当前场景，仅更新数据模型。
 
         参数:
@@ -1450,7 +1465,6 @@ class RefineWindow(QWidget):
             item.setRect(QRectF(0, 0, size_w, size_h))
             font = item._calculate_max_font_size(item._data.text, size_w, size_h)
             item._text_item.setFont(font)
-            item._position_handles()
             item._center_text()
             data = item._data
         else:

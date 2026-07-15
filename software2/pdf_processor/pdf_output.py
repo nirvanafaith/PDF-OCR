@@ -24,8 +24,8 @@ class PDFOutputGenerator:
     """PDF 输出生成器（PyMuPDF 双层 PDF）。
 
     保留原 PDF 矢量层，在页面上叠加不可见或红色文本层。
-    文本按行组织，每行通过一次 TextWriter.append 写入整行文本，
-    从而支持按行选择与复制。
+    每个字符通过独立的 TextWriter 写入，使每个字符成为 PDF 内容流中
+    独立的 BT/ET 文本对象，从而支持逐字选择与复制。
 
     依赖:
         fitz (PyMuPDF): 打开原 PDF、创建 TextWriter、写入文本层。
@@ -36,7 +36,8 @@ class PDFOutputGenerator:
         """生成双层 PDF。
 
         打开原始 PDF 保留其矢量层，按 page_num + line_id 将校对字符分组，
-        整行拼接后通过 TextWriter 叠加文本层，分别支持不可见或红色两种模式。
+        逐字符通过独立的 TextWriter 叠加文本层，分别支持不可见或红色两种模式。
+        每个字符在 PDF 内容流中生成独立的 BT/ET 文本对象。
 
         Args:
             corrected_chars: CharSlice/CorrectedChar 对象列表，每个对象需
@@ -83,8 +84,6 @@ class PDFOutputGenerator:
             if page_chars:
                 # 按 y 基线分组（CorrectedChar 无 line_id，用 y 中心聚类）
                 line_groups = self._group_by_baseline(page_chars)
-
-                tw = fitz.TextWriter(page.rect)
 
                 # 批量收集所有行的行框高度（先排序+过滤空文本，与原逐行逻辑一致）
                 batch_lines = []  # [(line_chars, bboxes)]
@@ -133,7 +132,13 @@ class PDFOutputGenerator:
                     # 逐字符居中定位：水平居中 + 垂直居中
                     # per-char 字体选择：ASCII 字母/数字 → Times New Roman
                     for c, b in zip(line_chars, bboxes):
-                        char_font = self._get_font_for_char(c.text, grade)
+                        # 优先尊重字符自定义 font_family（RefineTextItem 可能有该属性，
+                        # CharSlice/CorrectedChar 无此属性，需安全获取）
+                        char_family = getattr(c, 'font_family', None)
+                        if char_family:
+                            char_font = self._get_font_by_name(char_family, grade)
+                        else:
+                            char_font = self._get_font_for_char(c.text, grade)
                         # per-char baseline 计算（不同字体的 ascender/descender 不同）
                         # ascender/descender 为属性，非方法
                         char_ascender = char_font.ascender
@@ -152,20 +157,21 @@ class PDFOutputGenerator:
                         pos_x = b[0] * scale + (bbox_w_pt - char_w_pt) / 2
                         # 垂直居中：基线 = bbox中心 - 字符视觉中心相对基线偏移
                         pos_y = b[1] * scale + bbox_h_pt / 2 + char_baseline_offset
+                        # 每字独立 TextWriter + write_text，
+                        # 使每个字符成为 PDF 内容流中独立的 BT/ET 文本对象
+                        char_tw = fitz.TextWriter(page.rect)
                         try:
-                            tw.append(
+                            char_tw.append(
                                 (pos_x, pos_y), c.text,
                                 font=char_font, fontsize=font_size_pt,
                             )
+                            if text_color == "transparent":
+                                char_tw.write_text(page, render_mode=3)
+                            else:
+                                char_tw.write_text(page, render_mode=0, color=(1, 0, 0))
                         except Exception:
                             # 跳过无法写入的文本（如越界或字形缺失）
                             pass
-
-                # 写入页面
-                if text_color == "transparent":
-                    tw.write_text(page, render_mode=3)
-                else:
-                    tw.write_text(page, render_mode=0, color=(1, 0, 0))
 
             if progress_callback:
                 progress_callback(page_idx + 1, total_pages)
@@ -314,6 +320,76 @@ class PDFOutputGenerator:
             if ('0' <= c <= '9') or ('a' <= c <= 'z') or ('A' <= c <= 'Z'):
                 return self._get_latin_font()
         return self._get_font(grade)
+
+    def _get_font_by_name(self, font_family, grade=3):
+        """根据字体族名加载对应的 fitz.Font，缓存实例避免重复加载。
+
+        支持常见中文字体名映射：
+            - "SimSun" / "宋体" / "书宋" → simsun.ttc
+            - "SimHei" / "黑体" → simhei.ttf
+            - "Times New Roman" → times.ttf
+            - "KaiTi" / "楷体" → simkai.ttf
+            - "FangSong" / "仿宋" → simfang.ttf
+            - 其他 → 回退到档位默认字体
+
+        用于尊重 RefineTextItem.font_family 自定义字体族。未匹配或加载失败时
+        回退到档位默认中文字体（_get_font(grade)）。
+
+        Args:
+            font_family: 字体族名（如 "SimSun"、"宋体"、"Times New Roman"）。
+            grade: 字号档位号（1-5），用于回退默认字体，默认 3。
+
+        Returns:
+            fitz.Font: 字体对象。
+        """
+        if not hasattr(self, '_font_by_name_cache'):
+            self._font_by_name_cache = {}
+
+        key = (font_family or '').strip()
+        if not key:
+            return self._get_font(grade)
+        if key in self._font_by_name_cache:
+            return self._font_by_name_cache[key]
+
+        # 字体族名 → 系统字体文件名映射
+        name_to_file = {
+            'SimSun': 'simsun.ttc',
+            '宋体': 'simsun.ttc',
+            '书宋': 'simsun.ttc',
+            'SimHei': 'simhei.ttf',
+            '黑体': 'simhei.ttf',
+            'Times New Roman': 'times.ttf',
+            'KaiTi': 'simkai.ttf',
+            '楷体': 'simkai.ttf',
+            'FangSong': 'simfang.ttf',
+            '仿宋': 'simfang.ttf',
+        }
+
+        font = None
+        windir = os.environ.get('WINDIR', 'C:\\Windows')
+
+        file_name = name_to_file.get(key)
+        if file_name is None:
+            # 模糊匹配：键中包含映射名（容错别名变体，如 "宋体 (SimSun)"）
+            for map_key, map_file in name_to_file.items():
+                if map_key in key or key in map_key:
+                    file_name = map_file
+                    break
+
+        if file_name:
+            font_path = os.path.join(windir, 'Fonts', file_name)
+            if os.path.exists(font_path):
+                try:
+                    font = fitz.Font(fontfile=font_path)
+                except Exception:
+                    font = None
+
+        # 回退到档位默认字体
+        if font is None:
+            font = self._get_font(grade)
+
+        self._font_by_name_cache[key] = font
+        return font
 
 
 class PDFOutputWorker(QThread):

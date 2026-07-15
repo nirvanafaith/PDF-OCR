@@ -359,6 +359,8 @@ class RefineTextItem:
         ignored: 是否在校对中被标记为忽略，默认为 False。
         line_bbox: 所属行框的边界框，格式为 [x1, y1, x2, y2]，
             用于字号档位匹配与字体选择，默认为 [0, 0, 0, 0]。
+        font_family: 自定义字体族名，None表示使用默认档位字体。
+            用户通过右键"修改字体"设置后存储，PDF导出时优先使用。
     """
 
     text: str
@@ -367,6 +369,7 @@ class RefineTextItem:
     font_size: float = 12.0
     ignored: bool = False
     line_bbox: List[float] = field(default_factory=lambda: [0, 0, 0, 0])
+    font_family: Optional[str] = None
 
     def to_dict(self):
         """序列化为可 JSON 化的字典。"""
@@ -377,6 +380,7 @@ class RefineTextItem:
             'font_size': self.font_size,
             'ignored': self.ignored,
             'line_bbox': list(self.line_bbox) if self.line_bbox else [0, 0, 0, 0],
+            'font_family': self.font_family,
         }
 
     @classmethod
@@ -389,6 +393,7 @@ class RefineTextItem:
             font_size=d.get('font_size', 12.0),
             ignored=d.get('ignored', False),
             line_bbox=d.get('line_bbox', [0, 0, 0, 0]),
+            font_family=d.get('font_family'),
         )
 
 
