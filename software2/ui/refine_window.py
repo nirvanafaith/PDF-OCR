@@ -666,17 +666,19 @@ class MovableTextItem(QGraphicsRectItem):
 
 
 class RefineGraphicsView(QGraphicsView):
-    """精修窗口的图形视图，支持中键拖拽平移。
+    """精修窗口的图形视图，支持中键拖拽平移与文本框选。
 
     在标准 QGraphicsView 基础上增加中键拖拽平移功能，
     不影响左键拖拽文字、滚轮缩放等现有交互。
+    另外实现了 Adobe Acrobat 风格的文本框选工具：在文本框选模式下，
+    左键拖拽拉出蓝色半透明选区，松开时按阅读序拼接选中文本以供复制。
 
     依赖:
         - PyQt5.QtWidgets.QGraphicsView: 图形视图基类
     """
 
     def __init__(self, scene, parent=None):
-        """初始化中键平移状态变量。
+        """初始化中键平移与文本框选状态变量。
 
         参数:
             scene: 关联的 QGraphicsScene 场景对象。
@@ -690,12 +692,38 @@ class RefineGraphicsView(QGraphicsView):
         # 设置极大视图场景矩形，使中键拖拽不受 sceneRect 边界限制
         # （scene 自身的 sceneRect 仍由 _render_page 设置为实际页面尺寸）
         self.setSceneRect(QRectF(-1e7, -1e7, 2e7, 2e7))
+        # 文本框选状态变量
+        self._text_select_mode = False
+        self._sel_start_scene = None
+        self._sel_overlay_items = []
+        self._selected_text_items = []
+        self._selected_text = ""
+
+    def set_text_select_mode(self, enabled):
+        """开启或关闭文本框选模式。
+
+        激活时关闭视图拖拽模式、切换 I 形光标并清空旧选区；
+        取消时清空选区并恢复箭头光标。
+
+        参数:
+            enabled: True 表示激活文本框选模式，False 表示取消。
+        """
+        if enabled:
+            self.setDragMode(QGraphicsView.NoDrag)
+            self.setCursor(Qt.IBeamCursor)
+            self._text_select_mode = True
+            self.clear_text_selection()
+        else:
+            self._text_select_mode = False
+            self.clear_text_selection()
+            self.setCursor(Qt.ArrowCursor)
 
     def mousePressEvent(self, event):
-        """处理鼠标按下事件，检测中键启动平移。
+        """处理鼠标按下事件。
 
-        中键按下时记录起始位置和起始场景位置，切换为闭合手型光标。
-        其他按键交由父类处理，不影响左键拖拽文字等现有交互。
+        中键：启动平移（优先级最高，不受文本框选模式影响）；
+        文本框选模式 + 左键：记录选区起点并清空旧选区；
+        其他情况：交由父类处理。
 
         参数:
             event: 鼠标按下事件对象。
@@ -708,13 +736,20 @@ class RefineGraphicsView(QGraphicsView):
             self.setCursor(Qt.ClosedHandCursor)
             event.accept()
             return
+        if self._text_select_mode and event.button() == Qt.LeftButton:
+            scene_pos = self.mapToScene(event.pos())
+            self._sel_start_scene = scene_pos
+            self.clear_text_selection()
+            event.accept()
+            return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        """处理鼠标移动事件，中键拖拽时按缩放因子平移视图。
+        """处理鼠标移动事件。
 
-        中键拖拽期间，根据鼠标增量与当前缩放因子计算场景增量，
-        通过滚动条反向平移实现抓取式拖拽（内容跟随鼠标移动）。
+        中键拖拽期间：按缩放因子平移视图实现抓取式拖拽；
+        文本框选模式 + 左键按下且有起点：实时更新蓝色选区覆盖；
+        其他情况：交由父类处理。
 
         参数:
             event: 鼠标移动事件对象。
@@ -736,14 +771,34 @@ class RefineGraphicsView(QGraphicsView):
             self._mid_start_pos = event.pos()
             event.accept()
             return
+        if (self._text_select_mode and self._sel_start_scene is not None
+                and (event.buttons() & Qt.LeftButton)):
+            scene_pos = self.mapToScene(event.pos())
+            rect = QRectF(self._sel_start_scene, scene_pos).normalized()
+            self._update_selection_overlays(rect)
+            event.accept()
+            return
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        """处理鼠标释放事件，中键释放结束平移并恢复光标。
+        """处理鼠标释放事件。
+
+        文本框选模式 + 左键 + 有起点：完成选区并按阅读序拼接文本；
+        中键释放：结束平移并恢复光标；
+        其他情况：交由父类处理。
 
         参数:
             event: 鼠标释放事件对象。
         """
+        if (self._text_select_mode and event.button() == Qt.LeftButton
+                and self._sel_start_scene is not None):
+            scene_pos = self.mapToScene(event.pos())
+            rect = QRectF(self._sel_start_scene, scene_pos).normalized()
+            self._update_selection_overlays(rect)
+            self._selected_text = self._build_selected_text()
+            self._sel_start_scene = None
+            event.accept()
+            return
         if event.button() == Qt.MiddleButton and self._mid_panning:
             self._mid_panning = False
             self._mid_start_pos = None
@@ -756,6 +811,93 @@ class RefineGraphicsView(QGraphicsView):
             event.accept()
             return
         super().mouseReleaseEvent(event)
+
+    def _update_selection_overlays(self, rect):
+        """更新与给定矩形相交的字符框蓝色覆盖。
+
+        移除旧覆盖，为每个相交且未忽略的 MovableTextItem 创建蓝色半透明
+        覆盖矩形（覆盖整字框，zValue 高于文字），并记录选中项列表。
+        QGraphicsTextItem 是 MovableTextItem 的子项，scene.items() 返回的
+        列表中包含子项，需通过 parentItem() 获取父 MovableTextItem 并去重。
+
+        参数:
+            rect: 场景坐标系下的拖拽选区矩形。
+        """
+        for ov in self._sel_overlay_items:
+            try:
+                self.scene().removeItem(ov)
+            except Exception:
+                pass
+        self._sel_overlay_items = []
+        candidates = self.scene().items(rect, Qt.IntersectsItemBoundingRect)
+        selected = []
+        for it in candidates:
+            # MovableTextItem 的子项（QGraphicsTextItem、handle）也会被返回，需取 parentItem
+            if isinstance(it, QGraphicsTextItem) and isinstance(it.parentItem(), MovableTextItem):
+                it = it.parentItem()
+            if isinstance(it, MovableTextItem) and not it._data.ignored:
+                if it not in selected:
+                    selected.append(it)
+        self._selected_text_items = selected
+        for it in selected:
+            ov = QGraphicsRectItem(it.sceneBoundingRect())
+            ov.setPen(QPen(Qt.NoPen))
+            ov.setBrush(QBrush(QColor(0, 100, 255, 100)))
+            ov.setZValue(2)
+            self.scene().addItem(ov)
+            self._sel_overlay_items.append(ov)
+
+    def _build_selected_text(self):
+        """按阅读序拼接选中文本。
+
+        先按 y 中心、再按 x 左边界排序，按 y 阈值（中位字高 * 0.5）分行，
+        行内按 x 排序拼接字符文本，跨行用换行符连接。
+
+        返回:
+            拼接后的选中文本字符串。
+        """
+        if not self._selected_text_items:
+            return ""
+        items = list(self._selected_text_items)
+        heights = [it.sceneBoundingRect().height() for it in items]
+        median_h = sorted(heights)[len(heights) // 2] if heights else 20.0
+        threshold = max(median_h * 0.5, 5.0)
+        items.sort(key=lambda it: (it.sceneBoundingRect().center().y(),
+                                   it.sceneBoundingRect().left()))
+        lines = []
+        current = []
+        last_y = None
+        for it in items:
+            y = it.sceneBoundingRect().center().y()
+            if last_y is None or abs(y - last_y) <= threshold:
+                current.append(it)
+            else:
+                lines.append(current)
+                current = [it]
+            last_y = y
+        if current:
+            lines.append(current)
+        parts = []
+        for line in lines:
+            line.sort(key=lambda it: it.sceneBoundingRect().left())
+            parts.append("".join(it._text_item.toPlainText() for it in line))
+        return "\n".join(parts)
+
+    def clear_text_selection(self):
+        """清除文本框选的所有覆盖图元与状态。"""
+        for ov in self._sel_overlay_items:
+            try:
+                self.scene().removeItem(ov)
+            except Exception:
+                pass
+        self._sel_overlay_items = []
+        self._selected_text_items = []
+        self._selected_text = ""
+        self._sel_start_scene = None
+
+    def get_selected_text(self):
+        """返回当前选中的文本，仅在文本框选模式下返回非空字符串。"""
+        return self._selected_text if self._text_select_mode else ""
 
 
 class RefineWindow(QWidget):
@@ -816,11 +958,6 @@ class RefineWindow(QWidget):
         self.page_items = {}
         self._drag_mode = False
         self._add_text_mode = False
-        self._text_select_mode = False
-        self._sel_start_scene = None
-        self._sel_overlay_items = []
-        self._selected_text_items = []
-        self._selected_text = ""
         self._selected_item = None
         self._first_render = True
         self._pixmap_cache = {}
@@ -1064,14 +1201,13 @@ class RefineWindow(QWidget):
             - MovableTextItem: 精修文字项组件
             - _pil_to_pixmap: PIL 图像转 QPixmap 工具方法
         """
+        # 先清理文本框选 overlay 引用，再 scene.clear()。
+        # 若顺序相反，clear_text_selection 内部 removeItem 会因 overlay 已不在 scene 中
+        # 抛异常（虽然被 try/except 吞掉，但产生无谓异常开销）。
+        self.view.clear_text_selection()
         self.scene.clear()
         self._item_id_map.clear()
         self._selected_item = None
-        # 翻页/缩放后文本框选 overlay 已被 scene.clear() 移除，重置引用
-        self._sel_overlay_items = []
-        self._selected_text_items = []
-        self._selected_text = ""
-        self._sel_start_scene = None
         if self.page_images and self.current_page < len(self.page_images):
             img = self.page_images[self.current_page]
             cache_key = (self.current_page, self.zoom_level)
@@ -1536,8 +1672,7 @@ class RefineWindow(QWidget):
             self._drag_mode = False
             self._add_text_mode = False
             self.text_select_btn.setChecked(False)
-            self._text_select_mode = False
-            self._clear_text_selection()
+            self.view.set_text_select_mode(False)
             self.drag_btn.setChecked(False)
             for item in self.scene.items():
                 if isinstance(item, MovableTextItem):
@@ -1561,8 +1696,7 @@ class RefineWindow(QWidget):
             self._drag_mode = True
             self._add_text_mode = False
             self.text_select_btn.setChecked(False)
-            self._text_select_mode = False
-            self._clear_text_selection()
+            self.view.set_text_select_mode(False)
             self.hand_btn.setChecked(False)
             self.view.setDragMode(QGraphicsView.NoDrag)
             self.view.setCursor(Qt.ArrowCursor)
@@ -1594,132 +1728,9 @@ class RefineWindow(QWidget):
             for item in self.scene.items():
                 if isinstance(item, MovableTextItem):
                     item.deactivate()
-            self._clear_text_selection()
-            self.view.setDragMode(QGraphicsView.NoDrag)
-            self.view.setCursor(Qt.IBeamCursor)
-            self._text_select_mode = True
+            self.view.set_text_select_mode(True)
         else:
-            self._text_select_mode = False
-            self._clear_text_selection()
-            self.view.setCursor(Qt.ArrowCursor)
-
-    def _clear_text_selection(self):
-        """清除文本框选的所有覆盖图元与状态。"""
-        for ov in self._sel_overlay_items:
-            try:
-                self.scene.removeItem(ov)
-            except Exception:
-                pass
-        self._sel_overlay_items = []
-        self._selected_text_items = []
-        self._selected_text = ""
-        self._sel_start_scene = None
-
-    def _handle_text_select_event(self, event):
-        """文本框选模式下处理鼠标事件，实现拖拽拉蓝选区。
-
-        左键按下记录起点并清旧选区；左键拖动实时更新与拖拽矩形相交的
-        字符框蓝色覆盖；左键释放完成选区并按阅读序拼接文本。
-
-        参数:
-            event: 视口事件对象。
-
-        返回:
-            True 表示事件已处理，False 表示放行。
-
-        调用关系:
-            被 eventFilter 在文本框选模式下调用。
-        """
-        et = event.type()
-        if et == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
-            scene_pos = self.view.mapToScene(event.pos())
-            self._sel_start_scene = scene_pos
-            self._clear_text_selection()
-            event.accept()
-            return True
-        if et == QEvent.MouseMove:
-            if self._sel_start_scene is not None and (event.buttons() & Qt.LeftButton):
-                scene_pos = self.view.mapToScene(event.pos())
-                rect = QRectF(self._sel_start_scene, scene_pos).normalized()
-                self._update_selection_overlays(rect)
-                event.accept()
-                return True
-            return False
-        if et == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
-            if self._sel_start_scene is not None:
-                scene_pos = self.view.mapToScene(event.pos())
-                rect = QRectF(self._sel_start_scene, scene_pos).normalized()
-                self._update_selection_overlays(rect)
-                self._selected_text = self._build_selected_text()
-                self._sel_start_scene = None
-                event.accept()
-                return True
-        return False
-
-    def _update_selection_overlays(self, rect):
-        """更新与给定矩形相交的字符框蓝色覆盖。
-
-        移除旧覆盖，为每个相交且未忽略的 MovableTextItem 创建蓝色半透明
-        覆盖矩形（覆盖整字框，zValue 高于文字），并记录选中项列表。
-
-        参数:
-            rect: 场景坐标系下的拖拽选区矩形。
-        """
-        for ov in self._sel_overlay_items:
-            try:
-                self.scene.removeItem(ov)
-            except Exception:
-                pass
-        self._sel_overlay_items = []
-        candidates = self.scene.items(rect, Qt.IntersectsItemBoundingRect)
-        selected = []
-        for it in candidates:
-            if isinstance(it, MovableTextItem) and not it._data.ignored:
-                selected.append(it)
-        self._selected_text_items = selected
-        for it in selected:
-            ov = QGraphicsRectItem(it.sceneBoundingRect())
-            ov.setPen(QPen(Qt.NoPen))
-            ov.setBrush(QBrush(QColor(0, 100, 255, 100)))
-            ov.setZValue(2)
-            self.scene.addItem(ov)
-            self._sel_overlay_items.append(ov)
-
-    def _build_selected_text(self):
-        """按阅读序拼接选中文本。
-
-        先按 y 中心、再按 x 左边界排序，按 y 阈值（中位字高 * 0.5）分行，
-        行内按 x 排序拼接字符文本，跨行用换行符连接。
-
-        返回:
-            拼接后的选中文本字符串。
-        """
-        if not self._selected_text_items:
-            return ""
-        items = list(self._selected_text_items)
-        heights = [it.sceneBoundingRect().height() for it in items]
-        median_h = sorted(heights)[len(heights) // 2] if heights else 20.0
-        threshold = max(median_h * 0.5, 5.0)
-        items.sort(key=lambda it: (it.sceneBoundingRect().center().y(),
-                                   it.sceneBoundingRect().left()))
-        lines = []
-        current = []
-        last_y = None
-        for it in items:
-            y = it.sceneBoundingRect().center().y()
-            if last_y is None or abs(y - last_y) <= threshold:
-                current.append(it)
-            else:
-                lines.append(current)
-                current = [it]
-            last_y = y
-        if current:
-            lines.append(current)
-        parts = []
-        for line in lines:
-            line.sort(key=lambda it: it.sceneBoundingRect().left())
-            parts.append("".join(it._text_item.toPlainText() for it in line))
-        return "\n".join(parts)
+            self.view.set_text_select_mode(False)
 
     def _copy_selected_text(self):
         """复制当前文本框选区文本到系统剪贴板。
@@ -1729,8 +1740,9 @@ class RefineWindow(QWidget):
         调用关系:
             由 Ctrl+C 快捷键和右键"复制"菜单触发。
         """
-        if self._text_select_mode and self._selected_text:
-            QApplication.clipboard().setText(self._selected_text)
+        text = self.view.get_selected_text()
+        if text:
+            QApplication.clipboard().setText(text)
 
     def eventFilter(self, obj, event):
         """事件过滤器，处理视图视口上的鼠标按下事件。
@@ -1771,9 +1783,6 @@ class RefineWindow(QWidget):
                         self.current_page += 1
                         self._render_page()
                     return True
-            # 文本框选模式：非滚轮事件由专用处理器接管
-            if self._text_select_mode:
-                return self._handle_text_select_event(event)
             if event.type() == QEvent.MouseButtonPress:
                 if event.button() == Qt.LeftButton and self._drag_mode:
                     scene_pos = self.view.mapToScene(event.pos())
@@ -1805,11 +1814,12 @@ class RefineWindow(QWidget):
         if isinstance(item, QGraphicsTextItem) and isinstance(item.parentItem(), MovableTextItem):
             item = item.parentItem()
         # 文本框选模式：右键弹出"复制"菜单（有选区时）
-        if self._text_select_mode:
-            if self._selected_text:
+        if self.view._text_select_mode:
+            text = self.view.get_selected_text()
+            if text:
                 menu = QMenu(self)
                 copy_action = menu.addAction("复制")
-                chosen = menu.exec(self.view.mapToGlobal(pos))
+                chosen = menu.exec(self.view.viewport().mapToGlobal(pos))
                 if chosen == copy_action:
                     self._copy_selected_text()
             return
@@ -1951,11 +1961,10 @@ class RefineWindow(QWidget):
             # 退出拖拽、新增文字、手型工具模式
             self._drag_mode = False
             self._add_text_mode = False
-            self._text_select_mode = False
             self.hand_btn.setChecked(False)
             self.drag_btn.setChecked(False)
             self.text_select_btn.setChecked(False)
-            self._clear_text_selection()
+            self.view.set_text_select_mode(False)
             self.view.setDragMode(QGraphicsView.NoDrag)
             self.view.setCursor(Qt.ArrowCursor)
             for item in self.scene.items():

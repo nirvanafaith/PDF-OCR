@@ -69,9 +69,24 @@ batch_match_font_grade(const std::vector<double>& line_heights_pt);
 // (ih x iw, uint8 非零为墨迹, 四周已扩展 radius 像素)，
 // 在 (dx,dy) ∈ [-radius, radius] 范围搜索使两者交集最大的偏移，返回 (dx, dy)。
 // 逻辑与 alignment/text_aligner.py::find_best_offset 等价（含全零处理与平局处理）。
+// 内层循环按 uint64_t 批量处理 (8 字节/次) + popcount 统计交集，假定 mask 值为 0/1。
 std::pair<int, int>
 find_best_offset(const std::uint8_t *text_mask, int th, int tw,
                  const std::uint8_t *ink_mask, int ih, int iw,
                  int radius);
+
+// ---- H8: 从图像像素数据裁切 bbox 扩展 radius 的区域并二值化 ---------------
+// 输入 img_data (RGB/RGBA 紧凑像素), img_w, img_h, img_n (3=RGB, 4=RGBA),
+//       bbox [x1,y1,x2,y2], radius (扩展半径),
+// 输出紧凑 uint8 mask (0=白, 1=非白), *out_w, *out_h。
+// 二值化使用 PIL 'L' 模式等价灰度公式 L=(R*19595+G*38470+B*7471)>>16, 阈值 200
+// (与 text_aligner.py::extract_ink_mask 的 gray < 200 字节级一致)。
+// 注意: 返回的是裁切区域 (裁剪到图像边界内) 的 mask, 不含 padding;
+//       Python 端需自行补齐到 (bh+2*radius, bw+2*radius)。
+std::string extract_ink_mask_fast(const std::uint8_t *img_data,
+                                  int img_w, int img_h, int img_n,
+                                  const int *bbox, int bbox_len,
+                                  int radius,
+                                  int *out_w, int *out_h);
 
 }  // namespace hxnative

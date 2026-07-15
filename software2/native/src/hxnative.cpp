@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
@@ -22,6 +23,20 @@
 
 namespace py = pybind11;
 using namespace hxnative;
+
+// ---------------------------------------------------------------------------
+// 可移植 popcount: MSVC 用 __popcnt64, GCC/Clang 用 __builtin_popcountll
+// ---------------------------------------------------------------------------
+#if defined(_MSC_VER)
+#include <intrin.h>
+static inline int hx_popcount64(std::uint64_t x) {
+    return static_cast<int>(__popcnt64(x));
+}
+#else
+static inline int hx_popcount64(std::uint64_t x) {
+    return __builtin_popcountll(x);
+}
+#endif
 
 // ============================================================================
 // H1: fitz pixmap.samples → QImage 可用的紧凑像素 buffer
@@ -401,7 +416,15 @@ hxnative::find_best_offset(const std::uint8_t *text_mask, int th, int tw,
     if (!ink_has_any)
         return {0, 0};
 
-    long best_overlap = -1;
+    // 预计算每行可批量处理的 uint64 段数与尾部字节数
+    // 假定 text_mask / ink_mask 值为 0 或 1 (来自 numpy bool -> uint8 转换)，
+    // 因此 uint64_t AND 后 popcount 直接统计两字节同时为 1 的位置数。
+    const int tw_bytes = tw;
+    const int n_full = tw_bytes / 8;   // 完整 uint64 段数
+    const int n_tail = tw_bytes % 8;   // 尾部剩余字节数
+
+    // 使用 long long 避免Windows平台 long(32位) 在大 mask (>46340x46340) 时溢出
+    long long best_overlap = -1;
     int best_dx = 0, best_dy = 0;
 
     // 迭代序：外层 dy=-r..r，内层 dx=-r..r（与 numpy 一致）
@@ -414,11 +437,21 @@ hxnative::find_best_offset(const std::uint8_t *text_mask, int th, int tw,
             if (ox < 0) continue;
             if (ox + tw > iw) continue;
             // 计算交集：text_mask[y*tw+x] 与 ink_mask[(oy+y)*iw + (ox+x)] 都非零
-            long overlap = 0;
+            long long overlap = 0;
             const std::uint8_t *trow = text_mask;
             const std::uint8_t *irow = ink_mask + static_cast<std::ptrdiff_t>(oy) * iw + ox;
             for (int y = 0; y < th; ++y) {
-                for (int x = 0; x < tw; ++x) {
+                // 内层循环按 uint64_t 批量处理 (8 字节/次)
+                // 用 memcpy 安全处理非对齐访问 (x86 上编译器优化为单条 mov 指令)
+                int x = 0;
+                for (int k = 0; k < n_full; ++k, x += 8) {
+                    std::uint64_t t, i;
+                    std::memcpy(&t, trow + x, 8);
+                    std::memcpy(&i, irow + x, 8);
+                    overlap += hx_popcount64(t & i);
+                }
+                // 尾部不足 8 字节逐字节处理
+                for (int k = 0; k < n_tail; ++k, ++x) {
                     if (trow[x] && irow[x]) ++overlap;
                 }
                 trow += tw;
@@ -433,6 +466,69 @@ hxnative::find_best_offset(const std::uint8_t *text_mask, int th, int tw,
         }
     }
     return {best_dx, best_dy};
+}
+
+// ============================================================================
+// H8: 从图像像素数据裁切 bbox 扩展 radius 的区域并二值化
+// ============================================================================
+// 与 alignment/text_aligner.py::extract_ink_mask 字节级等价:
+//   1. 计算裁切区域 [x1-radius, y1-radius, x2+radius, y2+radius]
+//   2. 裁剪到图像边界 [0, img_w) x [0, img_h)
+//   3. 对每个像素用 PIL 'L' 模式等价灰度公式 L=(R*19595+G*38470+B*7471)>>16,
+//      非白判定 L < 200 → 1, 否则 0
+//   4. 返回紧凑 mask buffer + 裁切区域宽高 (不含 padding, Python 端自行补齐)
+
+std::string
+hxnative::extract_ink_mask_fast(const std::uint8_t *img_data,
+                                int img_w, int img_h, int img_n,
+                                const int *bbox, int bbox_len,
+                                int radius,
+                                int *out_w, int *out_h)
+{
+    if (img_data == nullptr || bbox == nullptr || bbox_len < 4 ||
+        img_w <= 0 || img_h <= 0 || (img_n != 3 && img_n != 4) ||
+        out_w == nullptr || out_h == nullptr || radius < 0)
+        throw std::runtime_error("extract_ink_mask_fast: invalid arguments");
+
+    // 与 Python int(x1 - radius) 等价 (bbox 已为 int, radius 为 int)
+    int x1 = bbox[0] - radius;
+    int y1 = bbox[1] - radius;
+    int x2 = bbox[2] + radius;
+    int y2 = bbox[3] + radius;
+
+    // 裁剪到图像边界 (与 Python max(0, ...) / min(img_w, ...) 一致)
+    if (x1 < 0) x1 = 0;
+    if (y1 < 0) y1 = 0;
+    if (x2 > img_w) x2 = img_w;
+    if (y2 > img_h) y2 = img_h;
+
+    int w = x2 - x1;
+    int h = y2 - y1;
+    if (w <= 0 || h <= 0) {
+        *out_w = 0;
+        *out_h = 0;
+        return "";
+    }
+
+    std::string mask;
+    mask.resize(static_cast<std::size_t>(w) * h);
+
+    // PIL 'L' 模式灰度公式: L = (R*19595 + G*38470 + B*7471) >> 16
+    // 阈值 200: L < 200 → 非白(墨迹)=1, 否则=0
+    for (int y = 0; y < h; ++y) {
+        const std::uint8_t *row =
+            img_data + (static_cast<std::ptrdiff_t>(y1 + y) * img_w + x1) * img_n;
+        char *dst = &mask[static_cast<std::size_t>(y) * w];
+        for (int x = 0; x < w; ++x) {
+            const std::uint8_t *px = row + static_cast<std::ptrdiff_t>(x) * img_n;
+            int L = (px[0] * 19595 + px[1] * 38470 + px[2] * 7471) >> 16;
+            dst[x] = (L < 200) ? 1 : 0;
+        }
+    }
+
+    *out_w = w;
+    *out_h = h;
+    return mask;
 }
 
 // ============================================================================
@@ -654,7 +750,43 @@ PYBIND11_MODULE(_hxnative, m) {
                 radius);
         },
         py::arg("text_mask"), py::arg("ink_mask"), py::arg("radius"),
-        "H7: 文字掩码与墨迹掩码最佳偏移搜索 (释放 GIL)");
+        "H7: 文字掩码与墨迹掩码最佳偏移搜索 (释放 GIL, uint64_t 批量 popcount)");
+
+    // ---- H8 ----
+    // img: np.ndarray[uint8, 3D (H,W,C), C-contig], RGB(3) 或 RGBA(4)
+    // bbox: list[int] = [x1, y1, x2, y2]
+    // radius: int, 四周扩展半径
+    // 返回 (mask_bytes: bytes, out_w: int, out_h: int)
+    //   mask_bytes 为紧凑 uint8 数组 (0=白, 1=非白), 形状 (out_h, out_w)
+    //   二值化阈值与 Python extract_ink_mask 一致 (PIL L 灰度 < 200)
+    m.def("extract_ink_mask_fast",
+        [](py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> img,
+           std::vector<int> bbox, int radius) -> std::tuple<std::string, int, int> {
+            auto buf = img.request();
+            if (buf.ndim != 3)
+                throw std::runtime_error("extract_ink_mask_fast: img must be 3D (H,W,C)");
+            int img_h = static_cast<int>(buf.shape[0]);
+            int img_w = static_cast<int>(buf.shape[1]);
+            int img_n = static_cast<int>(buf.shape[2]);
+            if (img_n != 3 && img_n != 4)
+                throw std::runtime_error("extract_ink_mask_fast: img channels must be 3 (RGB) or 4 (RGBA)");
+            if (bbox.size() < 4)
+                throw std::runtime_error("extract_ink_mask_fast: bbox must have 4 elements [x1,y1,x2,y2]");
+            int out_w = 0, out_h = 0;
+            std::string mask;
+            {
+                // request() 在 GIL 持有时完成；以下释放 GIL 执行纯 C++ 计算
+                py::gil_scoped_release release;
+                mask = hxnative::extract_ink_mask_fast(
+                    static_cast<const std::uint8_t *>(buf.ptr),
+                    img_w, img_h, img_n,
+                    bbox.data(), static_cast<int>(bbox.size()), radius,
+                    &out_w, &out_h);
+            }
+            return std::make_tuple(mask, out_w, out_h);
+        },
+        py::arg("img"), py::arg("bbox"), py::arg("radius"),
+        "H8: 从图像区域 (bbox 扩展 radius) 提取墨迹掩码 (PIL L 灰度 < 200 二值化, 释放 GIL)");
 
     m.def("has_native", []() { return true; },
           "检测 _hxnative 是否可用 (Python 端 __init__.py 也提供同名函数)");

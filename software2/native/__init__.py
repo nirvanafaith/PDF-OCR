@@ -27,6 +27,7 @@ __all__ = [
     "pil_to_qimage_buffer",
     "batch_match_font_grade",
     "find_best_offset",
+    "extract_ink_mask_fast",
 ]
 
 # ---------------------------------------------------------------------------
@@ -264,4 +265,40 @@ def find_best_offset(text_mask, ink_mask, radius: int):
         return result
     except Exception:  # noqa: BLE001
         _print_hotspot_status("find_best_offset", "H7", False)
+        return None
+
+
+def extract_ink_mask_fast(img, bbox, radius: int):
+    """H8: 从图像区域 (bbox 扩展 radius) 提取墨迹掩码。
+
+    在 C++ 内裁切 bbox 扩展 radius 的区域 (裁剪到图像边界内) 并二值化，
+    使用 PIL 'L' 模式等价灰度公式 L=(R*19595+G*38470+B*7471)>>16, 阈值 200。
+    返回紧凑 uint8 mask (0=白, 1=非白)。
+
+    参数:
+        img: np.ndarray[uint8, 3D (H,W,C)], RGB(3) 或 RGBA(4)。
+        bbox: list[int] = [x1, y1, x2, y2]。
+        radius: 四周扩展半径。
+
+    返回:
+        (mask_bytes: bytes, out_w: int, out_h: int)；缺失 native 时返回 None。
+        mask_bytes 为紧凑 uint8 数组 (0/1), 形状 (out_h, out_w)。
+        注意: 返回的是裁切区域 mask, 不含 padding；调用方需自行补齐。
+    """
+    mod = _try_load()
+    if mod is None:
+        _print_hotspot_status("extract_ink_mask_fast", "H8", False)
+        return None
+    try:
+        import numpy as _np
+        # 强制 uint8 连续数组
+        arr = _np.ascontiguousarray(img, dtype=_np.uint8)
+        # bbox 显式转 int：与 Python fallback `int(x1 - radius)` 语义对齐，
+        # 避免 pybind11 隐式截断浮点 bbox 后再做 int 减法导致的差 1 像素偏差。
+        int_bbox = [int(v) for v in bbox]
+        result = mod.extract_ink_mask_fast(arr, int_bbox, int(radius))
+        _print_hotspot_status("extract_ink_mask_fast", "H8", True)
+        return result
+    except Exception:  # noqa: BLE001
+        _print_hotspot_status("extract_ink_mask_fast", "H8", False)
         return None

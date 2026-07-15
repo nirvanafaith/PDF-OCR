@@ -18,6 +18,11 @@ try:
 except Exception:
     _native_find_best_offset = None
 
+try:
+    from native import extract_ink_mask_fast as _native_extract_ink
+except Exception:
+    _native_extract_ink = None
+
 
 def render_text_mask(text, font, w, h):
     """使用 QPainter 渲染文字掩码。
@@ -69,6 +74,47 @@ def extract_ink_mask(bg_img, bbox, radius):
     返回:
         np.ndarray: bool 数组，True 表示墨迹（非白色）像素
     """
+    # 优先使用 C++ H8 加速
+    # 状态打印由 native/__init__.py 的 _print_hotspot_status 统一处理（线程安全、每热点仅一次）
+    if _native_extract_ink is not None:
+        try:
+            # PIL Image 转 numpy array (RGB)
+            if bg_img.mode != 'RGB':
+                bg_img_rgb = bg_img.convert('RGB')
+            else:
+                bg_img_rgb = bg_img
+            arr = np.asarray(bg_img_rgb)
+            # bbox 显式转 int：与 Python fallback `int(x1 - radius)` 语义对齐
+            int_bbox = [int(v) for v in bbox]
+            mask_bytes, out_w, out_h = _native_extract_ink(arr, int_bbox, radius)
+            if out_w > 0 and out_h > 0:
+                mask = np.frombuffer(mask_bytes, dtype=np.uint8).reshape(out_h, out_w)
+                # 转为 bool 数组（与原实现一致）
+                ink_mask = mask.astype(bool)
+
+                # 补齐到理想尺寸 (bh+2*radius, bw+2*radius)
+                # 与原 PIL+numpy 路径完全一致的 padding 逻辑
+                x1, y1, x2, y2 = bbox
+                bw = int(x2 - x1)
+                bh = int(y2 - y1)
+                target_h = bh + 2 * radius
+                target_w = bw + 2 * radius
+                ch, cw = ink_mask.shape
+                if ch < target_h or cw < target_w:
+                    ix1 = int(x1 - radius)
+                    iy1 = int(y1 - radius)
+                    cx1 = max(0, ix1)
+                    cy1 = max(0, iy1)
+                    padded = np.zeros((target_h, target_w), dtype=bool)
+                    pad_top = max(0, cy1 - iy1)
+                    pad_left = max(0, cx1 - ix1)
+                    padded[pad_top:pad_top + ch, pad_left:pad_left + cw] = ink_mask
+                    ink_mask = padded
+                return ink_mask
+        except Exception:
+            pass  # 失败回落 PIL + numpy
+
+    # ---- PIL + numpy fallback（原实现）----
     x1, y1, x2, y2 = bbox
     bw = int(x2 - x1)
     bh = int(y2 - y1)
