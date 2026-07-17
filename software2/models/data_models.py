@@ -162,6 +162,9 @@ class CharSlice:
         line_id: 字符所属行的索引，默认为 -1 表示未分配。
         char_id: 字符在行内的索引，默认为 -1 表示未分配。
         score: 字符识别置信度，默认为 1.0。
+        suspect: 单字 OCR 二次识别与原识别结果不一致时为 True，默认为 False。
+        alt_char: 单字 OCR 二次识别结果文本，默认为空字符串。
+        alt_score: 单字 OCR 二次识别置信度，默认为 0.0。
     """
 
     page_num: int
@@ -171,6 +174,9 @@ class CharSlice:
     line_id: int = -1
     char_id: int = -1
     score: float = 1.0
+    suspect: bool = False
+    alt_char: str = ""
+    alt_score: float = 0.0
 
     def to_dict(self):
         """序列化为可 JSON 化的字典。
@@ -184,6 +190,9 @@ class CharSlice:
             'line_id': self.line_id,
             'char_id': self.char_id,
             'score': self.score,
+            'suspect': self.suspect,
+            'alt_char': self.alt_char,
+            'alt_score': self.alt_score,
         }
 
     @classmethod
@@ -197,6 +206,9 @@ class CharSlice:
             line_id=d.get('line_id', -1),
             char_id=d.get('char_id', -1),
             score=d.get('score', 1.0),
+            suspect=d.get('suspect', False),
+            alt_char=d.get('alt_char', ''),
+            alt_score=d.get('alt_score', 0.0),
         )
 
 

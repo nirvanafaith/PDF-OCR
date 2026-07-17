@@ -85,6 +85,7 @@ software1/*_middle.json
 
 # Trae 工作区
 .trae/
+.trae-cn/
 
 # 发布说明草稿
 release_notes_v1.0.0.md

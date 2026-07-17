@@ -76,7 +76,17 @@ def _try_load():
 
 
 def has_native() -> bool:
-    """返回 C++ 加速扩展是否可用。"""
+    """返回 C++ 加速扩展是否可用。
+
+    支持通过环境变量 ``HX_NO_NATIVE=1`` 强制禁用 C++ 加速，
+    用于隔离 native 崩溃或应急回退到纯 Python 实现。
+    """
+    import os as _os
+    if _os.environ.get("HX_NO_NATIVE", "").strip() in ("1", "true", "True"):
+        if "_force_disabled" not in _hotspot_printed:
+            _hotspot_printed.add("_force_disabled")
+            print("[native] HX_NO_NATIVE=1, C++ acceleration force-disabled", flush=True)
+        return False
     return _try_load() is not None
 
 
@@ -113,13 +123,14 @@ def pixmap_bytes_to_qpixmap_buffer(samples, width: int, height: int,
         return None
 
 
-def optimize_char_boxes(mask, chars: List[Any]) -> List[Any] | None:
+def optimize_char_boxes(mask, chars: List[Any], is_vertical_page: bool = False) -> List[Any] | None:
     """H2: 整页字符边界框批量优化。
 
     参数:
       mask:  np.ndarray[uint8, 2D, C-contig], 值 0/1。Python 端应传入
              ``(np.any(img < 200, axis=2)).astype(np.uint8)``。
       chars: list[dict], 每个 dict 含 "box" (4 角点或 [x1,y1,x2,y2])。
+      is_vertical_page: bool, 是否为竖排页面。竖排页面所有字符跳过 y 边优化。
 
     返回: list[dict], 每个含 new_x1/new_y1/new_x2/new_y2/valid/box；
           缺失 native 时返回 None，调用方应回落到 numpy 实现。
@@ -129,7 +140,7 @@ def optimize_char_boxes(mask, chars: List[Any]) -> List[Any] | None:
         _print_hotspot_status("optimize_char_boxes", "H2", False)
         return None
     try:
-        result = mod.optimize_char_boxes(mask, chars)
+        result = mod.optimize_char_boxes(mask, chars, is_vertical_page)
         _print_hotspot_status("optimize_char_boxes", "H2", True)
         return result
     except Exception:  # noqa: BLE001

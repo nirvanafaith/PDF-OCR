@@ -1,11 +1,26 @@
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 
 from PIL import Image
 
 from models.data_models import CharSlice, LineSlice, flatten_bbox
+
+
+# 文件日志：进程崩溃后仍保留最后成功步骤，用于定位 native 硬崩溃点
+_DEBUG_LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "crash_debug.log")
+
+
+def _debug_log(msg: str) -> None:
+    """写入文件日志，即使进程崩溃也能保留最后记录。"""
+    try:
+        with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
+            f.flush()
+    except Exception:
+        pass
 
 
 class OCREngine:
@@ -212,14 +227,28 @@ class OCREngine:
         """
         lines, chars = results
         grouped = {}
+        _debug_log(f"parse_and_group 开始: {len(lines)} 行, {len(chars)} 字符, {len(page_images)} 页")
+        print(f"[parse_and_group] 开始: {len(lines)} 行, {len(chars)} 字符, {len(page_images)} 页", flush=True)
 
         # 尝试加载 native H3 批量裁切
         try:
             from native import has_native as _has_native
             from native import batch_crop_qimage as _batch_crop
-            if not _has_native():
+            _debug_log("native模块导入完成,即将调用has_native()")
+            print("[parse_and_group] native模块导入完成,即将调用has_native()", flush=True)
+            _native_ok = _has_native()
+            _debug_log(f"has_native()返回: {_native_ok}")
+            print(f"[parse_and_group] has_native()返回: {_native_ok}", flush=True)
+            if not _native_ok:
+                _debug_log("native不可用,使用Python fallback")
+                print("[parse_and_group] native不可用,使用Python fallback", flush=True)
                 _batch_crop = None
-        except Exception:
+            else:
+                _debug_log("native可用,使用H3加速")
+                print("[parse_and_group] native可用,使用H3加速", flush=True)
+        except Exception as e:
+            _debug_log(f"native导入异常: {e}")
+            print(f"[parse_and_group] native导入异常: {e}", flush=True)
             _batch_crop = None
 
         # 第一遍：收集所有字符的元数据与裁切坐标
@@ -245,6 +274,8 @@ class OCREngine:
             char_items.append((char_data, char_text, page_num, bbox_flat,
                                (crop_x1, crop_y1, crop_x2, crop_y2), valid))
 
+        print(f"[parse_and_group] 第一遍完成: {len(char_items)} 个字符项", flush=True)
+        _debug_log(f"第一遍完成: {len(char_items)} 个字符项")
         cropped_images = [None] * len(char_items)
 
         if _batch_crop is not None:
@@ -254,22 +285,42 @@ class OCREngine:
                 page_groups.setdefault(item[2], []).append(idx)
 
             for page_num, indices in page_groups.items():
+                _debug_log(f"处理页 {page_num}: {len(indices)} 个字符")
+                print(f"[parse_and_group] 处理页 {page_num}: {len(indices)} 个字符", flush=True)
                 page_image = page_images[page_num] if page_num < len(page_images) else None
                 if not page_image:
+                    _debug_log(f"页 {page_num} 无图像,跳过")
+                    print(f"[parse_and_group] 页 {page_num} 无图像,跳过", flush=True)
                     continue
                 bboxes = [list(char_items[idx][4]) for idx in indices]
                 results_bytes = None
                 try:
+                    page_image.load()  # 物化PIL图像，避免lazy image触发RecursionError
                     page_rgba = page_image.convert("RGBA").tobytes("raw", "RGBA")
                     img_w, img_h = page_image.size
-                    results_bytes = _batch_crop(page_rgba, img_w, img_h, bboxes, 0)
-                except Exception:
+                    # 防御：校验 buffer 大小，避免传给 native 的 buffer 越界导致 segfault
+                    expected_len = img_w * img_h * 4
+                    actual_len = len(page_rgba)
+                    if actual_len != expected_len:
+                        _debug_log(f"页 {page_num} buffer大小不匹配: got {actual_len}, expected {expected_len}, 使用Python fallback")
+                        print(f"[parse_and_group] 页 {page_num} buffer大小不匹配: got {actual_len}, expected {expected_len}, 使用Python fallback", flush=True)
+                        results_bytes = None
+                    else:
+                        _debug_log(f"页 {page_num} 准备H3调用: img_w={img_w}, img_h={img_h}, bboxes={len(bboxes)}")
+                        print(f"[parse_and_group] 页 {page_num} 准备H3调用: img_w={img_w}, img_h={img_h}, bboxes={len(bboxes)}", flush=True)
+                        results_bytes = _batch_crop(page_rgba, img_w, img_h, bboxes, 0)
+                        _debug_log(f"页 {page_num} H3调用完成,返回{len(results_bytes) if results_bytes else 0}个切片")
+                        print(f"[parse_and_group] 页 {page_num} H3调用完成,返回{len(results_bytes) if results_bytes else 0}个切片", flush=True)
+                except Exception as e:
+                    _debug_log(f"页 {page_num} H3调用异常: {e}")
+                    print(f"[parse_and_group] 页 {page_num} H3调用异常: {e}", flush=True)
                     results_bytes = None
 
                 if results_bytes is None:
                     # native 调用失败，回退到逐字符 crop
                     for idx in indices:
                         if char_items[idx][5]:
+                            page_image.load()  # 物化PIL图像，避免lazy image触发RecursionError
                             cropped_images[idx] = page_image.crop(char_items[idx][4])
                 else:
                     for i, idx in enumerate(indices):
@@ -285,20 +336,31 @@ class OCREngine:
                             cropped_images[idx] = Image.frombytes(
                                 "RGBA", (crop_w, crop_h), rgba_bytes)
                         except Exception:
+                            page_image.load()  # 物化PIL图像，避免lazy image触发RecursionError
                             cropped_images[idx] = page_image.crop(char_items[idx][4])
+                print(f"[parse_and_group] 页 {page_num} 裁切完成", flush=True)
+                _debug_log(f"页 {page_num} 裁切完成")
         else:
             # 回退：原有逐字符 crop 逻辑
+            print("[parse_and_group] 使用Python fallback逐字符crop", flush=True)
+            _debug_log("使用Python fallback逐字符crop")
             for idx, item in enumerate(char_items):
                 char_data, char_text, page_num, bbox_flat, crop_coords, valid = item
                 if valid:
                     page_image = page_images[page_num]
+                    page_image.load()  # 物化PIL图像，避免lazy image触发RecursionError
                     cropped_images[idx] = page_image.crop(crop_coords)
+            print("[parse_and_group] Python fallback完成", flush=True)
+            _debug_log("Python fallback完成")
 
         # 构建 CharSlice 对象并按字符文本分组
         for idx, (char_data, char_text, page_num, bbox_flat, crop_coords, valid) in enumerate(char_items):
             line_id = char_data.get("line_id", -1)
             char_id = char_data.get("char_id", -1)
             score = float(char_data.get("score", 1.0))
+            suspect = bool(char_data.get("suspect", False))
+            alt_char = char_data.get("alt_char", "")
+            alt_score = float(char_data.get("alt_score", 0.0))
 
             char_slice = CharSlice(
                 page_num=page_num,
@@ -308,12 +370,17 @@ class OCREngine:
                 line_id=line_id,
                 char_id=char_id,
                 score=score,
+                suspect=suspect,
+                alt_char=alt_char,
+                alt_score=alt_score,
             )
 
             if char_text not in grouped:
                 grouped[char_text] = []
             grouped[char_text].append(char_slice)
 
+        print(f"[parse_and_group] 全部完成: {len(grouped)} 种字符", flush=True)
+        _debug_log(f"parse_and_group 全部完成: {len(grouped)} 种字符")
         return grouped
 
     def build_line_data(self, results: tuple, page_images: list, char_slices: dict = None) -> dict:

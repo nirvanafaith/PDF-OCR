@@ -1,5 +1,8 @@
+import sys
 import traceback
 
+import numpy as np
+from PIL import Image
 from PyQt5.QtWidgets import (
     QWidget,
     QHBoxLayout,
@@ -503,12 +506,13 @@ class SliceItemWidget(QWidget):
     modifyRequested = pyqtSignal(int, str)
 
     def __init__(self, pixmap: QPixmap, index: int, warn_bg: bool = False,
-                 char_text: str = "", selected: bool = False, parent=None):
+                 char_text: str = "", selected: bool = False, suspect: bool = False, parent=None):
         super().__init__(parent)
         self.index = index
         self.char_text = char_text
         self._selected = selected
         self._warn_bg = warn_bg
+        self._suspect = suspect
         self.setFixedSize(90, 90)
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -549,6 +553,8 @@ class SliceItemWidget(QWidget):
         """根据当前状态切换 QSS 样式（state 属性切换模式）。"""
         if self._selected:
             self.setProperty("state", "selected")
+        elif self._suspect:
+            self.setProperty("state", "suspect")
         elif self._warn_bg:
             self.setProperty("state", "warn")
         else:
@@ -698,6 +704,10 @@ class VerticalCheckWindow(QWidget):
 
     def __init__(self, char_slices: dict, page_images: list, ocr_results: tuple = None, parent=None):
         super().__init__(parent)
+        # 防御性提高递归上限：Qt事件循环+信号槽+命令模式+多层嵌套调用
+        # 易使调用栈过深，叠加 PIL crop 内部调用链可能触发 RecursionError
+        if sys.getrecursionlimit() < 5000:
+            sys.setrecursionlimit(5000)
         self.char_slices = char_slices
         self.page_images = page_images
         self.ocr_results = ocr_results if ocr_results is not None else ([], [])
@@ -938,7 +948,11 @@ class VerticalCheckWindow(QWidget):
 
         在 except 块内调用,traceback.print_exc() 依赖当前异常上下文。
         """
-        traceback.print_exc()
+        try:
+            traceback.print_exc()
+        except RecursionError:
+            # 递归深度耗尽时降级为简化输出，避免 print_exc 自身再次抛出
+            print(f"RecursionError in _report_error: {exc}")
         try:
             self.error_occurred.emit(f"操作失败：{exc}")
         except Exception:
@@ -1083,6 +1097,10 @@ class VerticalCheckWindow(QWidget):
 
         矩形裁剪（2.2）、绝对坐标红框（2.3）、min/max 回退（2.4）。
         """
+        # 初始化期间（widget未显示）跳过预览渲染，避免在viewport尺寸为0时
+        # 操作QGraphicsScene导致崩溃。首次预览由showEvent延迟触发。
+        if not self.isVisible():
+            return
         try:
             self.preview_scene.clear()
             self.preview_view._pixmap_item = None
@@ -1104,32 +1122,55 @@ class VerticalCheckWindow(QWidget):
 
             cx1, cy1, cx2, cy2 = char_slice.bbox
 
-            # 复用横校 _make_slice_pixmap 算法:全页宽度,y 范围为行 bbox ± pad
+            # 根据行框方向裁切:竖排行框(h>w)裁切垂直条带,横排行框(w>=h)裁切水平条带
             pad = 20
             if line_box is not None:
                 line_flat = flatten_bbox(line_box)
-                line_y1, line_y2 = line_flat[1], line_flat[3]
+                line_x1, line_y1 = line_flat[0], line_flat[1]
+                line_x2, line_y2 = line_flat[2], line_flat[3]
             else:
-                # 回退:用字符 bbox 的 y 范围
-                line_y1, line_y2 = cy1, cy2
+                # 回退:用字符 bbox 的范围
+                line_x1, line_y1 = cx1, cy1
+                line_x2, line_y2 = cx2, cy2
 
-            crop_x1 = 0
-            crop_y1 = max(0, int(line_y1) - pad)
-            crop_x2 = img_w
-            crop_y2 = min(img_h, int(line_y2) + pad)
+            # 检测行框方向:竖排(h>w)裁切垂直条带,横排(w>=h)裁切水平条带
+            line_w = line_x2 - line_x1
+            line_h = line_y2 - line_y1
+            is_vertical_line = line_h > line_w
+            if is_vertical_line:
+                # 竖排:按列 x 范围裁切全页高(垂直条带)
+                crop_x1 = max(0, int(line_x1) - pad)
+                crop_y1 = 0
+                crop_x2 = min(img_w, int(line_x2) + pad)
+                crop_y2 = img_h
+            else:
+                # 横排:全页宽按 y 范围裁切(水平条带,保持原逻辑)
+                crop_x1 = 0
+                crop_y1 = max(0, int(line_y1) - pad)
+                crop_x2 = img_w
+                crop_y2 = min(img_h, int(line_y2) + pad)
 
-            if crop_y2 <= crop_y1:
-                return
+            # 裁剪区域有效性校验
+            if is_vertical_line:
+                if crop_x2 <= crop_x1:
+                    return
+            else:
+                if crop_y2 <= crop_y1:
+                    return
 
             # 记录当前裁剪偏移(供红框拖拽提交时还原页面绝对坐标)
             self._current_crop_offset = (crop_x1, crop_y1)
 
-            cache_key = (page_num, crop_y1, crop_y2)
+            cache_key = (page_num, crop_x1, crop_y1, crop_x2, crop_y2)
             if cache_key in self._line_preview_cache:
                 strip_pixmap = self._line_preview_cache[cache_key]
                 self._line_preview_cache.move_to_end(cache_key)
             else:
-                strip_image = page_image.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+                page_image.load()  # 强制物化 PIL 图像，避免 lazy image crop 触发 RecursionError
+                # 用 numpy 数组裁切绕过 PIL crop/_decompression_bomb_check 调用链
+                _arr = np.array(page_image)
+                _cropped = _arr[int(crop_y1):int(crop_y2), int(crop_x1):int(crop_x2)].copy()
+                strip_image = Image.fromarray(_cropped)
                 strip_pixmap = self._pil_to_pixmap(strip_image)
                 self._line_preview_cache[cache_key] = strip_pixmap
                 if len(self._line_preview_cache) > self._max_line_preview_cache:
@@ -1235,6 +1276,7 @@ class VerticalCheckWindow(QWidget):
                 item_widget = SliceItemWidget(
                     pixmap, global_idx, warn_bg=warn_bg,
                     char_text=self._current_char_text, selected=is_selected,
+                    suspect=char_slice.suspect,
                 )
                 item_widget.clicked.connect(self._on_slice_clicked)
                 item_widget.right_clicked.connect(self._on_relocate)
@@ -1571,6 +1613,10 @@ class VerticalCheckWindow(QWidget):
             if pil_to_qimage_buffer is not None:
                 mode = pil_image.mode
                 if mode in ("RGB", "RGBA"):
+                    try:
+                        pil_image.load()  # 物化PIL图像,与fallback路径一致,避免lazy image触发RecursionError
+                    except Exception:
+                        pass
                     raw = pil_image.tobytes("raw", mode)
                     buf = pil_to_qimage_buffer(
                         raw, pil_image.width, pil_image.height, mode, 0
@@ -1586,6 +1632,10 @@ class VerticalCheckWindow(QWidget):
                         return QPixmap.fromImage(qimage.copy())
                 else:
                     # P/L 等模式先 convert("RGB") 再传入 H4
+                    try:
+                        pil_image.load()  # 物化PIL图像,与fallback路径一致,避免lazy image触发RecursionError
+                    except Exception:
+                        pass
                     pil_rgb = pil_image.convert("RGB")
                     raw = pil_rgb.tobytes("raw", "RGB")
                     buf = pil_to_qimage_buffer(
@@ -1896,7 +1946,12 @@ class VerticalCheckWindow(QWidget):
                             x2 = max(0, min(x2, img_w))
                             y2 = max(0, min(y2, img_h))
                             if x2 > x1 and y2 > y1:
-                                char_slice.image = page_image.crop((x1, y1, x2, y2)).copy()
+                                page_image.load()  # 强制物化 PIL 图像，避免 lazy image crop 触发 RecursionError
+                                # 用 numpy 数组裁切绕过 PIL crop/_decompression_bomb_check
+                                # 调用链，避免深调用栈触发 RecursionError
+                                arr = np.array(page_image)
+                                cropped_arr = arr[int(y1):int(y2), int(x1):int(x2)].copy()
+                                char_slice.image = Image.fromarray(cropped_arr)
                         except Exception as exc:
                             self._report_error(exc)
                     # 失效 pixmap 缓存
@@ -2022,7 +2077,11 @@ class VerticalCheckWindow(QWidget):
         else:
             # 回退:索引缺失时直接修改
             try:
-                char_slice.image = page_image.crop((new_x1, new_y1, new_x2, new_y2)).copy()
+                page_image.load()  # 强制物化 PIL 图像，避免 lazy image crop 触发 RecursionError
+                # 用 numpy 数组裁切绕过 PIL crop/_decompression_bomb_check 调用链
+                _arr = np.array(page_image)
+                _cropped = _arr[int(new_y1):int(new_y2), int(new_x1):int(new_x2)].copy()
+                char_slice.image = Image.fromarray(_cropped)
             except Exception as exc:
                 self._report_error(exc)
                 return

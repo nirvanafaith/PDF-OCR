@@ -21,6 +21,8 @@ if(HXNATIVE_PYBIND11_FETCH)
         GIT_TAG        v2.13.6
     )
     FetchContent_MakeAvailable(pybind11_src)
+else()
+    find_package(pybind11 CONFIG REQUIRED)
 endif()
 
 # pybind11 已经处理 Python 解释器/Extension 开发组件检索

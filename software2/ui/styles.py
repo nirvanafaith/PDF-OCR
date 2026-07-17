@@ -250,6 +250,15 @@ SliceItemWidget[state="warn"]:hover {
     border: 2px solid #2b579a;
     background-color: #e6e6e6;
 }
+SliceItemWidget[state="suspect"] {
+    border: 2px solid #ff6600;
+    border-radius: 4px;
+    background-color: #ffdc00;
+}
+SliceItemWidget[state="suspect"]:hover {
+    border: 2px solid #cc5200;
+    background-color: #ffd000;
+}
 
 /* 焦点样式：为可聚焦控件提供统一的 :focus 边框，方便键盘用户辨识当前焦点 */
 QPushButton:focus {

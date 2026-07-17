@@ -1,6 +1,9 @@
 import traceback
 import unicodedata
 
+import numpy as np
+from PIL import Image
+
 from PyQt5.QtWidgets import (
     QWidget,
     QHBoxLayout,
@@ -415,25 +418,41 @@ class HorizontalCheckWindow(QWidget):
         result = []
 
         if is_vertical:
-            # 竖排：字符从上到下等高排列，水平居中
-            char_height = line_height / num_chars
+            # 竖排：优先使用字符自身 bbox 的 y1/y2 定位，bbox 无效时回退到等高分割
+            char_height_fallback = line_height / num_chars  # 仅用于回退
             font_ascent = fm.ascent()
             font_descent = fm.descent()
             font_height = font_ascent + font_descent
             for i, char_data in enumerate(chars):
                 char_text = char_data.get("text", "")
                 char_width = fm.horizontalAdvance(char_text)
-                # 水平居中
-                x_offset = max(0, (line_width * zoom_level - char_width) / 2)
-                pos_x = x1 * zoom_level + x_offset
-                # 垂直排列：第 i 个字符的顶部位置
-                pos_y = (y1 + i * char_height) * zoom_level
-                # 垂直微调使文字在格子内居中
-                pos_y += max(0, (char_height * zoom_level - font_height) / 2)
-                # 更新 char 的 bbox
-                new_bbox = [x1, y1 + i * char_height, x2, y1 + (i + 1) * char_height]
-                char_data["bbox"] = new_bbox
-                result.append((char_text, pos_x, pos_y, new_bbox))
+                char_bbox = char_data.get("bbox", [])
+                # 检查 bbox 是否有效（长度 >= 4 且 y 坐标非全零）
+                if len(char_bbox) >= 4 and not (char_bbox[1] == 0 and char_bbox[3] == 0):
+                    cy1 = char_bbox[1]
+                    cy2 = char_bbox[3] if len(char_bbox) >= 4 else cy1
+                    # 钳制到行 bbox 范围，防止渲染溢出
+                    cy1 = max(y1, min(cy1, y2))
+                    cy2 = max(cy1, min(cy2, y2))
+                    # 水平居中（用行框 x 范围）
+                    x_offset = max(0, (line_width * zoom_level - char_width) / 2)
+                    pos_x = x1 * zoom_level + x_offset
+                    # 垂直定位：字符顶部 + 垂直微调居中
+                    pos_y = cy1 * zoom_level
+                    char_h = cy2 - cy1
+                    pos_y += max(0, (char_h * zoom_level - font_height) / 2)
+                    # 保留原始 bbox 的 x 坐标，y 用钳制后的坐标
+                    result_bbox = [char_bbox[0], cy1, char_bbox[2], cy2]
+                    char_data["bbox"] = result_bbox
+                else:
+                    # 回退到等高分割
+                    x_offset = max(0, (line_width * zoom_level - char_width) / 2)
+                    pos_x = x1 * zoom_level + x_offset
+                    pos_y = (y1 + i * char_height_fallback) * zoom_level
+                    pos_y += max(0, (char_height_fallback * zoom_level - font_height) / 2)
+                    result_bbox = [x1, y1 + i * char_height_fallback, x2, y1 + (i + 1) * char_height_fallback]
+                    char_data["bbox"] = result_bbox
+                result.append((char_text, pos_x, pos_y, result_bbox))
         else:
             # 横排：优先使用字符自身 bbox 的 x1 定位，bbox 无效时回退到等分
             char_width = line_width / num_chars  # 仅用于回退
@@ -775,21 +794,43 @@ class HorizontalCheckWindow(QWidget):
                                 self._slice_cache_pixmap = pixmap
                             if pixmap is not None and pixmap.width() > 0:
                                 page_img = self.page_images[self.current_page]
-                                full_w = page_img.width * self.zoom_level
-                                scale_x = full_w / pixmap.width()
-                                target_w = max(1, int(pixmap.width() * scale_x))
-                                target_h = max(1, int(pixmap.height() * scale_x))
-                                scaled_pixmap = pixmap.scaled(
-                                    target_w,
-                                    target_h,
-                                    Qt.KeepAspectRatio,
-                                    Qt.SmoothTransformation,
-                                )
-                                pi = QGraphicsPixmapItem(scaled_pixmap)
-                                pi_h = scaled_pixmap.height()
-                                line_x = 0
-                                line_y = ls.bbox[1] * self.zoom_level
-                                pi.setPos(line_x, line_y - pi_h)
+                                bbox = ls.bbox
+                                # 判断竖排：bbox 高 > 宽则为竖排（竖向列）
+                                is_vertical = (bbox[3] - bbox[1]) > (bbox[2] - bbox[0])
+                                pad = 20
+                                if is_vertical:
+                                    # 竖排分支：按列宽缩放，紧贴列右侧显示
+                                    scale_x = (bbox[2] - bbox[0] + 2 * pad) * self.zoom_level / pixmap.width()
+                                    target_w = max(1, int(pixmap.width() * scale_x))
+                                    target_h = max(1, int(pixmap.height() * scale_x))
+                                    scaled_pixmap = pixmap.scaled(
+                                        target_w,
+                                        target_h,
+                                        Qt.KeepAspectRatio,
+                                        Qt.SmoothTransformation,
+                                    )
+                                    pi = QGraphicsPixmapItem(scaled_pixmap)
+                                    # 列右侧 + 4px 间距，顶部与列对齐
+                                    pi_x = bbox[2] * self.zoom_level + 4
+                                    pi_y = bbox[1] * self.zoom_level
+                                    pi.setPos(pi_x, pi_y)
+                                else:
+                                    # 横排分支：按全页宽缩放，显示在文本上方
+                                    full_w = page_img.width * self.zoom_level
+                                    scale_x = full_w / pixmap.width()
+                                    target_w = max(1, int(pixmap.width() * scale_x))
+                                    target_h = max(1, int(pixmap.height() * scale_x))
+                                    scaled_pixmap = pixmap.scaled(
+                                        target_w,
+                                        target_h,
+                                        Qt.KeepAspectRatio,
+                                        Qt.SmoothTransformation,
+                                    )
+                                    pi = QGraphicsPixmapItem(scaled_pixmap)
+                                    pi_h = scaled_pixmap.height()
+                                    line_x = 0
+                                    line_y = bbox[1] * self.zoom_level
+                                    pi.setPos(line_x, line_y - pi_h)
                                 pi.setZValue(100)
                                 pi.setData(0, id(ls))
                                 self.scene.addItem(pi)
@@ -865,10 +906,14 @@ class HorizontalCheckWindow(QWidget):
         return super().eventFilter(obj, event)
 
     def _make_slice_pixmap(self, ls: LineSlice):
-        """根据行切片数据生成全宽页面切片预览 QPixmap。
+        """根据行切片数据生成切片预览 QPixmap，横排/竖排采用不同裁切方式。
 
-        被 eventFilter 调用。从页面原图中裁剪该行对应的区域，
-        宽度横跨整个PDF页面（从左边界到右边界），上下坐标保持行bbox的Y范围。
+        被 eventFilter 调用。从页面原图中裁剪该行对应的区域：
+        - 横排：宽度横跨整个PDF页面（x1=0, x2=page_width），y 取行 bbox 上下范围加 padding
+        - 竖排：x 取列 bbox 左右范围加 padding，y 横跨整个页面高度（y1=0, y2=page_height）
+
+        使用 numpy 数组裁切代替 PIL crop，避免 lazy image 触发 RecursionError
+        （与 vertical_check_window.py 实现一致）。
 
         参数:
             ls (LineSlice): 行切片数据对象，包含 page_num、bbox 属性。
@@ -879,6 +924,8 @@ class HorizontalCheckWindow(QWidget):
         依赖:
             - _pil_to_pixmap: 将 PIL Image 转换为 QPixmap
             - models.data_models.LineSlice: 行切片数据模型
+            - numpy: 数组裁切
+            - PIL.Image: 由 numpy 数组构造 PIL Image
         """
         if (
             self.page_images is not None
@@ -887,13 +934,27 @@ class HorizontalCheckWindow(QWidget):
             page_img = self.page_images[ls.page_num]
             bbox = ls.bbox
             pad = 20
-            x1 = 0
-            y1 = max(int(bbox[1]) - pad, 0)
-            x2 = page_img.width
-            y2 = min(int(bbox[3]) + pad, page_img.height)
+            # 判断竖排：bbox 高 > 宽则为竖排（竖向列）
+            is_vertical = (bbox[3] - bbox[1]) > (bbox[2] - bbox[0])
+            if is_vertical:
+                # 竖排分支：竖向切片，x 取列 bbox 宽度，y 取全页高
+                x1 = max(int(bbox[0]) - pad, 0)
+                x2 = min(int(bbox[2]) + pad, page_img.width)
+                y1 = 0
+                y2 = page_img.height
+            else:
+                # 横排分支：横向切片，x 取全宽，y 取行 bbox 高度
+                x1 = 0
+                y1 = max(int(bbox[1]) - pad, 0)
+                x2 = page_img.width
+                y2 = min(int(bbox[3]) + pad, page_img.height)
             if x2 <= x1 or y2 <= y1:
                 return None
-            cropped = page_img.crop((x1, y1, x2, y2))
+            # 用 numpy 数组裁切绕过 PIL crop/_decompression_bomb_check 调用链
+            page_img.load()
+            arr = np.array(page_img)
+            cropped_arr = arr[int(y1):int(y2), int(x1):int(x2)].copy()
+            cropped = Image.fromarray(cropped_arr)
             return self._pil_to_pixmap(cropped)
         return None
 

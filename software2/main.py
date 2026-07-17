@@ -10,6 +10,10 @@ try:
             sys.path.insert(0, _root)
     # 仅导入以触发 native/__init__.py 的单次诊断打印
     import native  # noqa: F401
+    # 在主线程强制加载 _hxnative.pyd，避免在QThread中首次加载触发
+    # STATUS_DLL_INIT_FAILED (0xC0000142) 导致静默崩溃
+    # 失败时 has_native() 返回 False，parse_and_group 自动回退到 Python fallback
+    native.has_native()
 except Exception as _e:
     print(f"native: diagnostic skipped ({_e})", file=sys.stderr)
 

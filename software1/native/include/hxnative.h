@@ -29,6 +29,7 @@ std::string pixmap_bytes_to_qimage_buffer(const std::uint8_t *samples,
 // 输入 chars 列表 (每个含 box 4 角点 + bbox 边界)。
 // 在 C++ 内单遍遍历所有 char, 对 4 条边在连续 mask 内存上求和，
 // 取最小且最接近原始位置的候选；原地更新 char.box 为 4 角点格式。
+// is_vertical_page=true 时所有字符跳过 y 边优化 (竖排页面级判断)。
 // 逻辑与 software1/ocr_engine/rapidocr_engine.py::_optimize_char_boxes 字节级一致。
 struct CharBoxInput {
     // 原始 4 角点 [x0,y0],[x1,y1],[x2,y2],[x3,y3] (来自 rapidocr)
@@ -40,7 +41,8 @@ struct CharBoxOutput {
 };
 std::vector<CharBoxOutput>
 optimize_char_boxes_batch(const std::uint8_t *mask, int H, int W,
-                          const std::vector<CharBoxInput> &inputs);
+                          const std::vector<CharBoxInput> &inputs,
+                          bool is_vertical_page);
 
 // ---- H3: 批量字符裁切 -------------------------------------------------------
 // 输入整页 RGBA 紧凑像素 (page_rgba, w, h) 与一组 bbox [x1,y1,x2,y2]，

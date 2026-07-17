@@ -68,7 +68,7 @@ hxnative::pixmap_bytes_to_qimage_buffer(const std::uint8_t *samples,
 // ============================================================================
 // 与 software1/ocr_engine/rapidocr_engine.py::_optimize_char_boxes 算法等价：
 //   对每个字符 box (4 角点) 展平为 [xmin,ymin,xmax,ymax]，
-//   裁剪到图像边界后, 对 4 条边各在 ±0.5*边长 范围内搜索,
+//   裁剪到图像边界后, 对 4 条边各在 ±1/3*边长 范围内搜索,
 //   找到使经过的非白像素数最少的列/行位置 (并列时取最接近原始位置的)。
 // C++ 单遍：一次性把所有 char 的 4 边搜索区间收集, 在连续 mask 内存上
 //   用裸指针累加, 避免每字符多次 numpy 切片启动开销。
@@ -79,7 +79,7 @@ optimize_edge_x_inner(const std::uint8_t *mask, int H, int W,
                       double edge_len)
 {
     if (y2 <= y1) return orig_x;
-    double half = edge_len * 0.5;
+    double half = edge_len / 3.0;
     int search_start = static_cast<int>(orig_x - half);
     int search_end   = static_cast<int>(orig_x + half) + 1;
     if (search_start < 0) search_start = 0;
@@ -129,7 +129,7 @@ optimize_edge_y_inner(const std::uint8_t *mask, int H, int W,
                       double edge_len)
 {
     if (x2 <= x1) return orig_y;
-    double half = edge_len * 0.5;
+    double half = edge_len / 3.0;
     int search_start = static_cast<int>(orig_y - half);
     int search_end   = static_cast<int>(orig_y + half) + 1;
     if (search_start < 0) search_start = 0;
@@ -171,9 +171,32 @@ optimize_edge_y_inner(const std::uint8_t *mask, int H, int W,
     return static_cast<double>(search_start + best_idx);
 }
 
+// 判断竖排字符的 y 边是否需要优化：检测 y 边附近 ±2px 范围的有色像素数，
+// 若 > edge_len * 0.3 判定"切到文字本体"，需要执行 y 边优化；否则保持原 y 值。
+// 与 Python 端 _should_optimize_y_edge 算法等价。
+static inline bool
+should_optimize_y_edge_inner(const std::uint8_t *mask, int H, int W,
+                             double y_edge, int x1, int x2,
+                             double edge_len)
+{
+    if (x2 <= x1) return false;
+    int y_start = std::max(0, static_cast<int>(std::lround(y_edge)) - 2);
+    int y_end   = std::min(H, static_cast<int>(std::lround(y_edge)) + 3);
+    if (y_end <= y_start) return false;
+    long ink_count = 0;
+    for (int y = y_start; y < y_end; ++y) {
+        const std::uint8_t *row = mask + static_cast<std::ptrdiff_t>(y) * W;
+        for (int x = x1; x < x2; ++x)
+            if (row[x]) ++ink_count;
+    }
+    long threshold = std::max<long>(1, static_cast<long>(edge_len * 0.3));
+    return ink_count > threshold;
+}
+
 std::vector<CharBoxOutput>
 hxnative::optimize_char_boxes_batch(const std::uint8_t *mask, int H, int W,
-                                    const std::vector<CharBoxInput> &inputs)
+                                    const std::vector<CharBoxInput> &inputs,
+                                    bool is_vertical_page)
 {
     std::vector<CharBoxOutput> out;
     out.reserve(inputs.size());
@@ -211,11 +234,34 @@ hxnative::optimize_char_boxes_batch(const std::uint8_t *mask, int H, int W,
         int x2_c = std::min(W, static_cast<int>(std::lround(xmax)));
         int y2_c = std::min(H, static_cast<int>(std::lround(ymax)));
 
-        // 优化 4 条边 (与 Python 版参数顺序一致)
+        // x 边始终优化（竖排字符的 x 边是左右边，需要紧贴墨水）
         double new_x1 = optimize_edge_x_inner(mask, H, W, xmin, y1_c, y2_c, w);
         double new_x2 = optimize_edge_x_inner(mask, H, W, xmax, y1_c, y2_c, w);
-        double new_y1 = optimize_edge_y_inner(mask, H, W, ymin, x1_c, x2_c, h);
-        double new_y2 = optimize_edge_y_inner(mask, H, W, ymax, x1_c, x2_c, h);
+        double new_y1, new_y2;
+        if (is_vertical_page) {
+            // 竖排页面：y 边有条件优化
+            // 检测原始 y 边是否切到文字本体（±2px 范围有色像素 > 边长 30%），
+            // 若是则优化，否则保持原值（避免在空白处过度优化切到字间空白）
+            if (should_optimize_y_edge_inner(mask, H, W, ymin, x1_c, x2_c, w)) {
+                new_y1 = optimize_edge_y_inner(mask, H, W, ymin, x1_c, x2_c, h);
+            } else {
+                new_y1 = ymin;
+            }
+            if (should_optimize_y_edge_inner(mask, H, W, ymax, x1_c, x2_c, w)) {
+                new_y2 = optimize_edge_y_inner(mask, H, W, ymax, x1_c, x2_c, h);
+            } else {
+                new_y2 = ymax;
+            }
+        } else {
+            // 横排页面：保留逐字符 h>w 检查作为额外保护
+            if (h > w) {
+                new_y1 = ymin;
+                new_y2 = ymax;
+            } else {
+                new_y1 = optimize_edge_y_inner(mask, H, W, ymin, x1_c, x2_c, h);
+                new_y2 = optimize_edge_y_inner(mask, H, W, ymax, x1_c, x2_c, h);
+            }
+        }
 
         bool valid = (new_x1 < new_x2 && new_y1 < new_y2);
         out.push_back({new_x1, new_y1, new_x2, new_y2, valid});
@@ -311,7 +357,8 @@ PYBIND11_MODULE(_hxnative, m) {
     // 注意: 不使用 call_guard<gil_scoped_release> 因为 lambda 内大量访问 Python dict/list 对象需要 GIL
     m.def("optimize_char_boxes",
           [](py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> mask_arr,
-             py::list chars) -> py::list {
+             py::list chars,
+             bool is_vertical_page) -> py::list {
               auto buf = mask_arr.request();
               if (buf.ndim != 2)
                   throw std::runtime_error("mask must be 2-D");
@@ -357,7 +404,7 @@ PYBIND11_MODULE(_hxnative, m) {
               std::vector<CharBoxOutput> results;
               {
                   py::gil_scoped_release release;
-                  results = optimize_char_boxes_batch(mask_ptr, H, W, inputs);
+                  results = optimize_char_boxes_batch(mask_ptr, H, W, inputs, is_vertical_page);
               }
 
               py::list out;
@@ -387,6 +434,7 @@ PYBIND11_MODULE(_hxnative, m) {
           },
           py::arg("mask"),
           py::arg("chars"),
+          py::arg("is_vertical_page") = false,
           "H2: 整页字符边界框批量优化, 替代 numpy 逐字符 4 次切片求和");
 
     // ---- H3 ----
