@@ -114,3 +114,26 @@ technical_report.md
 
 # === 测试用 PDF（大文件，不入 git） ===
 software1/铁路客货运输.pdf
+
+# === software3 排除规则 ===
+# 模型权重（~3GB，不入 git，运行时自行下载 Qwen2-1.5B）
+software3/models/
+
+# 测试 PDF 与运行产物
+software3/test_data/
+
+# CMake 构建目录
+software3/native/build/
+
+# 保留 C++ 优化成果（覆盖 *.py[cod] 对 .pyd 的忽略）
+!software3/native/_native.cp312-win_amd64.pyd
+
+# 临时验证/调试脚本
+software3/_check_features.py
+software3/_debug_ellipsis.py
+software3/_list_samples.py
+software3/_synthetic_testset.pdf
+software3/test_char_classification_report.txt
+
+# 调试输出图片
+software3/draw_*.png

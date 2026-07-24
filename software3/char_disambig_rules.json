@@ -1,0 +1,1336 @@
+{
+  "ncc_threshold": 0.3,
+  "_comment": "消歧组覆盖三组核心消歧对 + 半角触发 + 横线组 + 点号组 + 冒号数字组 + 字母乘号组 + 左括号组。规则优先级从上到下，首个匹配规则直接返回候选。abs_height=字符bbox绝对高度(pt)：标点(。/，/、)<3.2pt, o≈3.7pt, 数字/字母/）>4.0pt。aspect区分o(>0.85近正方形)与0(<0.72瘦高)与）(<0.60极窄)。height_ratio=切片高度/同行最大高度(仅PDF模式有效,char-dir模式为None跳过)：标点<0.5, 数字/字母≈1.0, ）≈0.75。cy/cx=黑色像素重心偏移[-1,1]。slash_slope=主轴斜率dx/dy(图像坐标系y向下)：竖直字符(1/Ⅰ/I)≈0, /字符<0(x随y增大而减小), 阈值<-0.3判/。NCC阈值0.3兜底。横线组(一/-/—)：OCR常返回_(U+005F)作为触发键, aspect>13→—, aspect<8→-, abs_height<0.8→-, abs_height>0.9→一。点号组(·/./…)：OCR常返回●(U+25CF)/■(U+25A0)/•(U+2022)作为触发键, dot_count==3→…, abs_height<1.5→., black_ratio<0.075→·(char-dir真实样本低br), black_ratio<0.15→.(char-dir真实句号), cy规则仅PDF模式有效。冒号数字组(：/:/1///Ⅰ/I)：semantic:true, dot_count==2且abs_height<3.2→：(dependencies字段防serif 1误判), slash_slope<-0.3→/, 其余(1/Ⅰ/I)交Qwen2语义判定。字母乘号组(x/X/×)：semantic:true, height_ratio>0.9→X(大写等高), 其余(x/×)交Qwen2语义判定。左括号组((/（)：abs_height>0→（(无条件转化为全角左括号)。dependencies字段=附加条件列表(字符串如'abs_height < 3.2'), 主条件匹配后须全部dependencies满足才采纳该规则。",
+  "groups": {
+    "，": {
+      "candidates": [
+        "，",
+        "9"
+      ],
+      "rules": [
+        {
+          "name": "comma_low_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 3.2,
+          "candidate": "，"
+        },
+        {
+          "name": "comma_low_height_ratio",
+          "feature": "height_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "，"
+        },
+        {
+          "name": "nine_high_abs_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 5.0,
+          "candidate": "9"
+        }
+      ]
+    },
+    "9": {
+      "candidates": [
+        "，",
+        "9"
+      ],
+      "rules": [
+        {
+          "name": "comma_low_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 3.2,
+          "candidate": "，"
+        },
+        {
+          "name": "comma_low_height_ratio",
+          "feature": "height_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "，"
+        },
+        {
+          "name": "nine_high_abs_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 5.0,
+          "candidate": "9"
+        }
+      ]
+    },
+    "。": {
+      "candidates": [
+        "。",
+        "O",
+        "o",
+        "0"
+      ],
+      "rules": [
+        {
+          "name": "period_low_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 3.2,
+          "candidate": "。"
+        },
+        {
+          "name": "period_low_height_ratio",
+          "feature": "height_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "。"
+        },
+        {
+          "name": "zero_narrow_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 0.72,
+          "candidate": "0"
+        },
+        {
+          "name": "O_tall_abs_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 7.0,
+          "candidate": "O"
+        },
+        {
+          "name": "o_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 0.85,
+          "candidate": "o"
+        },
+        {
+          "name": "zero_high_black_ratio",
+          "feature": "black_ratio",
+          "op": ">",
+          "threshold": 0.1,
+          "candidate": "0"
+        }
+      ]
+    },
+    "O": {
+      "candidates": [
+        "。",
+        "O",
+        "o",
+        "0"
+      ],
+      "rules": [
+        {
+          "name": "period_low_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 3.2,
+          "candidate": "。"
+        },
+        {
+          "name": "period_low_height_ratio",
+          "feature": "height_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "。"
+        },
+        {
+          "name": "zero_narrow_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 0.72,
+          "candidate": "0"
+        },
+        {
+          "name": "O_tall_abs_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 7.0,
+          "candidate": "O"
+        },
+        {
+          "name": "o_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 0.85,
+          "candidate": "o"
+        },
+        {
+          "name": "zero_high_black_ratio",
+          "feature": "black_ratio",
+          "op": ">",
+          "threshold": 0.1,
+          "candidate": "0"
+        }
+      ]
+    },
+    "o": {
+      "candidates": [
+        "。",
+        "O",
+        "o",
+        "0"
+      ],
+      "rules": [
+        {
+          "name": "period_low_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 3.2,
+          "candidate": "。"
+        },
+        {
+          "name": "period_low_height_ratio",
+          "feature": "height_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "。"
+        },
+        {
+          "name": "zero_narrow_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 0.72,
+          "candidate": "0"
+        },
+        {
+          "name": "O_tall_abs_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 7.0,
+          "candidate": "O"
+        },
+        {
+          "name": "o_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 0.85,
+          "candidate": "o"
+        },
+        {
+          "name": "zero_high_black_ratio",
+          "feature": "black_ratio",
+          "op": ">",
+          "threshold": 0.1,
+          "candidate": "0"
+        }
+      ]
+    },
+    "0": {
+      "candidates": [
+        "。",
+        "O",
+        "o",
+        "0"
+      ],
+      "rules": [
+        {
+          "name": "period_low_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 3.2,
+          "candidate": "。"
+        },
+        {
+          "name": "period_low_height_ratio",
+          "feature": "height_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "。"
+        },
+        {
+          "name": "zero_narrow_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 0.72,
+          "candidate": "0"
+        },
+        {
+          "name": "O_tall_abs_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 7.0,
+          "candidate": "O"
+        },
+        {
+          "name": "o_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 0.85,
+          "candidate": "o"
+        },
+        {
+          "name": "zero_high_black_ratio",
+          "feature": "black_ratio",
+          "op": ">",
+          "threshold": 0.1,
+          "candidate": "0"
+        }
+      ]
+    },
+    "、": {
+      "candidates": [
+        "、",
+        "）"
+      ],
+      "rules": [
+        {
+          "name": "dunhao_low_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 3.2,
+          "candidate": "、"
+        },
+        {
+          "name": "dunhao_low_height_ratio",
+          "feature": "height_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "、"
+        },
+        {
+          "name": "youparen_high_abs_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 4.0,
+          "candidate": "）"
+        },
+        {
+          "name": "dunhao_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "、"
+        },
+        {
+          "name": "youparen_narrow_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 0.6,
+          "candidate": "）"
+        }
+      ]
+    },
+    "）": {
+      "candidates": [
+        "、",
+        "）"
+      ],
+      "rules": [
+        {
+          "name": "dunhao_low_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 3.2,
+          "candidate": "、"
+        },
+        {
+          "name": "dunhao_low_height_ratio",
+          "feature": "height_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "、"
+        },
+        {
+          "name": "youparen_high_abs_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 4.0,
+          "candidate": "）"
+        },
+        {
+          "name": "dunhao_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "、"
+        },
+        {
+          "name": "youparen_narrow_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 0.6,
+          "candidate": "）"
+        }
+      ]
+    },
+    ")": {
+      "candidates": [
+        "、",
+        "）"
+      ],
+      "rules": [
+        {
+          "name": "dunhao_low_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 3.2,
+          "candidate": "、"
+        },
+        {
+          "name": "dunhao_low_height_ratio",
+          "feature": "height_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "、"
+        },
+        {
+          "name": "youparen_high_abs_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 4.0,
+          "candidate": "）"
+        },
+        {
+          "name": "dunhao_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "、"
+        },
+        {
+          "name": "youparen_narrow_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 0.6,
+          "candidate": "）"
+        }
+      ]
+    },
+    "一": {
+      "candidates": [
+        "一",
+        "-",
+        "—"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "dash_narrow_width_ratio",
+          "feature": "width_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "-"
+        },
+        {
+          "name": "dash_narrow_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 5.0,
+          "candidate": "-"
+        },
+        {
+          "name": "emdash_very_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 13.0,
+          "candidate": "—"
+        },
+        {
+          "name": "dash_short_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 8.0,
+          "candidate": "-"
+        },
+        {
+          "name": "dash_thin_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 0.8,
+          "candidate": "-"
+        },
+        {
+          "name": "cjkheng_normal_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "一"
+        }
+      ]
+    },
+    "-": {
+      "candidates": [
+        "一",
+        "-",
+        "—"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "dash_narrow_width_ratio",
+          "feature": "width_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "-"
+        },
+        {
+          "name": "dash_narrow_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 5.0,
+          "candidate": "-"
+        },
+        {
+          "name": "emdash_very_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 13.0,
+          "candidate": "—"
+        },
+        {
+          "name": "dash_short_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 8.0,
+          "candidate": "-"
+        },
+        {
+          "name": "dash_thin_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 0.8,
+          "candidate": "-"
+        },
+        {
+          "name": "cjkheng_normal_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "一"
+        }
+      ]
+    },
+    "—": {
+      "candidates": [
+        "一",
+        "-",
+        "—"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "dash_narrow_width_ratio",
+          "feature": "width_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "-"
+        },
+        {
+          "name": "dash_narrow_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 5.0,
+          "candidate": "-"
+        },
+        {
+          "name": "emdash_very_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 13.0,
+          "candidate": "—"
+        },
+        {
+          "name": "dash_short_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 8.0,
+          "candidate": "-"
+        },
+        {
+          "name": "dash_thin_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 0.8,
+          "candidate": "-"
+        },
+        {
+          "name": "cjkheng_normal_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "一"
+        }
+      ]
+    },
+    "_": {
+      "candidates": [
+        "一",
+        "-",
+        "—"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "dash_narrow_width_ratio",
+          "feature": "width_ratio",
+          "op": "<",
+          "threshold": 0.5,
+          "candidate": "-"
+        },
+        {
+          "name": "dash_narrow_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 5.0,
+          "candidate": "-"
+        },
+        {
+          "name": "emdash_very_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 13.0,
+          "candidate": "—"
+        },
+        {
+          "name": "dash_short_aspect",
+          "feature": "aspect",
+          "op": "<",
+          "threshold": 8.0,
+          "candidate": "-"
+        },
+        {
+          "name": "dash_thin_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 0.8,
+          "candidate": "-"
+        },
+        {
+          "name": "cjkheng_normal_height",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "一"
+        }
+      ]
+    },
+    "·": {
+      "candidates": [
+        "·",
+        ".",
+        "…"
+      ],
+      "rules": [
+        {
+          "name": "ellipsis_three_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 3,
+          "candidate": "…"
+        },
+        {
+          "name": "period_lower_half",
+          "feature": "cy",
+          "op": ">",
+          "threshold": 0.3,
+          "candidate": "."
+        },
+        {
+          "name": "period_small_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 1.5,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_very_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.075,
+          "candidate": "·"
+        },
+        {
+          "name": "period_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.15,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_centered",
+          "feature": "cy",
+          "op": "between",
+          "threshold": [
+            -0.3,
+            0.3
+          ],
+          "candidate": "·"
+        }
+      ]
+    },
+    ".": {
+      "candidates": [
+        "·",
+        ".",
+        "…"
+      ],
+      "rules": [
+        {
+          "name": "ellipsis_three_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 3,
+          "candidate": "…"
+        },
+        {
+          "name": "period_lower_half",
+          "feature": "cy",
+          "op": ">",
+          "threshold": 0.3,
+          "candidate": "."
+        },
+        {
+          "name": "period_small_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 1.5,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_very_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.075,
+          "candidate": "·"
+        },
+        {
+          "name": "period_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.15,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_centered",
+          "feature": "cy",
+          "op": "between",
+          "threshold": [
+            -0.3,
+            0.3
+          ],
+          "candidate": "·"
+        }
+      ]
+    },
+    "…": {
+      "candidates": [
+        "·",
+        ".",
+        "…"
+      ],
+      "rules": [
+        {
+          "name": "ellipsis_three_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 3,
+          "candidate": "…"
+        },
+        {
+          "name": "period_lower_half",
+          "feature": "cy",
+          "op": ">",
+          "threshold": 0.3,
+          "candidate": "."
+        },
+        {
+          "name": "period_small_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 1.5,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_very_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.075,
+          "candidate": "·"
+        },
+        {
+          "name": "period_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.15,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_centered",
+          "feature": "cy",
+          "op": "between",
+          "threshold": [
+            -0.3,
+            0.3
+          ],
+          "candidate": "·"
+        }
+      ]
+    },
+    "•": {
+      "candidates": [
+        "·",
+        ".",
+        "…"
+      ],
+      "rules": [
+        {
+          "name": "ellipsis_three_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 3,
+          "candidate": "…"
+        },
+        {
+          "name": "period_lower_half",
+          "feature": "cy",
+          "op": ">",
+          "threshold": 0.3,
+          "candidate": "."
+        },
+        {
+          "name": "period_small_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 1.5,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_very_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.075,
+          "candidate": "·"
+        },
+        {
+          "name": "period_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.15,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_centered",
+          "feature": "cy",
+          "op": "between",
+          "threshold": [
+            -0.3,
+            0.3
+          ],
+          "candidate": "·"
+        }
+      ]
+    },
+    "●": {
+      "candidates": [
+        "·",
+        ".",
+        "…"
+      ],
+      "rules": [
+        {
+          "name": "ellipsis_three_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 3,
+          "candidate": "…"
+        },
+        {
+          "name": "period_lower_half",
+          "feature": "cy",
+          "op": ">",
+          "threshold": 0.3,
+          "candidate": "."
+        },
+        {
+          "name": "period_small_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 1.5,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_very_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.075,
+          "candidate": "·"
+        },
+        {
+          "name": "period_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.15,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_centered",
+          "feature": "cy",
+          "op": "between",
+          "threshold": [
+            -0.3,
+            0.3
+          ],
+          "candidate": "·"
+        }
+      ]
+    },
+    "■": {
+      "candidates": [
+        "·",
+        ".",
+        "…"
+      ],
+      "rules": [
+        {
+          "name": "ellipsis_three_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 3,
+          "candidate": "…"
+        },
+        {
+          "name": "period_lower_half",
+          "feature": "cy",
+          "op": ">",
+          "threshold": 0.3,
+          "candidate": "."
+        },
+        {
+          "name": "period_small_abs_height",
+          "feature": "abs_height",
+          "op": "<",
+          "threshold": 1.5,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_very_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.075,
+          "candidate": "·"
+        },
+        {
+          "name": "period_low_black_ratio",
+          "feature": "black_ratio",
+          "op": "<",
+          "threshold": 0.15,
+          "candidate": "."
+        },
+        {
+          "name": "middledot_centered",
+          "feature": "cy",
+          "op": "between",
+          "threshold": [
+            -0.3,
+            0.3
+          ],
+          "candidate": "·"
+        }
+      ]
+    },
+    "：": {
+      "candidates": [
+        "：",
+        ":",
+        "1",
+        "/",
+        "Ⅰ",
+        "I"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "halfcolon_two_dots_narrow",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": ":",
+          "dependencies": [
+            "aspect < 1.5"
+          ]
+        },
+        {
+          "name": "colon_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 1.8,
+          "candidate": "："
+        },
+        {
+          "name": "colon_two_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": "：",
+          "dependencies": [
+            "abs_height < 3.2"
+          ]
+        },
+        {
+          "name": "slash_inclined",
+          "feature": "slash_slope",
+          "op": "<",
+          "threshold": -0.3,
+          "candidate": "/"
+        }
+      ]
+    },
+    ":": {
+      "candidates": [
+        "：",
+        ":",
+        "1",
+        "/",
+        "Ⅰ",
+        "I"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "halfcolon_two_dots_narrow",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": ":",
+          "dependencies": [
+            "aspect < 1.5"
+          ]
+        },
+        {
+          "name": "colon_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 1.8,
+          "candidate": "："
+        },
+        {
+          "name": "colon_two_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": "：",
+          "dependencies": [
+            "abs_height < 3.2"
+          ]
+        },
+        {
+          "name": "slash_inclined",
+          "feature": "slash_slope",
+          "op": "<",
+          "threshold": -0.3,
+          "candidate": "/"
+        }
+      ]
+    },
+    "1": {
+      "candidates": [
+        "：",
+        ":",
+        "1",
+        "/",
+        "Ⅰ",
+        "I"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "halfcolon_two_dots_narrow",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": ":",
+          "dependencies": [
+            "aspect < 1.5"
+          ]
+        },
+        {
+          "name": "colon_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 1.8,
+          "candidate": "："
+        },
+        {
+          "name": "colon_two_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": "：",
+          "dependencies": [
+            "abs_height < 3.2"
+          ]
+        },
+        {
+          "name": "slash_inclined",
+          "feature": "slash_slope",
+          "op": "<",
+          "threshold": -0.3,
+          "candidate": "/"
+        }
+      ]
+    },
+    "/": {
+      "candidates": [
+        "：",
+        ":",
+        "1",
+        "/",
+        "Ⅰ",
+        "I"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "halfcolon_two_dots_narrow",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": ":",
+          "dependencies": [
+            "aspect < 1.5"
+          ]
+        },
+        {
+          "name": "colon_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 1.8,
+          "candidate": "："
+        },
+        {
+          "name": "colon_two_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": "：",
+          "dependencies": [
+            "abs_height < 3.2"
+          ]
+        },
+        {
+          "name": "slash_inclined",
+          "feature": "slash_slope",
+          "op": "<",
+          "threshold": -0.3,
+          "candidate": "/"
+        }
+      ]
+    },
+    "Ⅰ": {
+      "candidates": [
+        "：",
+        ":",
+        "1",
+        "/",
+        "Ⅰ",
+        "I"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "halfcolon_two_dots_narrow",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": ":",
+          "dependencies": [
+            "aspect < 1.5"
+          ]
+        },
+        {
+          "name": "colon_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 1.8,
+          "candidate": "："
+        },
+        {
+          "name": "colon_two_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": "：",
+          "dependencies": [
+            "abs_height < 3.2"
+          ]
+        },
+        {
+          "name": "slash_inclined",
+          "feature": "slash_slope",
+          "op": "<",
+          "threshold": -0.3,
+          "candidate": "/"
+        }
+      ]
+    },
+    "I": {
+      "candidates": [
+        "：",
+        ":",
+        "1",
+        "/",
+        "Ⅰ",
+        "I"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "halfcolon_two_dots_narrow",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": ":",
+          "dependencies": [
+            "aspect < 1.5"
+          ]
+        },
+        {
+          "name": "colon_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 1.8,
+          "candidate": "："
+        },
+        {
+          "name": "colon_two_dots",
+          "feature": "dot_count",
+          "op": "==",
+          "threshold": 2,
+          "candidate": "：",
+          "dependencies": [
+            "abs_height < 3.2"
+          ]
+        },
+        {
+          "name": "slash_inclined",
+          "feature": "slash_slope",
+          "op": "<",
+          "threshold": -0.3,
+          "candidate": "/"
+        }
+      ]
+    },
+    "x": {
+      "candidates": [
+        "x",
+        "X",
+        "×"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "capital_x_equal_height",
+          "feature": "height_ratio",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "X"
+        },
+        {
+          "name": "times_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 1.3,
+          "candidate": "×"
+        },
+        {
+          "name": "lowercase_x_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "x"
+        }
+      ]
+    },
+    "X": {
+      "candidates": [
+        "x",
+        "X",
+        "×"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "capital_x_equal_height",
+          "feature": "height_ratio",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "X"
+        },
+        {
+          "name": "times_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 1.3,
+          "candidate": "×"
+        },
+        {
+          "name": "lowercase_x_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "x"
+        }
+      ]
+    },
+    "×": {
+      "candidates": [
+        "x",
+        "X",
+        "×"
+      ],
+      "semantic": true,
+      "rules": [
+        {
+          "name": "capital_x_equal_height",
+          "feature": "height_ratio",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "X"
+        },
+        {
+          "name": "times_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 1.3,
+          "candidate": "×"
+        },
+        {
+          "name": "lowercase_x_wide_aspect",
+          "feature": "aspect",
+          "op": ">",
+          "threshold": 0.9,
+          "candidate": "x"
+        }
+      ]
+    },
+    "（": {
+      "candidates": [
+        "（"
+      ],
+      "rules": [
+        {
+          "name": "left_paren_fullwidth",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 0.0,
+          "candidate": "（"
+        }
+      ]
+    },
+    "(": {
+      "candidates": [
+        "（"
+      ],
+      "rules": [
+        {
+          "name": "left_paren_fullwidth",
+          "feature": "abs_height",
+          "op": ">",
+          "threshold": 0.0,
+          "candidate": "（"
+        }
+      ]
+    }
+  }
+}

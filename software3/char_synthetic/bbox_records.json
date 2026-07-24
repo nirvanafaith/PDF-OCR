@@ -1,0 +1,5627 @@
+[
+  {
+    "idx": 1,
+    "char": ".",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.25796875,
+      419.7765625,
+      299.45796875,
+      420.9765625
+    ],
+    "w_pt": 1.2,
+    "h_pt": 1.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“.”\\syn_simsun_10p5pt_w1.2_h1.2.png"
+  },
+  {
+    "idx": 2,
+    "char": ".",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.48625,
+      419.6875,
+      299.92625,
+      421.1275
+    ],
+    "w_pt": 1.4,
+    "h_pt": 1.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“.”\\syn_simsun_12p0pt_w1.4_h1.4.png"
+  },
+  {
+    "idx": 3,
+    "char": ".",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.710625,
+      419.40875,
+      300.390625,
+      421.08875
+    ],
+    "w_pt": 1.7,
+    "h_pt": 1.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“.”\\syn_simsun_14p0pt_w1.7_h1.7.png"
+  },
+  {
+    "idx": 4,
+    "char": ".",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.695,
+      419.13,
+      300.615,
+      421.05
+    ],
+    "w_pt": 1.9,
+    "h_pt": 1.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“.”\\syn_simsun_16p0pt_w1.9_h1.9.png"
+  },
+  {
+    "idx": 5,
+    "char": ".",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.919375,
+      418.85125,
+      301.079375,
+      421.01125
+    ],
+    "w_pt": 2.2,
+    "h_pt": 2.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“.”\\syn_simsun_18p0pt_w2.2_h2.2.png"
+  },
+  {
+    "idx": 6,
+    "char": ".",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.3722265625,
+      420.044716796875,
+      299.3322265625,
+      421.244716796875
+    ],
+    "w_pt": 1.0,
+    "h_pt": 1.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“.”\\syn_times_10p5pt_w1.0_h1.2.png"
+  },
+  {
+    "idx": 7,
+    "char": ".",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.7196875,
+      419.925390625,
+      299.9196875,
+      421.365390625
+    ],
+    "w_pt": 1.2,
+    "h_pt": 1.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“.”\\syn_times_12p0pt_w1.2_h1.4.png"
+  },
+  {
+    "idx": 8,
+    "char": ".",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.78296875,
+      419.7662890625,
+      300.22296875,
+      421.2062890625
+    ],
+    "w_pt": 1.4,
+    "h_pt": 1.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“.”\\syn_times_14p0pt_w1.4_h1.4.png"
+  },
+  {
+    "idx": 9,
+    "char": ".",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.84625,
+      419.6071875,
+      300.52625,
+      421.2871875
+    ],
+    "w_pt": 1.7,
+    "h_pt": 1.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“.”\\syn_times_16p0pt_w1.7_h1.7.png"
+  },
+  {
+    "idx": 10,
+    "char": ".",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.90953125,
+      419.4480859375,
+      300.82953125,
+      421.3680859375
+    ],
+    "w_pt": 1.9,
+    "h_pt": 1.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“.”\\syn_times_18p0pt_w1.9_h1.9.png"
+  },
+  {
+    "idx": 11,
+    "char": "、",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.97796875,
+      418.8165625,
+      301.37796875,
+      421.2165625
+    ],
+    "w_pt": 2.4,
+    "h_pt": 2.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“、”\\syn_simsun_10p5pt_w2.4_h2.4.png"
+  },
+  {
+    "idx": 12,
+    "char": "、",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      299.20625,
+      418.4875,
+      302.08625,
+      421.3675
+    ],
+    "w_pt": 2.9,
+    "h_pt": 2.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“、”\\syn_simsun_12p0pt_w2.9_h2.9.png"
+  },
+  {
+    "idx": 13,
+    "char": "、",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      299.430625,
+      418.20875,
+      302.550625,
+      421.32875
+    ],
+    "w_pt": 3.1,
+    "h_pt": 3.1,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“、”\\syn_simsun_14p0pt_w3.1_h3.1.png"
+  },
+  {
+    "idx": 14,
+    "char": "、",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      299.655,
+      417.69,
+      303.255,
+      421.29
+    ],
+    "w_pt": 3.6,
+    "h_pt": 3.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“、”\\syn_simsun_16p0pt_w3.6_h3.6.png"
+  },
+  {
+    "idx": 15,
+    "char": "、",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      299.639375,
+      417.17125,
+      303.959375,
+      421.25125
+    ],
+    "w_pt": 4.3,
+    "h_pt": 4.1,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“、”\\syn_simsun_18p0pt_w4.3_h4.1.png"
+  },
+  {
+    "idx": 16,
+    "char": "、",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      299.176953125,
+      418.3365625,
+      301.336953125,
+      421.4565625
+    ],
+    "w_pt": 2.2,
+    "h_pt": 3.1,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“、”\\syn_simhei_10p5pt_w2.2_h3.1.png"
+  },
+  {
+    "idx": 17,
+    "char": "、",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      299.639375,
+      418.0075,
+      302.039375,
+      421.6075
+    ],
+    "w_pt": 2.4,
+    "h_pt": 3.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“、”\\syn_simhei_12p0pt_w2.4_h3.6.png"
+  },
+  {
+    "idx": 18,
+    "char": "、",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      299.8559375,
+      417.48875,
+      302.7359375,
+      421.56875
+    ],
+    "w_pt": 2.9,
+    "h_pt": 4.1,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“、”\\syn_simhei_14p0pt_w2.9_h4.1.png"
+  },
+  {
+    "idx": 19,
+    "char": "、",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      300.0725,
+      416.97,
+      303.4325,
+      421.77
+    ],
+    "w_pt": 3.4,
+    "h_pt": 4.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“、”\\syn_simhei_16p0pt_w3.4_h4.8.png"
+  },
+  {
+    "idx": 20,
+    "char": "、",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      300.2890625,
+      416.45125,
+      304.1290625,
+      421.73125
+    ],
+    "w_pt": 3.8,
+    "h_pt": 5.3,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“、”\\syn_simhei_18p0pt_w3.8_h5.3.png"
+  },
+  {
+    "idx": 21,
+    "char": "。",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      299.21796875,
+      418.8165625,
+      301.37796875,
+      420.9765625
+    ],
+    "w_pt": 2.2,
+    "h_pt": 2.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“。”\\syn_simsun_10p5pt_w2.2_h2.2.png"
+  },
+  {
+    "idx": 22,
+    "char": "。",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      299.44625,
+      418.4875,
+      302.08625,
+      421.1275
+    ],
+    "w_pt": 2.6,
+    "h_pt": 2.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“。”\\syn_simsun_12p0pt_w2.6_h2.6.png"
+  },
+  {
+    "idx": 23,
+    "char": "。",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      299.670625,
+      418.20875,
+      302.790625,
+      421.08875
+    ],
+    "w_pt": 3.1,
+    "h_pt": 2.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“。”\\syn_simsun_14p0pt_w3.1_h2.9.png"
+  },
+  {
+    "idx": 24,
+    "char": "。",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      299.895,
+      417.69,
+      303.495,
+      421.05
+    ],
+    "w_pt": 3.6,
+    "h_pt": 3.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“。”\\syn_simsun_16p0pt_w3.6_h3.4.png"
+  },
+  {
+    "idx": 25,
+    "char": "。",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      300.119375,
+      417.17125,
+      304.199375,
+      421.01125
+    ],
+    "w_pt": 4.1,
+    "h_pt": 3.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“。”\\syn_simsun_18p0pt_w4.1_h3.8.png"
+  },
+  {
+    "idx": 26,
+    "char": "。",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.936953125,
+      418.5765625,
+      301.336953125,
+      421.2165625
+    ],
+    "w_pt": 2.4,
+    "h_pt": 2.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“。”\\syn_simhei_10p5pt_w2.4_h2.6.png"
+  },
+  {
+    "idx": 27,
+    "char": "。",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      299.159375,
+      418.4875,
+      302.039375,
+      421.3675
+    ],
+    "w_pt": 2.9,
+    "h_pt": 2.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“。”\\syn_simhei_12p0pt_w2.9_h2.9.png"
+  },
+  {
+    "idx": 28,
+    "char": "。",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      299.6159375,
+      417.96875,
+      302.7359375,
+      421.32875
+    ],
+    "w_pt": 3.1,
+    "h_pt": 3.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“。”\\syn_simhei_14p0pt_w3.1_h3.4.png"
+  },
+  {
+    "idx": 29,
+    "char": "。",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      299.8325,
+      417.45,
+      303.4325,
+      421.29
+    ],
+    "w_pt": 3.6,
+    "h_pt": 3.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“。”\\syn_simhei_16p0pt_w3.6_h3.8.png"
+  },
+  {
+    "idx": 30,
+    "char": "。",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      300.0490625,
+      416.93125,
+      304.1290625,
+      421.25125
+    ],
+    "w_pt": 4.1,
+    "h_pt": 4.3,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“。”\\syn_simhei_18p0pt_w4.1_h4.3.png"
+  },
+  {
+    "idx": 31,
+    "char": "0",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.8922265625,
+      413.804716796875,
+      302.4522265625,
+      421.004716796875
+    ],
+    "w_pt": 4.6,
+    "h_pt": 7.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“0”\\syn_times_10p5pt_w4.6_h7.2.png"
+  },
+  {
+    "idx": 32,
+    "char": "0",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.2396875,
+      412.965390625,
+      303.2796875,
+      421.365390625
+    ],
+    "w_pt": 5.0,
+    "h_pt": 8.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“0”\\syn_times_12p0pt_w5.0_h8.4.png"
+  },
+  {
+    "idx": 33,
+    "char": "0",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.30296875,
+      411.6062890625,
+      304.30296875,
+      421.2062890625
+    ],
+    "w_pt": 6.0,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“0”\\syn_times_14p0pt_w6.0_h9.6.png"
+  },
+  {
+    "idx": 34,
+    "char": "0",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.12625,
+      410.2471875,
+      305.08625,
+      421.2871875
+    ],
+    "w_pt": 7.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“0”\\syn_times_16p0pt_w7.0_h11.0.png"
+  },
+  {
+    "idx": 35,
+    "char": "0",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.42953125,
+      408.8880859375,
+      306.10953125,
+      421.3680859375
+    ],
+    "w_pt": 7.7,
+    "h_pt": 12.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“0”\\syn_times_18p0pt_w7.7_h12.5.png"
+  },
+  {
+    "idx": 36,
+    "char": "o",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.8922265625,
+      416.204716796875,
+      302.4522265625,
+      421.244716796875
+    ],
+    "w_pt": 4.6,
+    "h_pt": 5.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“o”\\syn_times_10p5pt_w4.6_h5.0.png"
+  },
+  {
+    "idx": 37,
+    "char": "o",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.2396875,
+      415.605390625,
+      303.2796875,
+      421.365390625
+    ],
+    "w_pt": 5.0,
+    "h_pt": 5.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“o”\\syn_times_12p0pt_w5.0_h5.8.png"
+  },
+  {
+    "idx": 38,
+    "char": "o",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.30296875,
+      414.4862890625,
+      304.30296875,
+      421.2062890625
+    ],
+    "w_pt": 6.0,
+    "h_pt": 6.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“o”\\syn_times_14p0pt_w6.0_h6.7.png"
+  },
+  {
+    "idx": 39,
+    "char": "o",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.12625,
+      413.6071875,
+      305.08625,
+      421.2871875
+    ],
+    "w_pt": 7.0,
+    "h_pt": 7.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“o”\\syn_times_16p0pt_w7.0_h7.7.png"
+  },
+  {
+    "idx": 40,
+    "char": "o",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.42953125,
+      412.7280859375,
+      306.10953125,
+      421.3680859375
+    ],
+    "w_pt": 7.7,
+    "h_pt": 8.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“o”\\syn_times_18p0pt_w7.7_h8.6.png"
+  },
+  {
+    "idx": 41,
+    "char": "O",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.8922265625,
+      413.804716796875,
+      304.6122265625,
+      421.244716796875
+    ],
+    "w_pt": 6.7,
+    "h_pt": 7.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“O_U”\\syn_times_10p5pt_w6.7_h7.4.png"
+  },
+  {
+    "idx": 42,
+    "char": "O",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.2396875,
+      412.965390625,
+      305.9196875,
+      421.365390625
+    ],
+    "w_pt": 7.7,
+    "h_pt": 8.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“O_U”\\syn_times_12p0pt_w7.7_h8.4.png"
+  },
+  {
+    "idx": 43,
+    "char": "O",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.30296875,
+      411.6062890625,
+      307.42296875,
+      421.2062890625
+    ],
+    "w_pt": 9.1,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“O_U”\\syn_times_14p0pt_w9.1_h9.6.png"
+  },
+  {
+    "idx": 44,
+    "char": "O",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.12625,
+      410.2471875,
+      308.68625,
+      421.2871875
+    ],
+    "w_pt": 10.6,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“O_U”\\syn_times_16p0pt_w10.6_h11.0.png"
+  },
+  {
+    "idx": 45,
+    "char": "O",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.42953125,
+      408.8880859375,
+      309.94953125,
+      421.3680859375
+    ],
+    "w_pt": 11.5,
+    "h_pt": 12.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“O_U”\\syn_times_18p0pt_w11.5_h12.5.png"
+  },
+  {
+    "idx": 46,
+    "char": "…",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.73796875,
+      416.4165625,
+      307.13796875,
+      417.8565625
+    ],
+    "w_pt": 8.4,
+    "h_pt": 1.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“…”\\syn_simsun_10p5pt_w8.4_h1.4.png"
+  },
+  {
+    "idx": 47,
+    "char": "…",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.96625,
+      415.8475,
+      308.56625,
+      417.7675
+    ],
+    "w_pt": 9.6,
+    "h_pt": 1.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“…”\\syn_simsun_12p0pt_w9.6_h1.9.png"
+  },
+  {
+    "idx": 48,
+    "char": "…",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      299.190625,
+      415.08875,
+      310.230625,
+      417.00875
+    ],
+    "w_pt": 11.0,
+    "h_pt": 1.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“…”\\syn_simsun_14p0pt_w11.0_h1.9.png"
+  },
+  {
+    "idx": 49,
+    "char": "…",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      299.415,
+      414.09,
+      312.135,
+      416.49
+    ],
+    "w_pt": 12.7,
+    "h_pt": 2.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“…”\\syn_simsun_16p0pt_w12.7_h2.4.png"
+  },
+  {
+    "idx": 50,
+    "char": "…",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      299.639375,
+      413.09125,
+      313.799375,
+      415.97125
+    ],
+    "w_pt": 14.2,
+    "h_pt": 2.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“…”\\syn_simsun_18p0pt_w14.2_h2.9.png"
+  },
+  {
+    "idx": 51,
+    "char": "…",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.696953125,
+      416.4165625,
+      307.096953125,
+      418.0965625
+    ],
+    "w_pt": 8.4,
+    "h_pt": 1.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“…”\\syn_simhei_10p5pt_w8.4_h1.7.png"
+  },
+  {
+    "idx": 52,
+    "char": "…",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.919375,
+      415.8475,
+      308.519375,
+      417.7675
+    ],
+    "w_pt": 9.6,
+    "h_pt": 1.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“…”\\syn_simhei_12p0pt_w9.6_h1.9.png"
+  },
+  {
+    "idx": 53,
+    "char": "…",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.8959375,
+      414.84875,
+      310.1759375,
+      417.00875
+    ],
+    "w_pt": 11.3,
+    "h_pt": 2.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“…”\\syn_simhei_14p0pt_w11.3_h2.2.png"
+  },
+  {
+    "idx": 54,
+    "char": "…",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      299.1125,
+      414.09,
+      312.0725,
+      416.49
+    ],
+    "w_pt": 13.0,
+    "h_pt": 2.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“…”\\syn_simhei_16p0pt_w13.0_h2.4.png"
+  },
+  {
+    "idx": 55,
+    "char": "…",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      299.3290625,
+      413.09125,
+      313.7290625,
+      415.97125
+    ],
+    "w_pt": 14.4,
+    "h_pt": 2.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“…”\\syn_simhei_18p0pt_w14.4_h2.9.png"
+  },
+  {
+    "idx": 56,
+    "char": ",",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.25796875,
+      419.5365625,
+      299.69796875,
+      422.1765625
+    ],
+    "w_pt": 1.4,
+    "h_pt": 2.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“,”\\syn_simsun_10p5pt_w1.4_h2.6.png"
+  },
+  {
+    "idx": 57,
+    "char": ",",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.48625,
+      419.4475,
+      300.16625,
+      422.5675
+    ],
+    "w_pt": 1.7,
+    "h_pt": 3.1,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“,”\\syn_simsun_12p0pt_w1.7_h3.1.png"
+  },
+  {
+    "idx": 58,
+    "char": ",",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.710625,
+      419.16875,
+      300.390625,
+      422.76875
+    ],
+    "w_pt": 1.7,
+    "h_pt": 3.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“,”\\syn_simsun_14p0pt_w1.7_h3.6.png"
+  },
+  {
+    "idx": 59,
+    "char": ",",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.695,
+      418.89,
+      300.855,
+      422.73
+    ],
+    "w_pt": 2.2,
+    "h_pt": 3.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“,”\\syn_simsun_16p0pt_w2.2_h3.8.png"
+  },
+  {
+    "idx": 60,
+    "char": ",",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.679375,
+      418.61125,
+      301.079375,
+      423.17125
+    ],
+    "w_pt": 2.4,
+    "h_pt": 4.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“,”\\syn_simsun_18p0pt_w2.4_h4.6.png"
+  },
+  {
+    "idx": 61,
+    "char": ",",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.1322265625,
+      420.044716796875,
+      299.5722265625,
+      422.684716796875
+    ],
+    "w_pt": 1.4,
+    "h_pt": 2.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“,”\\syn_times_10p5pt_w1.4_h2.6.png"
+  },
+  {
+    "idx": 62,
+    "char": ",",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.4796875,
+      419.925390625,
+      300.1596875,
+      423.045390625
+    ],
+    "w_pt": 1.7,
+    "h_pt": 3.1,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“,”\\syn_times_12p0pt_w1.7_h3.1.png"
+  },
+  {
+    "idx": 63,
+    "char": ",",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.54296875,
+      419.5262890625,
+      300.70296875,
+      423.1262890625
+    ],
+    "w_pt": 2.2,
+    "h_pt": 3.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“,”\\syn_times_14p0pt_w2.2_h3.6.png"
+  },
+  {
+    "idx": 64,
+    "char": ",",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.60625,
+      419.6071875,
+      300.76625,
+      423.6871875
+    ],
+    "w_pt": 2.2,
+    "h_pt": 4.1,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“,”\\syn_times_16p0pt_w2.2_h4.1.png"
+  },
+  {
+    "idx": 65,
+    "char": ",",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.66953125,
+      419.4480859375,
+      301.30953125,
+      424.0080859375
+    ],
+    "w_pt": 2.6,
+    "h_pt": 4.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“,”\\syn_times_18p0pt_w2.6_h4.6.png"
+  },
+  {
+    "idx": 66,
+    "char": "·",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      301.61796875,
+      415.9365625,
+      304.01796875,
+      418.3365625
+    ],
+    "w_pt": 2.4,
+    "h_pt": 2.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“·”\\syn_simsun_10p5pt_w2.4_h2.4.png"
+  },
+  {
+    "idx": 67,
+    "char": "·",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      302.32625,
+      415.3675,
+      305.20625,
+      418.0075
+    ],
+    "w_pt": 2.9,
+    "h_pt": 2.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“·”\\syn_simsun_12p0pt_w2.9_h2.6.png"
+  },
+  {
+    "idx": 68,
+    "char": "·",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      303.030625,
+      414.36875,
+      306.390625,
+      417.48875
+    ],
+    "w_pt": 3.4,
+    "h_pt": 3.1,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“·”\\syn_simsun_14p0pt_w3.4_h3.1.png"
+  },
+  {
+    "idx": 69,
+    "char": "·",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      303.975,
+      413.37,
+      307.575,
+      416.97
+    ],
+    "w_pt": 3.6,
+    "h_pt": 3.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“·”\\syn_simsun_16p0pt_w3.6_h3.6.png"
+  },
+  {
+    "idx": 70,
+    "char": "·",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      304.679375,
+      412.37125,
+      308.759375,
+      416.45125
+    ],
+    "w_pt": 4.1,
+    "h_pt": 4.1,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“·”\\syn_simsun_18p0pt_w4.1_h4.1.png"
+  },
+  {
+    "idx": 71,
+    "char": "·",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      302.056953125,
+      416.4165625,
+      303.736953125,
+      418.0965625
+    ],
+    "w_pt": 1.7,
+    "h_pt": 1.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“·”\\syn_simhei_10p5pt_w1.7_h1.7.png"
+  },
+  {
+    "idx": 72,
+    "char": "·",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      302.759375,
+      415.8475,
+      304.679375,
+      417.7675
+    ],
+    "w_pt": 1.9,
+    "h_pt": 1.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“·”\\syn_simhei_12p0pt_w1.9_h1.9.png"
+  },
+  {
+    "idx": 73,
+    "char": "·",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      303.6959375,
+      414.84875,
+      305.6159375,
+      417.00875
+    ],
+    "w_pt": 1.9,
+    "h_pt": 2.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“·”\\syn_simhei_14p0pt_w1.9_h2.2.png"
+  },
+  {
+    "idx": 74,
+    "char": "·",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      304.3925,
+      414.09,
+      306.7925,
+      416.49
+    ],
+    "w_pt": 2.4,
+    "h_pt": 2.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“·”\\syn_simhei_16p0pt_w2.4_h2.4.png"
+  },
+  {
+    "idx": 75,
+    "char": "·",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      305.3290625,
+      413.09125,
+      307.9690625,
+      415.97125
+    ],
+    "w_pt": 2.6,
+    "h_pt": 2.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“·”\\syn_simhei_18p0pt_w2.6_h2.9.png"
+  },
+  {
+    "idx": 76,
+    "char": "〇",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.73796875,
+      413.2965625,
+      306.89796875,
+      421.2165625
+    ],
+    "w_pt": 8.2,
+    "h_pt": 7.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“〇”\\syn_simsun_10p5pt_w8.2_h7.9.png"
+  },
+  {
+    "idx": 77,
+    "char": "〇",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.96625,
+      412.2475,
+      308.56625,
+      421.3675
+    ],
+    "w_pt": 9.6,
+    "h_pt": 9.1,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“〇”\\syn_simsun_12p0pt_w9.6_h9.1.png"
+  },
+  {
+    "idx": 78,
+    "char": "〇",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      299.190625,
+      410.76875,
+      310.230625,
+      421.32875
+    ],
+    "w_pt": 11.0,
+    "h_pt": 10.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“〇”\\syn_simsun_14p0pt_w11.0_h10.6.png"
+  },
+  {
+    "idx": 79,
+    "char": "〇",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      299.415,
+      409.29,
+      311.895,
+      421.29
+    ],
+    "w_pt": 12.5,
+    "h_pt": 12.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“〇”\\syn_simsun_16p0pt_w12.5_h12.0.png"
+  },
+  {
+    "idx": 80,
+    "char": "〇",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      299.639375,
+      407.57125,
+      313.799375,
+      421.25125
+    ],
+    "w_pt": 14.2,
+    "h_pt": 13.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“〇”\\syn_simsun_18p0pt_w14.2_h13.7.png"
+  },
+  {
+    "idx": 81,
+    "char": "〇",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.696953125,
+      413.0565625,
+      307.096953125,
+      421.2165625
+    ],
+    "w_pt": 8.4,
+    "h_pt": 8.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“〇”\\syn_simhei_10p5pt_w8.4_h8.2.png"
+  },
+  {
+    "idx": 82,
+    "char": "〇",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.919375,
+      412.0075,
+      308.519375,
+      421.3675
+    ],
+    "w_pt": 9.6,
+    "h_pt": 9.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“〇”\\syn_simhei_12p0pt_w9.6_h9.4.png"
+  },
+  {
+    "idx": 83,
+    "char": "〇",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      299.1359375,
+      410.52875,
+      310.1759375,
+      421.56875
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“〇”\\syn_simhei_14p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 84,
+    "char": "〇",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      299.3525,
+      409.05,
+      312.0725,
+      421.53
+    ],
+    "w_pt": 12.7,
+    "h_pt": 12.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“〇”\\syn_simhei_16p0pt_w12.7_h12.5.png"
+  },
+  {
+    "idx": 85,
+    "char": "〇",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      299.3290625,
+      407.57125,
+      313.7290625,
+      421.49125
+    ],
+    "w_pt": 14.4,
+    "h_pt": 13.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“〇”\\syn_simhei_18p0pt_w14.4_h13.9.png"
+  },
+  {
+    "idx": 86,
+    "char": "①",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      412.3365625,
+      307.85796875,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“①”\\syn_simsun_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 87,
+    "char": "①",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      411.2875,
+      309.28625,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“①”\\syn_simsun_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 88,
+    "char": "①",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.230625,
+      409.56875,
+      311.190625,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“①”\\syn_simsun_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 89,
+    "char": "①",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.215,
+      407.85,
+      313.095,
+      422.73
+    ],
+    "w_pt": 14.9,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“①”\\syn_simsun_16p0pt_w14.9_h14.9.png"
+  },
+  {
+    "idx": 90,
+    "char": "①",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.439375,
+      406.13125,
+      314.999375,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“①”\\syn_simsun_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 91,
+    "char": "①",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.976953125,
+      412.3365625,
+      307.816953125,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“①”\\syn_simhei_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 92,
+    "char": "①",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.199375,
+      411.2875,
+      309.239375,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“①”\\syn_simhei_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 93,
+    "char": "①",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.1759375,
+      409.56875,
+      311.1359375,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“①”\\syn_simhei_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 94,
+    "char": "①",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.3925,
+      407.85,
+      313.0325,
+      422.73
+    ],
+    "w_pt": 14.6,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“①”\\syn_simhei_16p0pt_w14.6_h14.9.png"
+  },
+  {
+    "idx": 95,
+    "char": "①",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.3690625,
+      406.13125,
+      314.9290625,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“①”\\syn_simhei_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 96,
+    "char": "②",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      412.3365625,
+      307.85796875,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“②”\\syn_simsun_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 97,
+    "char": "②",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      411.2875,
+      309.28625,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“②”\\syn_simsun_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 98,
+    "char": "②",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.230625,
+      409.56875,
+      311.190625,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“②”\\syn_simsun_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 99,
+    "char": "②",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.215,
+      407.85,
+      313.095,
+      422.73
+    ],
+    "w_pt": 14.9,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“②”\\syn_simsun_16p0pt_w14.9_h14.9.png"
+  },
+  {
+    "idx": 100,
+    "char": "②",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.439375,
+      406.13125,
+      314.999375,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“②”\\syn_simsun_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 101,
+    "char": "②",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.976953125,
+      412.3365625,
+      307.816953125,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“②”\\syn_simhei_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 102,
+    "char": "②",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.199375,
+      411.2875,
+      309.239375,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“②”\\syn_simhei_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 103,
+    "char": "②",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.1759375,
+      409.56875,
+      311.1359375,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“②”\\syn_simhei_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 104,
+    "char": "②",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.3925,
+      407.85,
+      313.0325,
+      422.73
+    ],
+    "w_pt": 14.6,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“②”\\syn_simhei_16p0pt_w14.6_h14.9.png"
+  },
+  {
+    "idx": 105,
+    "char": "②",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.3690625,
+      406.13125,
+      314.9290625,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“②”\\syn_simhei_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 106,
+    "char": "③",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      412.3365625,
+      307.85796875,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“③”\\syn_simsun_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 107,
+    "char": "③",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      411.2875,
+      309.28625,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“③”\\syn_simsun_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 108,
+    "char": "③",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.230625,
+      409.56875,
+      311.190625,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“③”\\syn_simsun_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 109,
+    "char": "③",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.215,
+      407.85,
+      313.095,
+      422.73
+    ],
+    "w_pt": 14.9,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“③”\\syn_simsun_16p0pt_w14.9_h14.9.png"
+  },
+  {
+    "idx": 110,
+    "char": "③",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.439375,
+      406.13125,
+      314.999375,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“③”\\syn_simsun_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 111,
+    "char": "③",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.976953125,
+      412.3365625,
+      307.816953125,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“③”\\syn_simhei_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 112,
+    "char": "③",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.199375,
+      411.2875,
+      309.239375,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“③”\\syn_simhei_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 113,
+    "char": "③",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.1759375,
+      409.56875,
+      311.1359375,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“③”\\syn_simhei_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 114,
+    "char": "③",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.3925,
+      407.85,
+      313.0325,
+      422.73
+    ],
+    "w_pt": 14.6,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“③”\\syn_simhei_16p0pt_w14.6_h14.9.png"
+  },
+  {
+    "idx": 115,
+    "char": "③",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.3690625,
+      406.13125,
+      314.9290625,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“③”\\syn_simhei_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 116,
+    "char": "④",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      412.3365625,
+      307.85796875,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“④”\\syn_simsun_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 117,
+    "char": "④",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      411.2875,
+      309.28625,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“④”\\syn_simsun_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 118,
+    "char": "④",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.230625,
+      409.56875,
+      311.190625,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“④”\\syn_simsun_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 119,
+    "char": "④",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.215,
+      407.85,
+      313.095,
+      422.73
+    ],
+    "w_pt": 14.9,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“④”\\syn_simsun_16p0pt_w14.9_h14.9.png"
+  },
+  {
+    "idx": 120,
+    "char": "④",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.439375,
+      406.13125,
+      314.999375,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“④”\\syn_simsun_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 121,
+    "char": "④",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.976953125,
+      412.3365625,
+      307.816953125,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“④”\\syn_simhei_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 122,
+    "char": "④",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.199375,
+      411.2875,
+      309.239375,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“④”\\syn_simhei_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 123,
+    "char": "④",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.1759375,
+      409.56875,
+      311.1359375,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“④”\\syn_simhei_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 124,
+    "char": "④",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.3925,
+      407.85,
+      313.0325,
+      422.73
+    ],
+    "w_pt": 14.6,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“④”\\syn_simhei_16p0pt_w14.6_h14.9.png"
+  },
+  {
+    "idx": 125,
+    "char": "④",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.3690625,
+      406.13125,
+      314.9290625,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“④”\\syn_simhei_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 126,
+    "char": "⑤",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      412.3365625,
+      307.85796875,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑤”\\syn_simsun_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 127,
+    "char": "⑤",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      411.2875,
+      309.28625,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑤”\\syn_simsun_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 128,
+    "char": "⑤",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.230625,
+      409.56875,
+      311.190625,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑤”\\syn_simsun_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 129,
+    "char": "⑤",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.215,
+      407.85,
+      313.095,
+      422.73
+    ],
+    "w_pt": 14.9,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑤”\\syn_simsun_16p0pt_w14.9_h14.9.png"
+  },
+  {
+    "idx": 130,
+    "char": "⑤",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.439375,
+      406.13125,
+      314.999375,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑤”\\syn_simsun_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 131,
+    "char": "⑤",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.976953125,
+      412.3365625,
+      307.816953125,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑤”\\syn_simhei_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 132,
+    "char": "⑤",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.199375,
+      411.2875,
+      309.239375,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑤”\\syn_simhei_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 133,
+    "char": "⑤",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.1759375,
+      409.56875,
+      311.1359375,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑤”\\syn_simhei_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 134,
+    "char": "⑤",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.3925,
+      407.85,
+      313.0325,
+      422.73
+    ],
+    "w_pt": 14.6,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑤”\\syn_simhei_16p0pt_w14.6_h14.9.png"
+  },
+  {
+    "idx": 135,
+    "char": "⑤",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.3690625,
+      406.13125,
+      314.9290625,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑤”\\syn_simhei_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 136,
+    "char": "⑥",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      412.3365625,
+      307.85796875,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑥”\\syn_simsun_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 137,
+    "char": "⑥",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      411.2875,
+      309.28625,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑥”\\syn_simsun_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 138,
+    "char": "⑥",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.230625,
+      409.56875,
+      311.190625,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑥”\\syn_simsun_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 139,
+    "char": "⑥",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.215,
+      407.85,
+      313.095,
+      422.73
+    ],
+    "w_pt": 14.9,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑥”\\syn_simsun_16p0pt_w14.9_h14.9.png"
+  },
+  {
+    "idx": 140,
+    "char": "⑥",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.439375,
+      406.13125,
+      314.999375,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑥”\\syn_simsun_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 141,
+    "char": "⑥",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.976953125,
+      412.3365625,
+      307.816953125,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑥”\\syn_simhei_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 142,
+    "char": "⑥",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.199375,
+      411.2875,
+      309.239375,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑥”\\syn_simhei_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 143,
+    "char": "⑥",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.1759375,
+      409.56875,
+      311.1359375,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑥”\\syn_simhei_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 144,
+    "char": "⑥",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.3925,
+      407.85,
+      313.0325,
+      422.73
+    ],
+    "w_pt": 14.6,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑥”\\syn_simhei_16p0pt_w14.6_h14.9.png"
+  },
+  {
+    "idx": 145,
+    "char": "⑥",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.3690625,
+      406.13125,
+      314.9290625,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑥”\\syn_simhei_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 146,
+    "char": "⑦",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      412.3365625,
+      307.85796875,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑦”\\syn_simsun_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 147,
+    "char": "⑦",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      411.2875,
+      309.28625,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑦”\\syn_simsun_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 148,
+    "char": "⑦",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.230625,
+      409.56875,
+      311.190625,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑦”\\syn_simsun_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 149,
+    "char": "⑦",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.215,
+      407.85,
+      313.095,
+      422.73
+    ],
+    "w_pt": 14.9,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑦”\\syn_simsun_16p0pt_w14.9_h14.9.png"
+  },
+  {
+    "idx": 150,
+    "char": "⑦",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.439375,
+      406.13125,
+      314.999375,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑦”\\syn_simsun_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 151,
+    "char": "⑦",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.976953125,
+      412.3365625,
+      307.816953125,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑦”\\syn_simhei_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 152,
+    "char": "⑦",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.199375,
+      411.2875,
+      309.239375,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑦”\\syn_simhei_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 153,
+    "char": "⑦",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.1759375,
+      409.56875,
+      311.1359375,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑦”\\syn_simhei_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 154,
+    "char": "⑦",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.3925,
+      407.85,
+      313.0325,
+      422.73
+    ],
+    "w_pt": 14.6,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑦”\\syn_simhei_16p0pt_w14.6_h14.9.png"
+  },
+  {
+    "idx": 155,
+    "char": "⑦",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.3690625,
+      406.13125,
+      314.9290625,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑦”\\syn_simhei_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 156,
+    "char": "⑧",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      412.3365625,
+      307.85796875,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑧”\\syn_simsun_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 157,
+    "char": "⑧",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      411.2875,
+      309.28625,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑧”\\syn_simsun_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 158,
+    "char": "⑧",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.230625,
+      409.56875,
+      311.190625,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑧”\\syn_simsun_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 159,
+    "char": "⑧",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.215,
+      407.85,
+      313.095,
+      422.73
+    ],
+    "w_pt": 14.9,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑧”\\syn_simsun_16p0pt_w14.9_h14.9.png"
+  },
+  {
+    "idx": 160,
+    "char": "⑧",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.199375,
+      406.13125,
+      314.999375,
+      422.93125
+    ],
+    "w_pt": 16.8,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑧”\\syn_simsun_18p0pt_w16.8_h16.8.png"
+  },
+  {
+    "idx": 161,
+    "char": "⑧",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.976953125,
+      412.3365625,
+      307.816953125,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑧”\\syn_simhei_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 162,
+    "char": "⑧",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.199375,
+      411.2875,
+      309.239375,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑧”\\syn_simhei_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 163,
+    "char": "⑧",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.1759375,
+      409.56875,
+      311.1359375,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑧”\\syn_simhei_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 164,
+    "char": "⑧",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.3925,
+      407.85,
+      313.0325,
+      422.73
+    ],
+    "w_pt": 14.6,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑧”\\syn_simhei_16p0pt_w14.6_h14.9.png"
+  },
+  {
+    "idx": 165,
+    "char": "⑧",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.3690625,
+      406.13125,
+      314.9290625,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑧”\\syn_simhei_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 166,
+    "char": "⑨",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      412.3365625,
+      307.85796875,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑨”\\syn_simsun_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 167,
+    "char": "⑨",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      411.2875,
+      309.28625,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑨”\\syn_simsun_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 168,
+    "char": "⑨",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.230625,
+      409.56875,
+      311.190625,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑨”\\syn_simsun_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 169,
+    "char": "⑨",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.215,
+      407.85,
+      313.095,
+      422.73
+    ],
+    "w_pt": 14.9,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑨”\\syn_simsun_16p0pt_w14.9_h14.9.png"
+  },
+  {
+    "idx": 170,
+    "char": "⑨",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.439375,
+      406.13125,
+      314.999375,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑨”\\syn_simsun_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 171,
+    "char": "⑨",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.976953125,
+      412.3365625,
+      307.816953125,
+      421.9365625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑨”\\syn_simhei_10p5pt_w9.8_h9.6.png"
+  },
+  {
+    "idx": 172,
+    "char": "⑨",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.199375,
+      411.2875,
+      309.239375,
+      422.3275
+    ],
+    "w_pt": 11.0,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑨”\\syn_simhei_12p0pt_w11.0_h11.0.png"
+  },
+  {
+    "idx": 173,
+    "char": "⑨",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.1759375,
+      409.56875,
+      311.1359375,
+      422.52875
+    ],
+    "w_pt": 13.0,
+    "h_pt": 13.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑨”\\syn_simhei_14p0pt_w13.0_h13.0.png"
+  },
+  {
+    "idx": 174,
+    "char": "⑨",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.3925,
+      407.85,
+      313.0325,
+      422.73
+    ],
+    "w_pt": 14.6,
+    "h_pt": 14.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑨”\\syn_simhei_16p0pt_w14.6_h14.9.png"
+  },
+  {
+    "idx": 175,
+    "char": "⑨",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.3690625,
+      406.13125,
+      314.9290625,
+      422.93125
+    ],
+    "w_pt": 16.6,
+    "h_pt": 16.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“⑨”\\syn_simhei_18p0pt_w16.6_h16.8.png"
+  },
+  {
+    "idx": 176,
+    "char": "一",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.49796875,
+      416.1765625,
+      307.37796875,
+      416.8965625
+    ],
+    "w_pt": 8.9,
+    "h_pt": 0.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“一”\\syn_simsun_10p5pt_w8.9_h0.7.png"
+  },
+  {
+    "idx": 177,
+    "char": "一",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.48625,
+      415.6075,
+      308.80625,
+      416.5675
+    ],
+    "w_pt": 10.3,
+    "h_pt": 1.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“一”\\syn_simsun_12p0pt_w10.3_h1.0.png"
+  },
+  {
+    "idx": 178,
+    "char": "一",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.710625,
+      414.60875,
+      310.710625,
+      415.80875
+    ],
+    "w_pt": 12.0,
+    "h_pt": 1.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“一”\\syn_simsun_14p0pt_w12.0_h1.2.png"
+  },
+  {
+    "idx": 179,
+    "char": "一",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.695,
+      413.61,
+      312.855,
+      415.05
+    ],
+    "w_pt": 14.2,
+    "h_pt": 1.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“一”\\syn_simsun_16p0pt_w14.2_h1.4.png"
+  },
+  {
+    "idx": 180,
+    "char": "一",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.919375,
+      412.37125,
+      314.519375,
+      414.05125
+    ],
+    "w_pt": 15.6,
+    "h_pt": 1.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“一”\\syn_simsun_18p0pt_w15.6_h1.7.png"
+  },
+  {
+    "idx": 181,
+    "char": "一",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.216953125,
+      416.6565625,
+      307.576953125,
+      417.6165625
+    ],
+    "w_pt": 9.4,
+    "h_pt": 1.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“一”\\syn_simhei_10p5pt_w9.4_h1.0.png"
+  },
+  {
+    "idx": 182,
+    "char": "一",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.439375,
+      416.0875,
+      308.999375,
+      417.2875
+    ],
+    "w_pt": 10.6,
+    "h_pt": 1.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“一”\\syn_simhei_12p0pt_w10.6_h1.2.png"
+  },
+  {
+    "idx": 183,
+    "char": "一",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.4159375,
+      415.08875,
+      310.8959375,
+      416.52875
+    ],
+    "w_pt": 12.5,
+    "h_pt": 1.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“一”\\syn_simhei_14p0pt_w12.5_h1.4.png"
+  },
+  {
+    "idx": 184,
+    "char": "一",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.6325,
+      414.33,
+      312.7925,
+      416.01
+    ],
+    "w_pt": 14.2,
+    "h_pt": 1.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“一”\\syn_simhei_16p0pt_w14.2_h1.7.png"
+  },
+  {
+    "idx": 185,
+    "char": "一",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.6090625,
+      413.33125,
+      314.6890625,
+      415.25125
+    ],
+    "w_pt": 16.1,
+    "h_pt": 1.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“一”\\syn_simhei_18p0pt_w16.1_h1.9.png"
+  },
+  {
+    "idx": 186,
+    "char": "-",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      416.8965625,
+      302.57796875,
+      417.3765625
+    ],
+    "w_pt": 4.6,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_simsun_10p5pt_w4.6_h0.5.png"
+  },
+  {
+    "idx": 187,
+    "char": "-",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      416.5675,
+      303.28625,
+      417.0475
+    ],
+    "w_pt": 5.0,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_simsun_12p0pt_w5.0_h0.5.png"
+  },
+  {
+    "idx": 188,
+    "char": "-",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.230625,
+      415.80875,
+      304.230625,
+      416.28875
+    ],
+    "w_pt": 6.0,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_simsun_14p0pt_w6.0_h0.5.png"
+  },
+  {
+    "idx": 189,
+    "char": "-",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.215,
+      414.81,
+      305.175,
+      415.53
+    ],
+    "w_pt": 7.0,
+    "h_pt": 0.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_simsun_16p0pt_w7.0_h0.7.png"
+  },
+  {
+    "idx": 190,
+    "char": "-",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.199375,
+      414.05125,
+      306.119375,
+      414.77125
+    ],
+    "w_pt": 7.9,
+    "h_pt": 0.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_simsun_18p0pt_w7.9_h0.7.png"
+  },
+  {
+    "idx": 191,
+    "char": "-",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.736953125,
+      416.8965625,
+      302.536953125,
+      417.3765625
+    ],
+    "w_pt": 4.8,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_simhei_10p5pt_w4.8_h0.5.png"
+  },
+  {
+    "idx": 192,
+    "char": "-",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      297.959375,
+      416.3275,
+      303.239375,
+      417.0475
+    ],
+    "w_pt": 5.3,
+    "h_pt": 0.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_simhei_12p0pt_w5.3_h0.7.png"
+  },
+  {
+    "idx": 193,
+    "char": "-",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      297.9359375,
+      415.56875,
+      304.1759375,
+      416.52875
+    ],
+    "w_pt": 6.2,
+    "h_pt": 1.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_simhei_14p0pt_w6.2_h1.0.png"
+  },
+  {
+    "idx": 194,
+    "char": "-",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      297.9125,
+      414.81,
+      305.1125,
+      415.77
+    ],
+    "w_pt": 7.2,
+    "h_pt": 1.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_simhei_16p0pt_w7.2_h1.0.png"
+  },
+  {
+    "idx": 195,
+    "char": "-",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      297.8890625,
+      413.81125,
+      306.0490625,
+      415.01125
+    ],
+    "w_pt": 8.2,
+    "h_pt": 1.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_simhei_18p0pt_w8.2_h1.2.png"
+  },
+  {
+    "idx": 196,
+    "char": "-",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.8922265625,
+      418.364716796875,
+      300.5322265625,
+      419.084716796875
+    ],
+    "w_pt": 2.6,
+    "h_pt": 0.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_times_10p5pt_w2.6_h0.7.png"
+  },
+  {
+    "idx": 197,
+    "char": "-",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.2396875,
+      418.005390625,
+      301.3596875,
+      418.965390625
+    ],
+    "w_pt": 3.1,
+    "h_pt": 1.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_times_12p0pt_w3.1_h1.0.png"
+  },
+  {
+    "idx": 198,
+    "char": "-",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.30296875,
+      417.3662890625,
+      301.90296875,
+      418.3262890625
+    ],
+    "w_pt": 3.6,
+    "h_pt": 1.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_times_14p0pt_w3.6_h1.0.png"
+  },
+  {
+    "idx": 199,
+    "char": "-",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.36625,
+      416.9671875,
+      302.44625,
+      417.9271875
+    ],
+    "w_pt": 4.1,
+    "h_pt": 1.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_times_16p0pt_w4.1_h1.0.png"
+  },
+  {
+    "idx": 200,
+    "char": "-",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.42953125,
+      416.3280859375,
+      302.98953125,
+      417.7680859375
+    ],
+    "w_pt": 4.6,
+    "h_pt": 1.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“-”\\syn_times_18p0pt_w4.6_h1.4.png"
+  },
+  {
+    "idx": 201,
+    "char": "—",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      416.8965625,
+      307.85796875,
+      417.3765625
+    ],
+    "w_pt": 9.8,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_simsun_10p5pt_w9.8_h0.5.png"
+  },
+  {
+    "idx": 202,
+    "char": "—",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      416.5675,
+      309.52625,
+      417.0475
+    ],
+    "w_pt": 11.3,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_simsun_12p0pt_w11.3_h0.5.png"
+  },
+  {
+    "idx": 203,
+    "char": "—",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.230625,
+      415.80875,
+      311.430625,
+      416.28875
+    ],
+    "w_pt": 13.2,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_simsun_14p0pt_w13.2_h0.5.png"
+  },
+  {
+    "idx": 204,
+    "char": "—",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.215,
+      414.81,
+      313.335,
+      415.53
+    ],
+    "w_pt": 15.1,
+    "h_pt": 0.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_simsun_16p0pt_w15.1_h0.7.png"
+  },
+  {
+    "idx": 205,
+    "char": "—",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.199375,
+      414.05125,
+      315.239375,
+      414.77125
+    ],
+    "w_pt": 17.0,
+    "h_pt": 0.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_simsun_18p0pt_w17.0_h0.7.png"
+  },
+  {
+    "idx": 206,
+    "char": "—",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.736953125,
+      416.8965625,
+      308.056953125,
+      417.3765625
+    ],
+    "w_pt": 10.3,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_simhei_10p5pt_w10.3_h0.5.png"
+  },
+  {
+    "idx": 207,
+    "char": "—",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      297.719375,
+      416.3275,
+      309.719375,
+      417.0475
+    ],
+    "w_pt": 12.0,
+    "h_pt": 0.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_simhei_12p0pt_w12.0_h0.7.png"
+  },
+  {
+    "idx": 208,
+    "char": "—",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      297.6959375,
+      415.56875,
+      311.6159375,
+      416.52875
+    ],
+    "w_pt": 13.9,
+    "h_pt": 1.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_simhei_14p0pt_w13.9_h1.0.png"
+  },
+  {
+    "idx": 209,
+    "char": "—",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      297.6725,
+      414.81,
+      313.5125,
+      415.77
+    ],
+    "w_pt": 15.8,
+    "h_pt": 1.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_simhei_16p0pt_w15.8_h1.0.png"
+  },
+  {
+    "idx": 210,
+    "char": "—",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      297.6490625,
+      414.05125,
+      315.6490625,
+      415.01125
+    ],
+    "w_pt": 18.0,
+    "h_pt": 1.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_simhei_18p0pt_w18.0_h1.0.png"
+  },
+  {
+    "idx": 211,
+    "char": "—",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.4122265625,
+      418.364716796875,
+      308.2122265625,
+      418.604716796875
+    ],
+    "w_pt": 10.8,
+    "h_pt": 0.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_times_10p5pt_w10.8_h0.2.png"
+  },
+  {
+    "idx": 212,
+    "char": "—",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      297.7596875,
+      418.005390625,
+      309.7596875,
+      418.485390625
+    ],
+    "w_pt": 12.0,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_times_12p0pt_w12.0_h0.5.png"
+  },
+  {
+    "idx": 213,
+    "char": "—",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      297.58296875,
+      417.3662890625,
+      311.98296875,
+      417.8462890625
+    ],
+    "w_pt": 14.4,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_times_14p0pt_w14.4_h0.5.png"
+  },
+  {
+    "idx": 214,
+    "char": "—",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      297.40625,
+      416.9671875,
+      313.72625,
+      417.4471875
+    ],
+    "w_pt": 16.3,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_times_16p0pt_w16.3_h0.5.png"
+  },
+  {
+    "idx": 215,
+    "char": "—",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      297.46953125,
+      416.5680859375,
+      315.94953125,
+      417.0480859375
+    ],
+    "w_pt": 18.5,
+    "h_pt": 0.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“—”\\syn_times_18p0pt_w18.5_h0.5.png"
+  },
+  {
+    "idx": 216,
+    "char": "~",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.01796875,
+      412.0965625,
+      302.57796875,
+      414.0165625
+    ],
+    "w_pt": 4.6,
+    "h_pt": 1.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_simsun_10p5pt_w4.6_h1.9.png"
+  },
+  {
+    "idx": 217,
+    "char": "~",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.24625,
+      411.0475,
+      303.28625,
+      413.2075
+    ],
+    "w_pt": 5.0,
+    "h_pt": 2.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_simsun_12p0pt_w5.0_h2.2.png"
+  },
+  {
+    "idx": 218,
+    "char": "~",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.470625,
+      409.32875,
+      304.230625,
+      411.72875
+    ],
+    "w_pt": 5.8,
+    "h_pt": 2.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_simsun_14p0pt_w5.8_h2.4.png"
+  },
+  {
+    "idx": 219,
+    "char": "~",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.455,
+      407.61,
+      305.175,
+      410.49
+    ],
+    "w_pt": 6.7,
+    "h_pt": 2.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_simsun_16p0pt_w6.7_h2.9.png"
+  },
+  {
+    "idx": 220,
+    "char": "~",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.439375,
+      405.89125,
+      306.119375,
+      409.01125
+    ],
+    "w_pt": 7.7,
+    "h_pt": 3.1,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_simsun_18p0pt_w7.7_h3.1.png"
+  },
+  {
+    "idx": 221,
+    "char": "~",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.216953125,
+      412.0965625,
+      302.296953125,
+      414.0165625
+    ],
+    "w_pt": 4.1,
+    "h_pt": 1.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_simhei_10p5pt_w4.1_h1.9.png"
+  },
+  {
+    "idx": 222,
+    "char": "~",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.439375,
+      411.0475,
+      303.239375,
+      413.2075
+    ],
+    "w_pt": 4.8,
+    "h_pt": 2.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_simhei_12p0pt_w4.8_h2.2.png"
+  },
+  {
+    "idx": 223,
+    "char": "~",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.4159375,
+      409.32875,
+      303.9359375,
+      411.72875
+    ],
+    "w_pt": 5.5,
+    "h_pt": 2.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_simhei_14p0pt_w5.5_h2.4.png"
+  },
+  {
+    "idx": 224,
+    "char": "~",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.6325,
+      407.61,
+      304.8725,
+      410.49
+    ],
+    "w_pt": 6.2,
+    "h_pt": 2.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_simhei_16p0pt_w6.2_h2.9.png"
+  },
+  {
+    "idx": 225,
+    "char": "~",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.6090625,
+      405.65125,
+      305.8090625,
+      409.01125
+    ],
+    "w_pt": 7.2,
+    "h_pt": 3.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_simhei_18p0pt_w7.2_h3.4.png"
+  },
+  {
+    "idx": 226,
+    "char": "~",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.6522265625,
+      417.644716796875,
+      303.1722265625,
+      418.844716796875
+    ],
+    "w_pt": 5.5,
+    "h_pt": 1.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_times_10p5pt_w5.5_h1.2.png"
+  },
+  {
+    "idx": 227,
+    "char": "~",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      297.9996875,
+      417.045390625,
+      303.9996875,
+      418.725390625
+    ],
+    "w_pt": 6.0,
+    "h_pt": 1.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_times_12p0pt_w6.0_h1.7.png"
+  },
+  {
+    "idx": 228,
+    "char": "~",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.06296875,
+      416.4062890625,
+      305.26296875,
+      418.3262890625
+    ],
+    "w_pt": 7.2,
+    "h_pt": 1.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_times_14p0pt_w7.2_h1.9.png"
+  },
+  {
+    "idx": 229,
+    "char": "~",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      297.88625,
+      415.7671875,
+      306.04625,
+      417.9271875
+    ],
+    "w_pt": 8.2,
+    "h_pt": 2.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_times_16p0pt_w8.2_h2.2.png"
+  },
+  {
+    "idx": 230,
+    "char": "~",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      297.94953125,
+      415.1280859375,
+      307.30953125,
+      417.5280859375
+    ],
+    "w_pt": 9.4,
+    "h_pt": 2.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“~”\\syn_times_18p0pt_w9.4_h2.4.png"
+  },
+  {
+    "idx": 231,
+    "char": "1",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.8522265625,
+      414.044716796875,
+      301.4922265625,
+      421.004716796875
+    ],
+    "w_pt": 2.6,
+    "h_pt": 7.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“1”\\syn_times_10p5pt_w2.6_h7.0.png"
+  },
+  {
+    "idx": 232,
+    "char": "1",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      299.1996875,
+      412.965390625,
+      302.3196875,
+      421.125390625
+    ],
+    "w_pt": 3.1,
+    "h_pt": 8.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“1”\\syn_times_12p0pt_w3.1_h8.2.png"
+  },
+  {
+    "idx": 233,
+    "char": "1",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      299.50296875,
+      411.6062890625,
+      303.10296875,
+      420.9662890625
+    ],
+    "w_pt": 3.6,
+    "h_pt": 9.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“1”\\syn_times_14p0pt_w3.6_h9.4.png"
+  },
+  {
+    "idx": 234,
+    "char": "1",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      299.56625,
+      410.2471875,
+      303.64625,
+      421.0471875
+    ],
+    "w_pt": 4.1,
+    "h_pt": 10.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“1”\\syn_times_16p0pt_w4.1_h10.8.png"
+  },
+  {
+    "idx": 235,
+    "char": "1",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      299.86953125,
+      408.8880859375,
+      304.42953125,
+      421.1280859375
+    ],
+    "w_pt": 4.6,
+    "h_pt": 12.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“1”\\syn_times_18p0pt_w4.6_h12.2.png"
+  },
+  {
+    "idx": 236,
+    "char": "!",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.6122265625,
+      413.804716796875,
+      299.8122265625,
+      421.244716796875
+    ],
+    "w_pt": 1.2,
+    "h_pt": 7.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“!”\\syn_times_10p5pt_w1.2_h7.4.png"
+  },
+  {
+    "idx": 237,
+    "char": "!",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      299.1996875,
+      412.965390625,
+      300.3996875,
+      421.365390625
+    ],
+    "w_pt": 1.2,
+    "h_pt": 8.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“!”\\syn_times_12p0pt_w1.2_h8.4.png"
+  },
+  {
+    "idx": 238,
+    "char": "!",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      299.50296875,
+      411.6062890625,
+      300.94296875,
+      421.2062890625
+    ],
+    "w_pt": 1.4,
+    "h_pt": 9.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“!”\\syn_times_14p0pt_w1.4_h9.6.png"
+  },
+  {
+    "idx": 239,
+    "char": "!",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      299.32625,
+      410.2471875,
+      301.24625,
+      421.2871875
+    ],
+    "w_pt": 1.9,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“!”\\syn_times_16p0pt_w1.9_h11.0.png"
+  },
+  {
+    "idx": 240,
+    "char": "!",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      299.62953125,
+      408.8880859375,
+      301.78953125,
+      421.3680859375
+    ],
+    "w_pt": 2.2,
+    "h_pt": 12.5,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“!”\\syn_times_18p0pt_w2.2_h12.5.png"
+  },
+  {
+    "idx": 241,
+    "char": "/",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.6522265625,
+      413.804716796875,
+      300.2922265625,
+      421.244716796875
+    ],
+    "w_pt": 2.6,
+    "h_pt": 7.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u002F\\syn_times_10p5pt_w2.6_h7.4.png"
+  },
+  {
+    "idx": 242,
+    "char": "/",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      297.7596875,
+      412.725390625,
+      301.1196875,
+      421.365390625
+    ],
+    "w_pt": 3.4,
+    "h_pt": 8.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u002F\\syn_times_12p0pt_w3.4_h8.6.png"
+  },
+  {
+    "idx": 243,
+    "char": "/",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      297.82296875,
+      411.3662890625,
+      301.66296875,
+      421.2062890625
+    ],
+    "w_pt": 3.8,
+    "h_pt": 9.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u002F\\syn_times_14p0pt_w3.8_h9.8.png"
+  },
+  {
+    "idx": 244,
+    "char": "/",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      297.64625,
+      410.0071875,
+      301.96625,
+      421.2871875
+    ],
+    "w_pt": 4.3,
+    "h_pt": 11.3,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u002F\\syn_times_16p0pt_w4.3_h11.3.png"
+  },
+  {
+    "idx": 245,
+    "char": "/",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      297.70953125,
+      408.6480859375,
+      302.74953125,
+      421.3680859375
+    ],
+    "w_pt": 5.0,
+    "h_pt": 12.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u002F\\syn_times_18p0pt_w5.0_h12.7.png"
+  },
+  {
+    "idx": 246,
+    "char": "\\",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.6522265625,
+      413.804716796875,
+      300.2922265625,
+      421.244716796875
+    ],
+    "w_pt": 2.6,
+    "h_pt": 7.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u005C\\syn_times_10p5pt_w2.6_h7.4.png"
+  },
+  {
+    "idx": 247,
+    "char": "\\",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      297.7596875,
+      412.725390625,
+      301.1196875,
+      421.365390625
+    ],
+    "w_pt": 3.4,
+    "h_pt": 8.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u005C\\syn_times_12p0pt_w3.4_h8.6.png"
+  },
+  {
+    "idx": 248,
+    "char": "\\",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      297.82296875,
+      411.3662890625,
+      301.66296875,
+      421.2062890625
+    ],
+    "w_pt": 3.8,
+    "h_pt": 9.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u005C\\syn_times_14p0pt_w3.8_h9.8.png"
+  },
+  {
+    "idx": 249,
+    "char": "\\",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      297.64625,
+      410.0071875,
+      301.96625,
+      421.2871875
+    ],
+    "w_pt": 4.3,
+    "h_pt": 11.3,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u005C\\syn_times_16p0pt_w4.3_h11.3.png"
+  },
+  {
+    "idx": 250,
+    "char": "\\",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      297.70953125,
+      408.6480859375,
+      302.74953125,
+      421.3680859375
+    ],
+    "w_pt": 5.0,
+    "h_pt": 12.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u005C\\syn_times_18p0pt_w5.0_h12.7.png"
+  },
+  {
+    "idx": 251,
+    "char": "|",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.3722265625,
+      413.804716796875,
+      298.8522265625,
+      423.164716796875
+    ],
+    "w_pt": 0.5,
+    "h_pt": 9.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u007C\\syn_times_10p5pt_w0.5_h9.4.png"
+  },
+  {
+    "idx": 252,
+    "char": "|",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.7196875,
+      412.725390625,
+      299.1996875,
+      423.765390625
+    ],
+    "w_pt": 0.5,
+    "h_pt": 11.0,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u007C\\syn_times_12p0pt_w0.5_h11.0.png"
+  },
+  {
+    "idx": 253,
+    "char": "|",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      299.02296875,
+      411.3662890625,
+      299.50296875,
+      424.0862890625
+    ],
+    "w_pt": 0.5,
+    "h_pt": 12.7,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u007C\\syn_times_14p0pt_w0.5_h12.7.png"
+  },
+  {
+    "idx": 254,
+    "char": "|",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.84625,
+      410.0071875,
+      299.56625,
+      424.4071875
+    ],
+    "w_pt": 0.7,
+    "h_pt": 14.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u007C\\syn_times_16p0pt_w0.7_h14.4.png"
+  },
+  {
+    "idx": 255,
+    "char": "|",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      299.14953125,
+      408.6480859375,
+      299.86953125,
+      424.9680859375
+    ],
+    "w_pt": 0.7,
+    "h_pt": 16.3,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\u007C\\syn_times_18p0pt_w0.7_h16.3.png"
+  },
+  {
+    "idx": 256,
+    "char": "[",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      298.3722265625,
+      413.804716796875,
+      300.5322265625,
+      423.164716796875
+    ],
+    "w_pt": 2.2,
+    "h_pt": 9.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“[”\\syn_times_10p5pt_w2.2_h9.4.png"
+  },
+  {
+    "idx": 257,
+    "char": "[",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.7196875,
+      412.965390625,
+      301.3596875,
+      423.525390625
+    ],
+    "w_pt": 2.6,
+    "h_pt": 10.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“[”\\syn_times_12p0pt_w2.6_h10.6.png"
+  },
+  {
+    "idx": 258,
+    "char": "[",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      299.02296875,
+      411.6062890625,
+      301.90296875,
+      423.8462890625
+    ],
+    "w_pt": 2.9,
+    "h_pt": 12.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“[”\\syn_times_14p0pt_w2.9_h12.2.png"
+  },
+  {
+    "idx": 259,
+    "char": "[",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.84625,
+      410.2471875,
+      302.44625,
+      424.1671875
+    ],
+    "w_pt": 3.6,
+    "h_pt": 13.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“[”\\syn_times_16p0pt_w3.6_h13.9.png"
+  },
+  {
+    "idx": 260,
+    "char": "[",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      299.14953125,
+      408.8880859375,
+      302.98953125,
+      424.7280859375
+    ],
+    "w_pt": 3.8,
+    "h_pt": 15.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“[”\\syn_times_18p0pt_w3.8_h15.8.png"
+  },
+  {
+    "idx": 261,
+    "char": "]",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      297.8922265625,
+      413.804716796875,
+      300.0522265625,
+      423.164716796875
+    ],
+    "w_pt": 2.2,
+    "h_pt": 9.4,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“]”\\syn_times_10p5pt_w2.2_h9.4.png"
+  },
+  {
+    "idx": 262,
+    "char": "]",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      298.2396875,
+      412.965390625,
+      300.8796875,
+      423.525390625
+    ],
+    "w_pt": 2.6,
+    "h_pt": 10.6,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“]”\\syn_times_12p0pt_w2.6_h10.6.png"
+  },
+  {
+    "idx": 263,
+    "char": "]",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      298.30296875,
+      411.6062890625,
+      301.42296875,
+      423.8462890625
+    ],
+    "w_pt": 3.1,
+    "h_pt": 12.2,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“]”\\syn_times_14p0pt_w3.1_h12.2.png"
+  },
+  {
+    "idx": 264,
+    "char": "]",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      298.12625,
+      410.2471875,
+      301.72625,
+      424.1671875
+    ],
+    "w_pt": 3.6,
+    "h_pt": 13.9,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“]”\\syn_times_16p0pt_w3.6_h13.9.png"
+  },
+  {
+    "idx": 265,
+    "char": "]",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      298.42953125,
+      408.8880859375,
+      302.26953125,
+      424.7280859375
+    ],
+    "w_pt": 3.8,
+    "h_pt": 15.8,
+    "filepath": "D:\\hx\\software3\\char_synthetic\\“]”\\syn_times_18p0pt_w3.8_h15.8.png"
+  },
+  {
+    "idx": 266,
+    "char": "：",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      309.84,
+      433.2,
+      320.4,
+      437.04
+    ],
+    "w_pt": 10.6,
+    "h_pt": 3.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“：”\\syn_simsun_10p5pt_w10.6_h3.8.png"
+  },
+  {
+    "idx": 267,
+    "char": "：",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      310.8,
+      434.4,
+      322.8,
+      438.96
+    ],
+    "w_pt": 12.0,
+    "h_pt": 4.6,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“：”\\syn_simsun_12p0pt_w12.0_h4.6.png"
+  },
+  {
+    "idx": 268,
+    "char": "：",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      311.76,
+      436.08,
+      325.68,
+      441.36
+    ],
+    "w_pt": 13.9,
+    "h_pt": 5.3,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“：”\\syn_simsun_14p0pt_w13.9_h5.3.png"
+  },
+  {
+    "idx": 269,
+    "char": "：",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      312.72,
+      437.76,
+      328.8,
+      443.76
+    ],
+    "w_pt": 16.1,
+    "h_pt": 6.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“：”\\syn_simsun_16p0pt_w16.1_h6.0.png"
+  },
+  {
+    "idx": 270,
+    "char": "：",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      313.68,
+      439.44,
+      331.68,
+      446.16
+    ],
+    "w_pt": 18.0,
+    "h_pt": 6.7,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“：”\\syn_simsun_18p0pt_w18.0_h6.7.png"
+  },
+  {
+    "idx": 271,
+    "char": "：",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      309.84,
+      433.2,
+      320.4,
+      437.28
+    ],
+    "w_pt": 10.6,
+    "h_pt": 4.1,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“：”\\syn_simhei_10p5pt_w10.6_h4.1.png"
+  },
+  {
+    "idx": 272,
+    "char": "：",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      310.8,
+      434.4,
+      322.8,
+      438.96
+    ],
+    "w_pt": 12.0,
+    "h_pt": 4.6,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“：”\\syn_simhei_12p0pt_w12.0_h4.6.png"
+  },
+  {
+    "idx": 273,
+    "char": "：",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      311.76,
+      436.08,
+      325.68,
+      441.36
+    ],
+    "w_pt": 13.9,
+    "h_pt": 5.3,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“：”\\syn_simhei_14p0pt_w13.9_h5.3.png"
+  },
+  {
+    "idx": 274,
+    "char": "：",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      312.72,
+      437.52,
+      328.8,
+      443.76
+    ],
+    "w_pt": 16.1,
+    "h_pt": 6.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“：”\\syn_simhei_16p0pt_w16.1_h6.2.png"
+  },
+  {
+    "idx": 275,
+    "char": "：",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      313.68,
+      439.2,
+      331.68,
+      446.16
+    ],
+    "w_pt": 18.0,
+    "h_pt": 7.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“：”\\syn_simhei_18p0pt_w18.0_h7.0.png"
+  },
+  {
+    "idx": 276,
+    "char": ":",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      432.72,
+      317.76,
+      437.76
+    ],
+    "w_pt": 5.3,
+    "h_pt": 5.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_simsun_10p5pt_w5.3_h5.0.png"
+  },
+  {
+    "idx": 277,
+    "char": ":",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      433.92,
+      319.68,
+      439.68
+    ],
+    "w_pt": 6.0,
+    "h_pt": 5.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_simsun_12p0pt_w6.0_h5.8.png"
+  },
+  {
+    "idx": 278,
+    "char": ":",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      435.36,
+      322.08,
+      442.08
+    ],
+    "w_pt": 7.0,
+    "h_pt": 6.7,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_simsun_14p0pt_w7.0_h6.7.png"
+  },
+  {
+    "idx": 279,
+    "char": ":",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      436.8,
+      324.72,
+      444.72
+    ],
+    "w_pt": 8.2,
+    "h_pt": 7.9,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_simsun_16p0pt_w8.2_h7.9.png"
+  },
+  {
+    "idx": 280,
+    "char": ":",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      438.24,
+      327.36,
+      447.12
+    ],
+    "w_pt": 9.1,
+    "h_pt": 8.9,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_simsun_18p0pt_w9.1_h8.9.png"
+  },
+  {
+    "idx": 281,
+    "char": ":",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      432.72,
+      317.76,
+      437.76
+    ],
+    "w_pt": 5.3,
+    "h_pt": 5.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_simhei_10p5pt_w5.3_h5.0.png"
+  },
+  {
+    "idx": 282,
+    "char": ":",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      433.92,
+      319.68,
+      439.68
+    ],
+    "w_pt": 6.0,
+    "h_pt": 5.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_simhei_12p0pt_w6.0_h5.8.png"
+  },
+  {
+    "idx": 283,
+    "char": ":",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      435.36,
+      322.08,
+      441.84
+    ],
+    "w_pt": 7.0,
+    "h_pt": 6.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_simhei_14p0pt_w7.0_h6.5.png"
+  },
+  {
+    "idx": 284,
+    "char": ":",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      436.8,
+      324.72,
+      444.48
+    ],
+    "w_pt": 8.2,
+    "h_pt": 7.7,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_simhei_16p0pt_w8.2_h7.7.png"
+  },
+  {
+    "idx": 285,
+    "char": ":",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      438.48,
+      327.36,
+      446.88
+    ],
+    "w_pt": 9.1,
+    "h_pt": 8.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_simhei_18p0pt_w9.1_h8.4.png"
+  },
+  {
+    "idx": 286,
+    "char": ":",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      313.68,
+      432.72,
+      316.56,
+      437.52
+    ],
+    "w_pt": 2.9,
+    "h_pt": 4.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_times_10p5pt_w2.9_h4.8.png"
+  },
+  {
+    "idx": 287,
+    "char": ":",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      315.12,
+      433.92,
+      318.48,
+      439.44
+    ],
+    "w_pt": 3.4,
+    "h_pt": 5.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_times_12p0pt_w3.4_h5.5.png"
+  },
+  {
+    "idx": 288,
+    "char": ":",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      316.8,
+      435.36,
+      320.64,
+      441.84
+    ],
+    "w_pt": 3.8,
+    "h_pt": 6.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_times_14p0pt_w3.8_h6.5.png"
+  },
+  {
+    "idx": 289,
+    "char": ":",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      318.48,
+      437.04,
+      323.04,
+      444.48
+    ],
+    "w_pt": 4.6,
+    "h_pt": 7.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_times_16p0pt_w4.6_h7.4.png"
+  },
+  {
+    "idx": 290,
+    "char": ":",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      320.16,
+      438.48,
+      325.2,
+      447.12
+    ],
+    "w_pt": 5.0,
+    "h_pt": 8.6,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u003A\\syn_times_18p0pt_w5.0_h8.6.png"
+  },
+  {
+    "idx": 291,
+    "char": "1",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      431.52,
+      317.76,
+      438.72
+    ],
+    "w_pt": 5.3,
+    "h_pt": 7.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“1”\\syn_simsun_10p5pt_w5.3_h7.2.png"
+  },
+  {
+    "idx": 292,
+    "char": "1",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      432.72,
+      319.68,
+      440.88
+    ],
+    "w_pt": 6.0,
+    "h_pt": 8.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“1”\\syn_simsun_12p0pt_w6.0_h8.2.png"
+  },
+  {
+    "idx": 293,
+    "char": "1",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      433.92,
+      322.08,
+      443.52
+    ],
+    "w_pt": 7.0,
+    "h_pt": 9.6,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“1”\\syn_simsun_14p0pt_w7.0_h9.6.png"
+  },
+  {
+    "idx": 294,
+    "char": "1",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      435.12,
+      324.72,
+      446.4
+    ],
+    "w_pt": 8.2,
+    "h_pt": 11.3,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“1”\\syn_simsun_16p0pt_w8.2_h11.3.png"
+  },
+  {
+    "idx": 295,
+    "char": "1",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      436.56,
+      327.36,
+      449.04
+    ],
+    "w_pt": 9.1,
+    "h_pt": 12.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“1”\\syn_simsun_18p0pt_w9.1_h12.5.png"
+  },
+  {
+    "idx": 296,
+    "char": "1",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      431.52,
+      317.76,
+      438.96
+    ],
+    "w_pt": 5.3,
+    "h_pt": 7.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“1”\\syn_simhei_10p5pt_w5.3_h7.4.png"
+  },
+  {
+    "idx": 297,
+    "char": "1",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      432.48,
+      319.68,
+      440.88
+    ],
+    "w_pt": 6.0,
+    "h_pt": 8.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“1”\\syn_simhei_12p0pt_w6.0_h8.4.png"
+  },
+  {
+    "idx": 298,
+    "char": "1",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      433.68,
+      322.08,
+      443.52
+    ],
+    "w_pt": 7.0,
+    "h_pt": 9.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“1”\\syn_simhei_14p0pt_w7.0_h9.8.png"
+  },
+  {
+    "idx": 299,
+    "char": "1",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      435.12,
+      324.72,
+      446.4
+    ],
+    "w_pt": 8.2,
+    "h_pt": 11.3,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“1”\\syn_simhei_16p0pt_w8.2_h11.3.png"
+  },
+  {
+    "idx": 300,
+    "char": "1",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      436.32,
+      327.36,
+      449.04
+    ],
+    "w_pt": 9.1,
+    "h_pt": 12.7,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“1”\\syn_simhei_18p0pt_w9.1_h12.7.png"
+  },
+  {
+    "idx": 301,
+    "char": "/",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      430.8,
+      317.76,
+      439.68
+    ],
+    "w_pt": 5.3,
+    "h_pt": 8.9,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u002F\\syn_simsun_10p5pt_w5.3_h8.9.png"
+  },
+  {
+    "idx": 302,
+    "char": "/",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      431.52,
+      319.68,
+      441.84
+    ],
+    "w_pt": 6.0,
+    "h_pt": 10.3,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u002F\\syn_simsun_12p0pt_w6.0_h10.3.png"
+  },
+  {
+    "idx": 303,
+    "char": "/",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      432.72,
+      322.08,
+      444.48
+    ],
+    "w_pt": 7.0,
+    "h_pt": 11.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u002F\\syn_simsun_14p0pt_w7.0_h11.8.png"
+  },
+  {
+    "idx": 304,
+    "char": "/",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      433.92,
+      324.72,
+      447.6
+    ],
+    "w_pt": 8.2,
+    "h_pt": 13.7,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u002F\\syn_simsun_16p0pt_w8.2_h13.7.png"
+  },
+  {
+    "idx": 305,
+    "char": "/",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      435.12,
+      327.36,
+      450.48
+    ],
+    "w_pt": 9.1,
+    "h_pt": 15.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u002F\\syn_simsun_18p0pt_w9.1_h15.4.png"
+  },
+  {
+    "idx": 306,
+    "char": "/",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      431.04,
+      317.76,
+      439.44
+    ],
+    "w_pt": 5.3,
+    "h_pt": 8.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u002F\\syn_simhei_10p5pt_w5.3_h8.4.png"
+  },
+  {
+    "idx": 307,
+    "char": "/",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      432.0,
+      319.68,
+      441.36
+    ],
+    "w_pt": 6.0,
+    "h_pt": 9.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u002F\\syn_simhei_12p0pt_w6.0_h9.4.png"
+  },
+  {
+    "idx": 308,
+    "char": "/",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      433.2,
+      322.08,
+      444.0
+    ],
+    "w_pt": 7.0,
+    "h_pt": 10.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u002F\\syn_simhei_14p0pt_w7.0_h10.8.png"
+  },
+  {
+    "idx": 309,
+    "char": "/",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      434.4,
+      324.72,
+      446.88
+    ],
+    "w_pt": 8.2,
+    "h_pt": 12.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u002F\\syn_simhei_16p0pt_w8.2_h12.5.png"
+  },
+  {
+    "idx": 310,
+    "char": "/",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      435.6,
+      327.36,
+      449.76
+    ],
+    "w_pt": 9.1,
+    "h_pt": 14.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\u002F\\syn_simhei_18p0pt_w9.1_h14.2.png"
+  },
+  {
+    "idx": 311,
+    "char": "Ⅰ",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      309.84,
+      431.04,
+      320.4,
+      439.2
+    ],
+    "w_pt": 10.6,
+    "h_pt": 8.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“Ⅰ”\\syn_simsun_10p5pt_w10.6_h8.2.png"
+  },
+  {
+    "idx": 312,
+    "char": "Ⅰ",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      310.8,
+      432.24,
+      322.8,
+      441.36
+    ],
+    "w_pt": 12.0,
+    "h_pt": 9.1,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“Ⅰ”\\syn_simsun_12p0pt_w12.0_h9.1.png"
+  },
+  {
+    "idx": 313,
+    "char": "Ⅰ",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      311.76,
+      433.2,
+      325.68,
+      444.0
+    ],
+    "w_pt": 13.9,
+    "h_pt": 10.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“Ⅰ”\\syn_simsun_14p0pt_w13.9_h10.8.png"
+  },
+  {
+    "idx": 314,
+    "char": "Ⅰ",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      312.72,
+      434.4,
+      328.8,
+      446.88
+    ],
+    "w_pt": 16.1,
+    "h_pt": 12.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“Ⅰ”\\syn_simsun_16p0pt_w16.1_h12.5.png"
+  },
+  {
+    "idx": 315,
+    "char": "Ⅰ",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      313.68,
+      435.84,
+      331.68,
+      449.76
+    ],
+    "w_pt": 18.0,
+    "h_pt": 13.9,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“Ⅰ”\\syn_simsun_18p0pt_w18.0_h13.9.png"
+  },
+  {
+    "idx": 316,
+    "char": "Ⅰ",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      309.84,
+      431.28,
+      320.4,
+      438.96
+    ],
+    "w_pt": 10.6,
+    "h_pt": 7.7,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“Ⅰ”\\syn_simhei_10p5pt_w10.6_h7.7.png"
+  },
+  {
+    "idx": 317,
+    "char": "Ⅰ",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      310.8,
+      432.48,
+      322.8,
+      441.12
+    ],
+    "w_pt": 12.0,
+    "h_pt": 8.6,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“Ⅰ”\\syn_simhei_12p0pt_w12.0_h8.6.png"
+  },
+  {
+    "idx": 318,
+    "char": "Ⅰ",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      311.76,
+      433.68,
+      325.68,
+      443.76
+    ],
+    "w_pt": 13.9,
+    "h_pt": 10.1,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“Ⅰ”\\syn_simhei_14p0pt_w13.9_h10.1.png"
+  },
+  {
+    "idx": 319,
+    "char": "Ⅰ",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      312.72,
+      434.88,
+      328.8,
+      446.4
+    ],
+    "w_pt": 16.1,
+    "h_pt": 11.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“Ⅰ”\\syn_simhei_16p0pt_w16.1_h11.5.png"
+  },
+  {
+    "idx": 320,
+    "char": "Ⅰ",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      313.68,
+      436.32,
+      331.68,
+      449.28
+    ],
+    "w_pt": 18.0,
+    "h_pt": 13.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“Ⅰ”\\syn_simhei_18p0pt_w18.0_h13.0.png"
+  },
+  {
+    "idx": 321,
+    "char": "I",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      431.52,
+      317.76,
+      438.72
+    ],
+    "w_pt": 5.3,
+    "h_pt": 7.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_simsun_10p5pt_w5.3_h7.2.png"
+  },
+  {
+    "idx": 322,
+    "char": "I",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      432.72,
+      319.68,
+      440.88
+    ],
+    "w_pt": 6.0,
+    "h_pt": 8.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_simsun_12p0pt_w6.0_h8.2.png"
+  },
+  {
+    "idx": 323,
+    "char": "I",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      433.92,
+      322.08,
+      443.52
+    ],
+    "w_pt": 7.0,
+    "h_pt": 9.6,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_simsun_14p0pt_w7.0_h9.6.png"
+  },
+  {
+    "idx": 324,
+    "char": "I",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      435.12,
+      324.72,
+      446.16
+    ],
+    "w_pt": 8.2,
+    "h_pt": 11.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_simsun_16p0pt_w8.2_h11.0.png"
+  },
+  {
+    "idx": 325,
+    "char": "I",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      436.56,
+      327.36,
+      448.8
+    ],
+    "w_pt": 9.1,
+    "h_pt": 12.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_simsun_18p0pt_w9.1_h12.2.png"
+  },
+  {
+    "idx": 326,
+    "char": "I",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      431.52,
+      317.76,
+      438.96
+    ],
+    "w_pt": 5.3,
+    "h_pt": 7.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_simhei_10p5pt_w5.3_h7.4.png"
+  },
+  {
+    "idx": 327,
+    "char": "I",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      432.48,
+      319.68,
+      440.88
+    ],
+    "w_pt": 6.0,
+    "h_pt": 8.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_simhei_12p0pt_w6.0_h8.4.png"
+  },
+  {
+    "idx": 328,
+    "char": "I",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      433.92,
+      322.08,
+      443.52
+    ],
+    "w_pt": 7.0,
+    "h_pt": 9.6,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_simhei_14p0pt_w7.0_h9.6.png"
+  },
+  {
+    "idx": 329,
+    "char": "I",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      435.12,
+      324.72,
+      446.4
+    ],
+    "w_pt": 8.2,
+    "h_pt": 11.3,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_simhei_16p0pt_w8.2_h11.3.png"
+  },
+  {
+    "idx": 330,
+    "char": "I",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      436.56,
+      327.36,
+      449.04
+    ],
+    "w_pt": 9.1,
+    "h_pt": 12.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_simhei_18p0pt_w9.1_h12.5.png"
+  },
+  {
+    "idx": 331,
+    "char": "I",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      313.44,
+      431.52,
+      317.04,
+      438.72
+    ],
+    "w_pt": 3.6,
+    "h_pt": 7.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_times_10p5pt_w3.6_h7.2.png"
+  },
+  {
+    "idx": 332,
+    "char": "I",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      314.64,
+      432.72,
+      318.72,
+      440.64
+    ],
+    "w_pt": 4.1,
+    "h_pt": 7.9,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_times_12p0pt_w4.1_h7.9.png"
+  },
+  {
+    "idx": 333,
+    "char": "I",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      316.32,
+      433.92,
+      320.88,
+      443.28
+    ],
+    "w_pt": 4.6,
+    "h_pt": 9.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_times_14p0pt_w4.6_h9.4.png"
+  },
+  {
+    "idx": 334,
+    "char": "I",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      318.0,
+      435.36,
+      323.28,
+      446.16
+    ],
+    "w_pt": 5.3,
+    "h_pt": 10.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_times_16p0pt_w5.3_h10.8.png"
+  },
+  {
+    "idx": 335,
+    "char": "I",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      319.68,
+      436.8,
+      325.68,
+      448.8
+    ],
+    "w_pt": 6.0,
+    "h_pt": 12.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“I”\\syn_times_18p0pt_w6.0_h12.0.png"
+  },
+  {
+    "idx": 336,
+    "char": "x",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      432.72,
+      317.76,
+      437.52
+    ],
+    "w_pt": 5.3,
+    "h_pt": 4.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_simsun_10p5pt_w5.3_h4.8.png"
+  },
+  {
+    "idx": 337,
+    "char": "x",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      433.92,
+      319.68,
+      439.44
+    ],
+    "w_pt": 6.0,
+    "h_pt": 5.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_simsun_12p0pt_w6.0_h5.5.png"
+  },
+  {
+    "idx": 338,
+    "char": "x",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      435.6,
+      322.08,
+      441.84
+    ],
+    "w_pt": 7.0,
+    "h_pt": 6.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_simsun_14p0pt_w7.0_h6.2.png"
+  },
+  {
+    "idx": 339,
+    "char": "x",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      437.04,
+      324.72,
+      444.24
+    ],
+    "w_pt": 8.2,
+    "h_pt": 7.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_simsun_16p0pt_w8.2_h7.2.png"
+  },
+  {
+    "idx": 340,
+    "char": "x",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      438.72,
+      327.36,
+      446.88
+    ],
+    "w_pt": 9.1,
+    "h_pt": 8.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_simsun_18p0pt_w9.1_h8.2.png"
+  },
+  {
+    "idx": 341,
+    "char": "x",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      432.72,
+      317.76,
+      437.76
+    ],
+    "w_pt": 5.3,
+    "h_pt": 5.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_simhei_10p5pt_w5.3_h5.0.png"
+  },
+  {
+    "idx": 342,
+    "char": "x",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      433.92,
+      319.68,
+      439.44
+    ],
+    "w_pt": 6.0,
+    "h_pt": 5.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_simhei_12p0pt_w6.0_h5.5.png"
+  },
+  {
+    "idx": 343,
+    "char": "x",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      435.36,
+      322.08,
+      441.84
+    ],
+    "w_pt": 7.0,
+    "h_pt": 6.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_simhei_14p0pt_w7.0_h6.5.png"
+  },
+  {
+    "idx": 344,
+    "char": "x",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      437.04,
+      324.72,
+      444.48
+    ],
+    "w_pt": 8.2,
+    "h_pt": 7.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_simhei_16p0pt_w8.2_h7.4.png"
+  },
+  {
+    "idx": 345,
+    "char": "x",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      438.48,
+      327.36,
+      446.88
+    ],
+    "w_pt": 9.1,
+    "h_pt": 8.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_simhei_18p0pt_w9.1_h8.4.png"
+  },
+  {
+    "idx": 346,
+    "char": "x",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      432.72,
+      317.76,
+      437.52
+    ],
+    "w_pt": 5.3,
+    "h_pt": 4.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_times_10p5pt_w5.3_h4.8.png"
+  },
+  {
+    "idx": 347,
+    "char": "x",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      433.92,
+      319.68,
+      439.44
+    ],
+    "w_pt": 6.0,
+    "h_pt": 5.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_times_12p0pt_w6.0_h5.5.png"
+  },
+  {
+    "idx": 348,
+    "char": "x",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      435.36,
+      322.08,
+      441.84
+    ],
+    "w_pt": 7.0,
+    "h_pt": 6.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_times_14p0pt_w7.0_h6.5.png"
+  },
+  {
+    "idx": 349,
+    "char": "x",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      437.04,
+      324.72,
+      444.48
+    ],
+    "w_pt": 8.2,
+    "h_pt": 7.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_times_16p0pt_w8.2_h7.4.png"
+  },
+  {
+    "idx": 350,
+    "char": "x",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      438.72,
+      327.36,
+      446.88
+    ],
+    "w_pt": 9.1,
+    "h_pt": 8.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“x”\\syn_times_18p0pt_w9.1_h8.2.png"
+  },
+  {
+    "idx": 351,
+    "char": "X",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      431.52,
+      317.76,
+      438.72
+    ],
+    "w_pt": 5.3,
+    "h_pt": 7.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_simsun_10p5pt_w5.3_h7.2.png"
+  },
+  {
+    "idx": 352,
+    "char": "X",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      432.72,
+      319.68,
+      440.88
+    ],
+    "w_pt": 6.0,
+    "h_pt": 8.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_simsun_12p0pt_w6.0_h8.2.png"
+  },
+  {
+    "idx": 353,
+    "char": "X",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      433.92,
+      322.08,
+      443.52
+    ],
+    "w_pt": 7.0,
+    "h_pt": 9.6,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_simsun_14p0pt_w7.0_h9.6.png"
+  },
+  {
+    "idx": 354,
+    "char": "X",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      435.12,
+      324.72,
+      446.16
+    ],
+    "w_pt": 8.2,
+    "h_pt": 11.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_simsun_16p0pt_w8.2_h11.0.png"
+  },
+  {
+    "idx": 355,
+    "char": "X",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      436.56,
+      327.36,
+      448.8
+    ],
+    "w_pt": 9.1,
+    "h_pt": 12.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_simsun_18p0pt_w9.1_h12.2.png"
+  },
+  {
+    "idx": 356,
+    "char": "X",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      312.48,
+      431.52,
+      317.76,
+      438.96
+    ],
+    "w_pt": 5.3,
+    "h_pt": 7.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_simhei_10p5pt_w5.3_h7.4.png"
+  },
+  {
+    "idx": 357,
+    "char": "X",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      313.68,
+      432.48,
+      319.68,
+      440.88
+    ],
+    "w_pt": 6.0,
+    "h_pt": 8.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_simhei_12p0pt_w6.0_h8.4.png"
+  },
+  {
+    "idx": 358,
+    "char": "X",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      315.12,
+      433.92,
+      322.08,
+      443.52
+    ],
+    "w_pt": 7.0,
+    "h_pt": 9.6,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_simhei_14p0pt_w7.0_h9.6.png"
+  },
+  {
+    "idx": 359,
+    "char": "X",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      316.56,
+      435.12,
+      324.72,
+      446.4
+    ],
+    "w_pt": 8.2,
+    "h_pt": 11.3,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_simhei_16p0pt_w8.2_h11.3.png"
+  },
+  {
+    "idx": 360,
+    "char": "X",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      318.24,
+      436.56,
+      327.36,
+      449.04
+    ],
+    "w_pt": 9.1,
+    "h_pt": 12.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_simhei_18p0pt_w9.1_h12.5.png"
+  },
+  {
+    "idx": 361,
+    "char": "X",
+    "font": "times",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      311.28,
+      431.52,
+      318.96,
+      438.72
+    ],
+    "w_pt": 7.7,
+    "h_pt": 7.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_times_10p5pt_w7.7_h7.2.png"
+  },
+  {
+    "idx": 362,
+    "char": "X",
+    "font": "times",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      312.48,
+      432.72,
+      321.12,
+      440.64
+    ],
+    "w_pt": 8.6,
+    "h_pt": 7.9,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_times_12p0pt_w8.6_h7.9.png"
+  },
+  {
+    "idx": 363,
+    "char": "X",
+    "font": "times",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      313.68,
+      433.92,
+      323.76,
+      443.28
+    ],
+    "w_pt": 10.1,
+    "h_pt": 9.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_times_14p0pt_w10.1_h9.4.png"
+  },
+  {
+    "idx": 364,
+    "char": "X",
+    "font": "times",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      314.88,
+      435.36,
+      326.4,
+      446.16
+    ],
+    "w_pt": 11.5,
+    "h_pt": 10.8,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_times_16p0pt_w11.5_h10.8.png"
+  },
+  {
+    "idx": 365,
+    "char": "X",
+    "font": "times",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      316.32,
+      436.8,
+      329.28,
+      448.8
+    ],
+    "w_pt": 13.0,
+    "h_pt": 12.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“X_U”\\syn_times_18p0pt_w13.0_h12.0.png"
+  },
+  {
+    "idx": 366,
+    "char": "×",
+    "font": "simsun",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      309.84,
+      431.52,
+      320.4,
+      438.72
+    ],
+    "w_pt": 10.6,
+    "h_pt": 7.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“×”\\syn_simsun_10p5pt_w10.6_h7.2.png"
+  },
+  {
+    "idx": 367,
+    "char": "×",
+    "font": "simsun",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      310.8,
+      432.72,
+      322.8,
+      440.88
+    ],
+    "w_pt": 12.0,
+    "h_pt": 8.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“×”\\syn_simsun_12p0pt_w12.0_h8.2.png"
+  },
+  {
+    "idx": 368,
+    "char": "×",
+    "font": "simsun",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      311.76,
+      433.92,
+      325.68,
+      443.52
+    ],
+    "w_pt": 13.9,
+    "h_pt": 9.6,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“×”\\syn_simsun_14p0pt_w13.9_h9.6.png"
+  },
+  {
+    "idx": 369,
+    "char": "×",
+    "font": "simsun",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      312.72,
+      435.12,
+      328.8,
+      446.16
+    ],
+    "w_pt": 16.1,
+    "h_pt": 11.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“×”\\syn_simsun_16p0pt_w16.1_h11.0.png"
+  },
+  {
+    "idx": 370,
+    "char": "×",
+    "font": "simsun",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      313.68,
+      436.56,
+      331.68,
+      448.8
+    ],
+    "w_pt": 18.0,
+    "h_pt": 12.2,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“×”\\syn_simsun_18p0pt_w18.0_h12.2.png"
+  },
+  {
+    "idx": 371,
+    "char": "×",
+    "font": "simhei",
+    "fontsize_pt": 10.5,
+    "bbox": [
+      309.84,
+      431.52,
+      320.4,
+      438.96
+    ],
+    "w_pt": 10.6,
+    "h_pt": 7.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“×”\\syn_simhei_10p5pt_w10.6_h7.4.png"
+  },
+  {
+    "idx": 372,
+    "char": "×",
+    "font": "simhei",
+    "fontsize_pt": 12.0,
+    "bbox": [
+      310.8,
+      432.48,
+      322.8,
+      440.88
+    ],
+    "w_pt": 12.0,
+    "h_pt": 8.4,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“×”\\syn_simhei_12p0pt_w12.0_h8.4.png"
+  },
+  {
+    "idx": 373,
+    "char": "×",
+    "font": "simhei",
+    "fontsize_pt": 14.0,
+    "bbox": [
+      311.76,
+      433.92,
+      325.68,
+      443.52
+    ],
+    "w_pt": 13.9,
+    "h_pt": 9.6,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“×”\\syn_simhei_14p0pt_w13.9_h9.6.png"
+  },
+  {
+    "idx": 374,
+    "char": "×",
+    "font": "simhei",
+    "fontsize_pt": 16.0,
+    "bbox": [
+      312.72,
+      435.12,
+      328.8,
+      446.16
+    ],
+    "w_pt": 16.1,
+    "h_pt": 11.0,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“×”\\syn_simhei_16p0pt_w16.1_h11.0.png"
+  },
+  {
+    "idx": 375,
+    "char": "×",
+    "font": "simhei",
+    "fontsize_pt": 18.0,
+    "bbox": [
+      313.68,
+      436.56,
+      331.68,
+      449.04
+    ],
+    "w_pt": 18.0,
+    "h_pt": 12.5,
+    "filepath": "d:\\hx\\software3\\char_synthetic\\“×”\\syn_simhei_18p0pt_w18.0_h12.5.png"
+  }
+]
